@@ -1,0 +1,91 @@
+STRING :=
+  uint length
+  char data[length]
+
+INDEX_ENTRY :=
+  STRING name
+  uint   index
+
+INDEX := 
+  uint length
+  INDEX_ENTRY entries[length]
+
+HEADER :=
+  b"EDM"
+  ushort version
+  INDEX indexA
+  INDEX indexB
+
+NODELIST := 
+  uint length
+  NODE nodes[length]
+
+VERTEXDEFSLIST :=
+  uint length
+  VERTEXDEFS defs[length]
+
+VERTEXDEFS :=
+  uint length
+  VERTEXDEF defs[length]
+
+VERTEXDEF := DEFBLENDING | DEFCULLING | DEFDEPTHBIAS | DEFVERTEXFORMAT | DEFTEXCOORDCHANNELS | DEFMATERIALNAME | DEFNAME | DEFUNIFORMS | DEFANIMATEDUNIFORMS | DEFTEXTURES
+
+NODE := ROOTNODE | PROPNODE
+
+PROPNODE := PROPFLOATNODE | PROPUINTNODE
+
+ROOTNODE :=
+  "model::RootNode"
+  STRING description
+  uint version
+  NODELIST properties
+  byte unknown[145]
+  VERTEXDEFSLIST vdefsList
+
+PROPUINTNODE := 
+  "model::Property<unsigned int>"
+  STRING name
+  uint value
+
+PROPFLOATNODE := 
+  "model::Property<float>"
+  STRING name
+  float value
+
+DEFBLENDING :=
+  "BLENDING"
+  uchar mode
+
+DEFCULLING := 
+  "CULLING"
+  uchar mode
+
+DEFDEPTHBIAS :=
+  "DEPTH_BIAS"
+  uint mode
+
+DEFVERTEXFORMAT :=
+  "VERTEX_FORMAT"
+  char format[30]
+
+DEFTEXCOORDCHANNELS :=
+  "TEXTURE_COORDINATES_CHANNELS"
+  char channels[52]
+
+DEFMATERIALNAME :=
+  "MATERIAL_NAME"
+  STRING name
+
+DEFNAME :=
+  "NAME"
+  STRING name
+
+DEFUNIFORMS :=
+  "UNIFORMS"
+  NODELIST uniformNames
+
+DEFANIMATEDUNIFORMS :=
+  "ANIMATED_UNIFORMS"
+  NODELIST animatedUniforms
+
+DEFTEXTURES :=
