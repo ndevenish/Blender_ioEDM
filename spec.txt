@@ -1,6 +1,7 @@
 STRING :=
   uint length
   char data[length]
+# Some information
 
 INDEX_ENTRY :=
   STRING name
@@ -88,4 +89,3 @@ DEFANIMATEDUNIFORMS :=
   "ANIMATED_UNIFORMS"
   NODELIST animatedUniforms
 
-DEFTEXTURES :=

@@ -48,6 +48,9 @@ class SpecLexer(object):
       print("Illegal character '%s'" % t.value[0])
       t.lexer.skip(1)
 
+  def t_comment(self, t):
+    r'\#[^\n]*\n'
+
 
   def lexer(self, **kwargs):
     return lex.lex(module=self, **kwargs)
@@ -101,30 +104,46 @@ def p_spec(p):
   spec : spec typedef
        | typedef
   """
-  pdb.set_trace()
+  if len(p) == 3:
+    spec = p[1]
+    spec.update(p[2])
+    p[0] = spec
+  else:
+    spec = {}
+    spec.update(p[1])
+    p[0] = spec
+
 
 def p_typedef(p):
   """
   typedef   : name DEFINER EOL parts EOL
             | name DEFINER parts EOL
   """
-  pdb.set_trace()
+  if len(p) == 6:
+    p[0] = {p[1]: p[4]}
+  else:
+    p[0] = {p[1]: p[3]}
+
 
 def p_parts(p):
   """
   parts     : parts part
-            | part
+            | part 
   """
-  pdb.set_trace()
+  if len(p) == 3:
+    p[0] = p[1] + [p[2]]
+  else:
+    p[0] = [p[1]]
 
 def p_part(p):
   """
-  part      : def EOL
-            | multidef EOL
-            | switchdef EOL
-            | literal EOL
+  part      : def
+            | multidef
+            | switchdef
+            | literal
   """
   p[0] = p[1]
+  # pdb.set_trace()
 
 def p_def(p):
   """
@@ -157,7 +176,7 @@ def p_type(p):
   p[0] = p[1]
 
 def p_literal(p):
-  "literal   : STRING"
+  "literal   : STRING EOL"
   p[0] = p[1]
 
 def p_expr(p):
@@ -167,17 +186,13 @@ def p_expr(p):
   """
   p[0] = p[1]
 
-def p_err2(p):
-  "spec : error"
-  pdb.set_trace()
-
 def p_error(p):
   print("Syntax error in input!" + str(p))
 
 simpleS = """uint length
-char name
+char some
 """
-parser = yacc.yacc(start='parts')
+parser = yacc.yacc()#start='parts')
 # inSpec
-result = parser.parse(simpleS, lexer=lexer)
+result = parser.parse(inSpec, lexer=lexer)
 print(result)
