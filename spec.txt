@@ -1,10 +1,15 @@
-STRING :=
-  uint length
-  char data[length]
-# Some information
+# This is a basic spec for the DCS world EDM files
+# Special types:
+#   uint_string   means a uint-prefixed string
+#   zstring       would mean a null-terminated string
+# Literal string prefixes:
+#   b'data'       raw byte data - no prefix/suffix
+#   uip"ssds"     UINT-prefixed string
+
+
 
 INDEX_ENTRY :=
-  STRING name
+  uint_string name
   uint   index
 
 INDEX := 
@@ -36,56 +41,56 @@ NODE := ROOTNODE | PROPNODE
 PROPNODE := PROPFLOATNODE | PROPUINTNODE
 
 ROOTNODE :=
-  "model::RootNode"
-  STRING description
+  uip"model::RootNode"
+  uint_string description
   uint version
   NODELIST properties
   byte unknown[145]
   VERTEXDEFSLIST vdefsList
 
 PROPUINTNODE := 
-  "model::Property<unsigned int>"
-  STRING name
+  uip"model::Property<unsigned int>"
+  uint_string name
   uint value
 
 PROPFLOATNODE := 
-  "model::Property<float>"
-  STRING name
+  uip"model::Property<float>"
+  uint_string name
   float value
 
 DEFBLENDING :=
-  "BLENDING"
+  uip"BLENDING"
   uchar mode
 
 DEFCULLING := 
-  "CULLING"
+  uip"CULLING"
   uchar mode
 
 DEFDEPTHBIAS :=
-  "DEPTH_BIAS"
+  uip"DEPTH_BIAS"
   uint mode
 
 DEFVERTEXFORMAT :=
-  "VERTEX_FORMAT"
+  uip"VERTEX_FORMAT"
   char format[30]
 
 DEFTEXCOORDCHANNELS :=
-  "TEXTURE_COORDINATES_CHANNELS"
+  uip"TEXTURE_COORDINATES_CHANNELS"
   char channels[52]
 
 DEFMATERIALNAME :=
-  "MATERIAL_NAME"
-  STRING name
+  uip"MATERIAL_NAME"
+  uint_string name
 
 DEFNAME :=
-  "NAME"
-  STRING name
+  uip"NAME"
+  uint_string name
 
 DEFUNIFORMS :=
-  "UNIFORMS"
+  uip"UNIFORMS"
   NODELIST uniformNames
 
 DEFANIMATEDUNIFORMS :=
-  "ANIMATED_UNIFORMS"
+  uip"ANIMATED_UNIFORMS"
   NODELIST animatedUniforms
 

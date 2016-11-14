@@ -29,7 +29,7 @@ class SpecLexer(object):
   t_DEFINER = r':='
 
   t_ignore = " \t"
-  t_STRING =   r'[a-z]?\"(\\.|[^\\"])*\"'
+  t_STRING =   r'[a-z]+\"(\\.|[^\\"])*\"'
 
   literals = '[]|'
 
@@ -99,6 +99,15 @@ expr      : name
 """
 import pdb
 
+# def p_spec_leading(p):
+#   """
+#   spec : EOL typedef
+#   """
+#   # Ignore leading EOL
+#   spec = {}
+#   spec.update(p[2])
+#   p[0] = spec
+
 def p_spec(p):
   """
   spec : spec typedef
@@ -108,11 +117,16 @@ def p_spec(p):
     spec = p[1]
     spec.update(p[2])
     p[0] = spec
-  else:
+  elif len(p) == 2:
     spec = {}
     spec.update(p[1])
     p[0] = spec
 
+def p_typedef_pre(p):
+  """
+  typedef : EOL typedef
+  """
+  p[0] = p[2]
 
 def p_typedef(p):
   """
