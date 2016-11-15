@@ -189,8 +189,12 @@ def p_type(p):
   p[0] = p[1]
 
 def p_literal(p):
-  "literal   : STRING EOL"
-  p[0] = LiteralReader(data=p[1], name=None)
+  """
+  literal   : STRING EOL
+            | STRING name EOL
+  """
+  name = None if len(p) == 3 else p[2]
+  p[0] = LiteralReader(data=p[1], name=name)
 
 def p_expr(p):
   """
@@ -247,7 +251,7 @@ class SpecReader(object):
       raise IndexError("Type named {} not recognised in spec table".format(typename))
     spec = self.spec[typename]
     # Properties read for this type
-    props = {}
+    props = {"_type": typename}
     # Read each spec entry
     for entry in spec:
       if isinstance(entry, LiteralReader):
