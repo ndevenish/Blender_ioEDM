@@ -7,7 +7,9 @@
 #   uip"ssds"     UINT-prefixed string
 #   z"stringdat"  Null-terminated string
 
-
+FILE := 
+  HEADER header
+  NODE firstNode
 
 INDEX_ENTRY :=
   uint_string name
@@ -73,11 +75,11 @@ DEFDEPTHBIAS :=
 
 DEFVERTEXFORMAT :=
   uip"VERTEX_FORMAT"
-  char format[30]
+  uchar format[30]
 
 DEFTEXCOORDCHANNELS :=
   uip"TEXTURE_COORDINATES_CHANNELS"
-  char channels[52]
+  uchar channels[52]
 
 DEFMATERIALNAME :=
   uip"MATERIAL_NAME"

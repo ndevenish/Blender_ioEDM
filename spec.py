@@ -18,7 +18,12 @@ import ply.yacc as yacc
 import re
 import struct
 import codecs
+from collections import namedtuple, OrderedDict
 
+LiteralReader = namedtuple("LiteralReader", ["data", "name"])
+TypeReader = namedtuple("TypeReader", ["type", "name"])
+ArrayReader = namedtuple("ArrayReader", ["type", "name", "count"])
+OneOfReader = namedtuple("OneOfReader", ["types"])
 
 class SpecLexer(object):
   tokens = (
@@ -86,70 +91,33 @@ class SpecLexer(object):
 
 # Give the lexer some input and tokenize
 lexer = SpecLexer().lexer()
-inSpec = open("spec.txt").read()
-# lexer.input()
-# while True:
-#     tok = lexer.token()
-#     if not tok: 
-#         break      # No more input
-#     print(tok)
 
 # Define a parser
 tokens = SpecLexer.tokens
-"""
-spec      : spec typedef
-          | typedef
-
-typedef   : name DEFINER EOL parts EOL
-          | name DEFINER parts EOL
-
-parts     : part EOL parts
-          | part
-          | empty
-
-part      : def
-          | multidef
-          | switchdef
-          | literal
-
-def       : type name EOL
-multidef  : type name '[' expr ']' EOL
-switchdef : type '|' switchdef
-          | type EOL
-
-literal   : STRING
-
-type      : IDENT
-name      : IDENT
-expr      : name
-          | INTEGER
-
-
-"""
-import pdb
-
-# def p_spec_leading(p):
-#   """
-#   spec : EOL typedef
-#   """
-#   # Ignore leading EOL
-#   spec = {}
-#   spec.update(p[2])
-#   p[0] = spec
 
 def p_spec(p):
   """
   spec : spec typedef
-       | typedef
   """
-  if len(p) == 3:
-    spec = p[1]
-    spec.update(p[2])
-    p[0] = spec
-  elif len(p) == 2:
-    spec = {}
-    spec.update(p[1])
-    p[0] = spec
+  spec = p[1]
+  typedef = p[2]
+  name = list(typedef.keys())[0]
+  
+  if name in spec:
+    raise RuntimeError("Duplicate definition for type {}".format(name))
+
+  spec.update(typedef)
+  p[0] = spec
+  
+def p_start_spec(p):
+  """
+  spec : typedef
+  """
+  spec = OrderedDict()
+  typedef = p[1]
+
+  spec.update(typedef)
+  p[0] = spec
 
 def p_typedef_pre(p):
   """
@@ -192,13 +160,15 @@ def p_def(p):
   """
   def       : type name EOL
   """
-  p[0] = "{} = Read{}()".format(p[2], p[1])
+  # p[0] = "{} = Read{}()".format(p[2], p[1])
+  p[0] = TypeReader(type=p[1], name=p[2])
 
 def p_multidef(p):
   """
   multidef  : type name '[' expr ']' EOL
   """
-  p[0] = "{} = Read{}({})".format(p[2], p[1], p[4])
+  # p[0] = "{} = Read{}({})".format(p[2], p[1], p[4])
+  p[0] = ArrayReader(type=p[1], name=p[2], count=p[4])
 
 def p_switchdef(p):
   """
@@ -206,9 +176,9 @@ def p_switchdef(p):
             | type EOL
   """
   if len(p) == 4:
-    p[0] = [p[1]] + p[3]
+    p[0] = OneOfReader(types=[p[1]] + p[3].types)
   else:
-    p[0] = [p[1]]
+    p[0] = OneOfReader(types=[p[1]])
 
 def p_name(p):
   "name      : IDENT"
@@ -220,7 +190,7 @@ def p_type(p):
 
 def p_literal(p):
   "literal   : STRING EOL"
-  p[0] = p[1]
+  p[0] = LiteralReader(data=p[1], name=None)
 
 def p_expr(p):
   """
@@ -232,10 +202,100 @@ def p_expr(p):
 def p_error(p):
   print("Syntax error in input!" + str(p))
 
-simpleS = """uint length
-char some
-"""
 parser = yacc.yacc()#start='parts')
-# inSpec
-result = parser.parse(inSpec, lexer=lexer)
-print(result)
+
+
+def parse_spec(filename):
+  return parser.parse(open(filename).read(), lexer=lexer)
+
+spec = parse_spec("spec.txt")
+print(spec)
+
+
+def read_uint_string(s):
+  length = struct.unpack("<I", s.read(4))[0]
+  return s.read(length).decode("UTF-8")
+
+internal_types = {
+  'uint': lambda s: struct.unpack("<I", s.read(4))[0],
+  'float': lambda s: struct.unpack("<f", s.read(4))[0],
+  'ushort': lambda s: struct.unpack("<H", s.read(2))[0],
+  'uchar': lambda s: struct.unpack("B", s.read(1))[0],
+  'byte': lambda s: struct.unpack("B", s.read(1))[0],
+  'uint_string': read_uint_string,
+}
+
+class SpecReader(object):
+  """Reads a file according to the spec"""
+  def __init__(self, filename):
+    self.specfile = filename
+    self.spec = parse_spec(filename)
+
+  def readfile(self, filename):
+    """Reads a binary file according to the spec"""
+    file = open(filename, 'br')
+    # Get the name of the first spec rule
+    firstRule = list(self.spec.keys())[0]
+    return self._read_type(file, firstRule)
+
+  def _read_type(self, file, typename, depth=0):
+    print(depth*"  " + "Reading {} at {}".format(typename, file.tell()))
+    # If in our simple internal lookup table, then use that
+    if typename in internal_types:
+      return internal_types[typename](file)
+    if not typename in self.spec:
+      raise IndexError("Type named {} not recognised in spec table".format(typename))
+    spec = self.spec[typename]
+    # Properties read for this type
+    props = {}
+    # Read each spec entry
+    for entry in spec:
+      if isinstance(entry, LiteralReader):
+        # Raw bytes object. Read the length and compare
+        data = file.read(len(entry.data))
+        print("  "*depth + "  Reading literal data " + repr(entry.data) + " [{}]".format(len(entry.data)))
+        if not data == entry.data:
+          raise IOError("Fixed byte constants do not match for definition of {}".format(typename))
+        if entry.name:
+          props[entry.name] = data
+      elif isinstance(entry, TypeReader):
+        props[entry.name] = self._read_type(file, entry.type, depth+1)
+      elif isinstance(entry, ArrayReader):
+        # Step 1: Resolve 'count' into an actual number
+        count = entry.count
+        if not isinstance(count, int):
+          if count in props:
+            count = props[count]
+            if not isinstance(count, int):
+              raise RuntimeError("Could not resolve count expression to integer")
+          else:
+            raise NotImplementedError("Expression-based lengths not yet implemented")
+        props[entry.name] = [self._read_type(file, entry.type, depth+1) for x in range(count)]
+      elif isinstance(entry, OneOfReader):
+
+        readpoint = file.tell()
+        result = None
+        for tryType in entry.types:
+          try:
+            result = self._read_type(file, tryType, depth+1)
+            break
+          except IOError:
+            print("  "*(depth+1) + "Could not read")
+            file.seek(readpoint)
+        if result is None:
+          raise IOError("Could not read any of types [{}]".format(str(entry.types)))
+        assert len(spec) == 1, "No naming of alternate-option parsing blocks at the moment"
+        return result
+      else:
+        raise NotImplementedError("No implementation for {}".format(str(entry)))
+
+    print("  "*depth + str(props))
+    return props
+
+reader = SpecReader("spec.txt")
+binfile = reader.readfile("Cockpit_Su-25T.EDM")
+
+#       TypeReader = namedtuple("TypeReader", ["type", "name"])
+# ArrayReader = namedtuple("ArrayReader", ["type", "name", "count"])
+# OneOfReader = namedtuple("OneOfReader", ["types"])
+
