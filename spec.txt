@@ -3,8 +3,9 @@
 #   uint_string   means a uint-prefixed string
 #   zstring       would mean a null-terminated string
 # Literal string prefixes:
-#   b'data'       raw byte data - no prefix/suffix
+#   b"data"       raw byte data - no prefix/suffix
 #   uip"ssds"     UINT-prefixed string
+#   z"stringdat"  Null-terminated string
 
 
 

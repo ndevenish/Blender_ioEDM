@@ -15,6 +15,10 @@
 
 import ply.lex as lex
 import ply.yacc as yacc
+import re
+import struct
+import codecs
+
 
 class SpecLexer(object):
   tokens = (
@@ -29,7 +33,32 @@ class SpecLexer(object):
   t_DEFINER = r':='
 
   t_ignore = " \t"
-  t_STRING =   r'[a-z]+\"(\\.|[^\\"])*\"'
+
+  reString = None
+
+  def t_STRING(self, t):
+    r'(|b|uip|z)\"((?:\\.|[^\\"])*)\"'
+    # r'([a-z]*)\"((?:\\.|[^\\"])*)\"'
+    
+    if self.reString is None:
+      self.reString = re.compile(self.t_STRING.__doc__)
+    prefix, data = self.reString.findall(t.value)[0]
+
+    if not prefix:
+      raise NotImplementedError("Unprefixed strings are ambiguous")
+    elif prefix == "b":
+      asbytes = codecs.escape_decode(bytes(data, "utf-8"))[0]
+      t.value = asbytes
+    elif prefix == "uip":
+      asbytes = data.encode("utf-8") #codecs.escape_decode(bytes(data, "utf-8"))[0]
+      # Convert this to byte-prefixed
+      t.value = struct.pack("<I{}s".format(len(asbytes)), len(asbytes), asbytes)
+    elif prefix == "z":
+      raise NotImplementedError("Null-terminated strings not yet implemented")
+
+
+    return t
+
 
   literals = '[]|'
 
