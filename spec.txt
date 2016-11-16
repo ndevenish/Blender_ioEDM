@@ -73,6 +73,10 @@ model::ArgPositionNode :=
   uint count
   byte unknown2[32*count+8]
 
+model::ArgAnimationNode :=
+  uip"model::ArgAnimationNode"
+  uint_string name
+  
 model::Node :=
   uip"model::Node"
   byte unknown[12]
