@@ -2,6 +2,8 @@
 # Special types:
 #   uint_string   means a uint-prefixed string
 #   zstring       would mean a null-terminated string
+#   uchar         Single byte as an integer
+#   byte          Single byte as a bytes object (or array of such)
 # Literal string prefixes:
 #   b"data"       raw byte data - no prefix/suffix
 #   uip"ssds"     UINT-prefixed string
@@ -9,7 +11,7 @@
 
 FILE := 
   HEADER header
-  NODE firstNode
+  model::RootNode firstNode
 
 INDEX_ENTRY :=
   uint_string name
@@ -29,6 +31,10 @@ NODELIST :=
   uint length
   NODE nodes[length]
 
+PROPLIST :=
+  uint length
+  PROPNODE props[length]
+
 VERTEXDEFSLIST :=
   uint length
   VERTEXDEFS defs[length]
@@ -37,19 +43,43 @@ VERTEXDEFS :=
   uint length
   VERTEXDEF defs[length]
 
-VERTEXDEF := DEFBLENDING | DEFCULLING | DEFDEPTHBIAS | DEFVERTEXFORMAT | DEFTEXCOORDCHANNELS | DEFMATERIALNAME | DEFNAME | DEFUNIFORMS | DEFANIMATEDUNIFORMS | DEFTEXTURES
+VERTEXDEF := DEFBLENDING | DEFCULLING | DEFDEPTHBIAS | DEFVERTEXFORMAT | DEFTEXCOORDCHANNELS | DEFMATERIALNAME | DEFNAME | DEFUNIFORMS | DEFANIMATEDUNIFORMS | DEFSHADOWS | DEFTEXTURES
 
-NODE := ROOTNODE | PROPNODE
+NODE := model::RootNode | model::Node | model::TransformNode | model::ArgRotationNode | model::ArgPositionNode | PROPNODE
 
-PROPNODE := PROPFLOATNODE | PROPUINTNODE
+PROPNODE := PROPFLOATNODE | PROPUINTNODE | PROPVEC2NODE | PROPVEC3NODE | PROPANIMATEDFLOAT
 
-ROOTNODE :=
+model::RootNode :=
   uip"model::RootNode"
   uint_string description
   uint version
-  NODELIST properties
+  PROPLIST properties
   byte unknown[145]
   VERTEXDEFSLIST vdefsList
+  byte unknown2[8]
+  NODELIST nodes
+
+model::ArgRotationNode := 
+  uip"model::ArgRotationNode"
+  uint_string name
+  byte unknown[65*4]
+  uint part2_count
+  byte unknown2[(part2_count*10 + 1)*4]
+
+model::ArgPositionNode :=
+  uip"model::ArgPositionNode"
+  uint_string name
+  byte unknown[256]
+  uint count
+  byte unknown2[32*count+8]
+
+model::Node :=
+  uip"model::Node"
+  byte unknown[12]
+
+model::TransformNode :=
+  uip"model::TransformNode"
+  byte unknown[140]
 
 PROPUINTNODE := 
   uip"model::Property<unsigned int>"
@@ -60,6 +90,22 @@ PROPFLOATNODE :=
   uip"model::Property<float>"
   uint_string name
   float value
+
+
+PROPVEC2NODE :=
+  uip"model::Property<osg::Vec2f>"
+  uint_string name
+  float vector[2]
+
+PROPVEC3NODE :=
+  uip"model::Property<osg::Vec3f>"
+  uint_string name
+  float vector[3]
+
+PROPANIMATEDFLOAT :=
+  uip"model::AnimatedProperty<float>"
+  uint_string name
+  float data[8]
 
 DEFBLENDING :=
   uip"BLENDING"
@@ -75,11 +121,11 @@ DEFDEPTHBIAS :=
 
 DEFVERTEXFORMAT :=
   uip"VERTEX_FORMAT"
-  uchar format[30]
+  byte format[30]
 
 DEFTEXCOORDCHANNELS :=
   uip"TEXTURE_COORDINATES_CHANNELS"
-  uchar channels[52]
+  byte channels[52]
 
 DEFMATERIALNAME :=
   uip"MATERIAL_NAME"
@@ -96,4 +142,22 @@ DEFUNIFORMS :=
 DEFANIMATEDUNIFORMS :=
   uip"ANIMATED_UNIFORMS"
   NODELIST animatedUniforms
+
+DEFSHADOWS :=
+  uip"SHADOWS"
+  uchar mode
+
+DEFTEXTURES :=
+  uip"TEXTURES"
+  uint length
+  DEFTEXTURE textures[length]
+
+DEFTEXTURE :=
+  b"\x00\x00\x00\x00\xff\xff\xff\xff"
+  uint_string name
+  b"\x02\x00\x00\x00\x02\x00\x00\x00\n\x00\x00\x00\x06\x00\x00\x00"
+  MATRIX matrix
+
+MATRIX :=
+  float data[16]
 

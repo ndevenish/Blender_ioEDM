@@ -34,7 +34,7 @@ class SpecLexer(object):
     "EOL",
   )
 
-  t_IDENT = r'[_A-Za-z][_A-Za-z0-9]*'
+  t_IDENT = r'[_A-Za-z][_A-Za-z0-9:]*'
   t_DEFINER = r':='
 
   t_ignore = " \t"
@@ -65,7 +65,7 @@ class SpecLexer(object):
     return t
 
 
-  literals = '[]|'
+  literals = '[]|+-*/()'
 
   def t_INTEGER(self, t):
     r'\d+'
@@ -92,8 +92,25 @@ class SpecLexer(object):
 # Give the lexer some input and tokenize
 lexer = SpecLexer().lexer()
 
+# Give the lexer some input
+lexer.input(open("spec.txt").read())
+
+# Tokenize
+while True:
+    tok = lexer.token()
+    if not tok: 
+        break      # No more input
+    print(tok)
+
 # Define a parser
 tokens = SpecLexer.tokens
+
+# Expression precedence
+precedence = (
+    ('left', '+', '-'),
+    ('left', '*', '/'),
+    ('right', 'UMINUS'),
+)
 
 def p_spec(p):
   """
@@ -196,13 +213,51 @@ def p_literal(p):
   name = None if len(p) == 3 else p[2]
   p[0] = LiteralReader(data=p[1], name=name)
 
-def p_expr(p):
+def p_expr_binop(p):
+  """
+  expr : expr '+' expr
+       | expr '-' expr
+       | expr '*' expr
+       | expr '/' expr
+  """
+  if p[2] == "+":
+    p[0] = lambda d, l=p[1], r=p[3]: l(d) + r(d)
+  elif p[2] == "-":
+    p[0] = lambda d, l=p[1], r=p[3]: l(d) - r(d)
+  elif p[2] == "*":
+    p[0] = lambda d, l=p[1], r=p[3]: l(d) * r(d)
+  elif p[2] == "/":
+    def _doDivide(d, l=p[1], r=p[2]):
+      left = l(d)
+      right = r(d)
+      assert left % right == 0
+      return left / right
+    p[0] = _doDivide
+
+def p_expr_uminus(p):
+  """
+  expr : '-' expr %prec UMINUS
+  """
+  p[0] = lambda d, v=p[2]: -v(d)
+
+def p_expr_group(p):
+  """
+  expr : '(' expr ')'
+  """
+  p[0] = p[2]
+
+def p_expr_int(p):
+  """
+  expr       : INTEGER
+  """
+  p[0] = lambda d, v=p[1]: v
+
+def p_expr_name(p):
   """
   expr       : name
-             | INTEGER
   """
-  p[0] = p[1]
-
+  p[0] = lambda d, n=p[1]: d[n]
+  
 def p_error(p):
   print("Syntax error in input!" + str(p))
 
@@ -225,7 +280,7 @@ internal_types = {
   'float': lambda s: struct.unpack("<f", s.read(4))[0],
   'ushort': lambda s: struct.unpack("<H", s.read(2))[0],
   'uchar': lambda s: struct.unpack("B", s.read(1))[0],
-  'byte': lambda s: struct.unpack("B", s.read(1))[0],
+  'byte': lambda s: s.read(1), #struct.unpack("B", s.read(1))[0],
   'uint_string': read_uint_string,
 }
 
@@ -240,7 +295,10 @@ class SpecReader(object):
     file = open(filename, 'br')
     # Get the name of the first spec rule
     firstRule = list(self.spec.keys())[0]
-    return self._read_type(file, firstRule)
+    results = self._read_type(file, firstRule)
+    print("Position after parsing: " + str(file.tell()))
+    file.close()
+    return results
 
   def _read_type(self, file, typename, depth=0):
     print(depth*"  " + "Reading {} at {}".format(typename, file.tell()))
@@ -266,15 +324,20 @@ class SpecReader(object):
         props[entry.name] = self._read_type(file, entry.type, depth+1)
       elif isinstance(entry, ArrayReader):
         # Step 1: Resolve 'count' into an actual number
-        count = entry.count
-        if not isinstance(count, int):
-          if count in props:
-            count = props[count]
-            if not isinstance(count, int):
-              raise RuntimeError("Could not resolve count expression to integer")
-          else:
-            raise NotImplementedError("Expression-based lengths not yet implemented")
-        props[entry.name] = [self._read_type(file, entry.type, depth+1) for x in range(count)]
+        countExpr = entry.count
+        # if not isinstance(count, int):
+        #   if count in props:
+        #     count = props[count]
+        #     if not isinstance(count, int):
+        #       raise RuntimeError("Could not resolve count expression to integer")
+        #   else:
+        #     raise NotImplementedError("Expression-based lengths not yet implemented")
+        count = countExpr(props)
+        print("Evaluated {} based on {}".format(count, str(props)))
+        data = [self._read_type(file, entry.type, depth+1) for x in range(count)]
+        if entry.type == "byte":
+          data = b''.join(data)
+        props[entry.name] = data
       elif isinstance(entry, OneOfReader):
 
         readpoint = file.tell()
@@ -287,6 +350,13 @@ class SpecReader(object):
             print("  "*(depth+1) + "Could not read")
             file.seek(readpoint)
         if result is None:
+          # Attempt to read a string...
+          try:
+            nextS = read_uint_string(file)[:50]
+            print("  "*(depth+1) + "Failed to read any options; guess at string is " + nextS)
+          except:
+            pass
+
           raise IOError("Could not read any of types [{}]".format(str(entry.types)))
         assert len(spec) == 1, "No naming of alternate-option parsing blocks at the moment"
         return result
