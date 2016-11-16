@@ -35,15 +35,15 @@ PROPLIST :=
   uint length
   PROPNODE props[length]
 
-VERTEXDEFSLIST :=
+MATERIALLIST :=
   uint length
-  VERTEXDEFS defs[length]
+  model::Material defs[length]
 
-VERTEXDEFS :=
+model::Material :=
   uint length
-  VERTEXDEF defs[length]
+  MATERIALDEF defs[length]
 
-VERTEXDEF := DEFBLENDING | DEFCULLING | DEFDEPTHBIAS | DEFVERTEXFORMAT | DEFTEXCOORDCHANNELS | DEFMATERIALNAME | DEFNAME | DEFUNIFORMS | DEFANIMATEDUNIFORMS | DEFSHADOWS | DEFTEXTURES
+MATERIALDEF := DEFBLENDING | DEFCULLING | DEFDEPTHBIAS | DEFVERTEXFORMAT | DEFTEXCOORDCHANNELS | DEFMATERIALNAME | DEFNAME | DEFUNIFORMS | DEFANIMATEDUNIFORMS | DEFSHADOWS | DEFTEXTURES
 
 NODE := model::RootNode | model::Node | model::TransformNode | model::ArgRotationNode | model::ArgPositionNode | PROPNODE
 
@@ -55,35 +55,64 @@ model::RootNode :=
   uint version
   PROPLIST properties
   byte unknown[145]
-  VERTEXDEFSLIST vdefsList
+  MATERIALLIST matList
   byte unknown2[8]
   NODELIST nodes
 
-model::ArgRotationNode := 
-  uip"model::ArgRotationNode"
-  uint_string name
-  byte unknown[65*4]
-  uint part2_count
-  byte unknown2[(part2_count*10 + 1)*4]
+ARGANIMBASE :=
+  # Starting here
+  model::BaseNode base
+  osg::Matrixd matrix
+  osg::Vec3d vecA
+  osg::Vec4d vecB
+  osg::Vec4d vecC
+  osg::Vec3d vecD
+  uint32     arg
+  # This becomes length 256 and is common to all Arg* types
 
 model::ArgPositionNode :=
   uip"model::ArgPositionNode"
   uint_string name
-  byte unknown[256]
+  ARGANIMBASE anim
   uint count
   byte unknown2[32*count+8]
+
+model::ArgRotationNode := 
+  uip"model::ArgRotationNode"
+  uint_string name
+  ARGANIMBASE anim
+  uint unknown;
+  uint part2_count
+  byte unknown2[(part2_count*10 + 1)*4]
 
 model::ArgAnimationNode :=
   uip"model::ArgAnimationNode"
   uint_string name
+  ARGANIMBASE anim
+  uint posCount
+  byte posData[32*count]
+  uint rotCount
+  byte rotData[40*rotCount]
+  uint scaCount
+
+# Validated from binary
+
+# The binary basis for all nodes
+model::BaseNode :=
+  uint unknown[3]
   
 model::Node :=
   uip"model::Node"
-  byte unknown[12]
+  model::BaseNode base
 
 model::TransformNode :=
   uip"model::TransformNode"
-  byte unknown[140]
+  model::BaseNode base
+  osg::Matrixd transform
+
+
+
+# Properties are implicitly understandable
 
 PROPUINTNODE := 
   uip"model::Property<unsigned int>"
@@ -99,12 +128,12 @@ model::Property<float> :=
 model::Property<osg::Vec2f> :=
   uip"model::Property<osg::Vec2f>"
   uint_string name
-  float vector[2]
+  osg::Vec2f vector
 
 model::Property<osg::Vec3f> :=
   uip"model::Property<osg::Vec3f>"
   uint_string name
-  float vector[3]
+  osg::Vec3f vector
 
 model::AnimatedProperty<float> :=
   uip"model::AnimatedProperty<float>"
@@ -164,4 +193,26 @@ DEFTEXTURE :=
 
 MATRIX :=
   float data[16]
+
+# From binary
+osg::Matrixd :=
+  double data[16]
+
+osg::Vec2d :=
+  double data[2]
+
+osg::Vec3d :=
+  double data[3]
+
+osg::Vec4d :=
+  double data[4]
+
+osg::Vec2f := 
+  float data[2]
+
+osg::Vec3f :=
+  float data[3]
+
+osg::Vec4f :=
+  float data[3]
 
