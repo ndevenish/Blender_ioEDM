@@ -278,6 +278,7 @@ def read_uint_string(s):
 internal_types = {
   'uint': lambda s: struct.unpack("<I", s.read(4))[0],
   'float': lambda s: struct.unpack("<f", s.read(4))[0],
+  'double': lambda s: struct.unpack("<d", s.read(8))[0],
   'ushort': lambda s: struct.unpack("<H", s.read(2))[0],
   'uchar': lambda s: struct.unpack("B", s.read(1))[0],
   'byte': lambda s: s.read(1), #struct.unpack("B", s.read(1))[0],
