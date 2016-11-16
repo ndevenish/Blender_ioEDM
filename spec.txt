@@ -103,6 +103,11 @@ AANROTARG :=
   uint count
   byte rotData[40*count]
 
+AANVISARG :=
+  uint arg
+  uint count
+  byte visData[16*count]
+
 model::ArgAnimationNode :=
   uip"model::ArgAnimationNode"
   uint_string name
@@ -117,7 +122,9 @@ model::ArgAnimationNode :=
 model::ArgVisibilityNode :=
   uip"model::ArgVisibilityNode"
   uint_string name
-  byte unknown[36]
+  byte unknown[8]
+  uint count
+  AANVISARG visData[count]
 
 # Validated from binary
 
