@@ -47,7 +47,7 @@ VERTEXDEF := DEFBLENDING | DEFCULLING | DEFDEPTHBIAS | DEFVERTEXFORMAT | DEFTEXC
 
 NODE := model::RootNode | model::Node | model::TransformNode | model::ArgRotationNode | model::ArgPositionNode | PROPNODE
 
-PROPNODE := PROPFLOATNODE | PROPUINTNODE | PROPVEC2NODE | PROPVEC3NODE | PROPANIMATEDFLOAT
+PROPNODE := model::Property<float> | PROPUINTNODE | model::Property<osg::Vec2f> | model::Property<osg::Vec3f> | model::AnimatedProperty<float>
 
 model::RootNode :=
   uip"model::RootNode"
@@ -86,23 +86,23 @@ PROPUINTNODE :=
   uint_string name
   uint value
 
-PROPFLOATNODE := 
+model::Property<float> := 
   uip"model::Property<float>"
   uint_string name
   float value
 
 
-PROPVEC2NODE :=
+model::Property<osg::Vec2f> :=
   uip"model::Property<osg::Vec2f>"
   uint_string name
   float vector[2]
 
-PROPVEC3NODE :=
+model::Property<osg::Vec3f> :=
   uip"model::Property<osg::Vec3f>"
   uint_string name
   float vector[3]
 
-PROPANIMATEDFLOAT :=
+model::AnimatedProperty<float> :=
   uip"model::AnimatedProperty<float>"
   uint_string name
   float data[8]

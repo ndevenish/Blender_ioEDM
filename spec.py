@@ -34,7 +34,7 @@ class SpecLexer(object):
     "EOL",
   )
 
-  t_IDENT = r'[_A-Za-z][_A-Za-z0-9:]*'
+  t_IDENT = r'[_A-Za-z][_A-Za-z0-9:<>]*'
   t_DEFINER = r':='
 
   t_ignore = " \t"
@@ -301,12 +301,13 @@ class SpecReader(object):
     return results
 
   def _read_type(self, file, typename, depth=0):
-    print(depth*"  " + "Reading {} at {}".format(typename, file.tell()))
     # If in our simple internal lookup table, then use that
     if typename in internal_types:
       return internal_types[typename](file)
     if not typename in self.spec:
       raise IndexError("Type named {} not recognised in spec table".format(typename))
+    print(depth*"  " + "Reading {} at {}".format(typename, file.tell()))
+
     spec = self.spec[typename]
     # Properties read for this type
     props = {"_type": typename}
