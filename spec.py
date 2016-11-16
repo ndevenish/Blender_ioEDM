@@ -85,7 +85,6 @@ class SpecLexer(object):
   def t_comment(self, t):
     r'\#[^\n]*\n'
 
-
   def lexer(self, **kwargs):
     return lex.lex(module=self, **kwargs)
 
@@ -335,7 +334,7 @@ class SpecReader(object):
         #   else:
         #     raise NotImplementedError("Expression-based lengths not yet implemented")
         count = countExpr(props)
-        print("Evaluated {} based on {}".format(count, str(props)))
+        print("Evaluated {} @ {} based on {}".format(count, file.tell(), str(props)))
         data = [self._read_type(file, entry.type, depth+1) for x in range(count)]
         if entry.type == "byte":
           data = b''.join(data)

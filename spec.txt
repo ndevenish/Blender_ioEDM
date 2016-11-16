@@ -45,7 +45,7 @@ model::Material :=
 
 MATERIALDEF := DEFBLENDING | DEFCULLING | DEFDEPTHBIAS | DEFVERTEXFORMAT | DEFTEXCOORDCHANNELS | DEFMATERIALNAME | DEFNAME | DEFUNIFORMS | DEFANIMATEDUNIFORMS | DEFSHADOWS | DEFTEXTURES
 
-NODE := model::RootNode | model::Node | model::TransformNode | model::ArgRotationNode | model::ArgPositionNode | model::ArgAnimationNode | PROPNODE
+NODE := model::RootNode | model::Node | model::TransformNode | model::ArgRotationNode | model::ArgPositionNode | model::ArgAnimationNode | model::ArgVisibilityNode | model::ArgScaleNode | PROPNODE
 
 PROPNODE := model::Property<float> | PROPUINTNODE | model::Property<osg::Vec2f> | model::Property<osg::Vec3f> | model::AnimatedProperty<float>
 
@@ -73,33 +73,51 @@ ARGANIMBASE :=
 model::ArgPositionNode :=
   uip"model::ArgPositionNode"
   uint_string name
-  ARGANIMBASE anim
-  uint count
-  byte unknown2[32*count]
+  byte animBaseLike[248]
+  uint posArgCount
+  AANPOSARG posArgs[posArgCount]
   uint unsureA
   uint unsureB
+
+model::ArgScaleNode :=
+  uip"model::ArgScaleNode"
+  uint_string name
+  byte data[260]
 
 model::ArgRotationNode := 
   uip"model::ArgRotationNode"
   uint_string name
-  ARGANIMBASE anim
-  uint unsure
-  uint part2_count
-  byte unknown2[part2_count*40]
-  uint unsure2
+  byte animBaseLike[248]
+  b"\x00\x00\x00\x00"
+  uint rotArgCount
+  AANROTARG rotArgs[rotArgCount]
+  b"\x00\x00\x00\x00"
+
+AANPOSARG :=
+  uint arg
+  uint count
+  byte posData[32*count]
+
+AANROTARG :=
+  uint arg
+  uint count
+  byte rotData[40*count]
 
 model::ArgAnimationNode :=
   uip"model::ArgAnimationNode"
   uint_string name
-  ARGANIMBASE anim
-  uint posCount
-  byte posData[32*posCount]
-  uint unknown
-  uint unknown2
-  uint rotCount
-  byte rotData[40*rotCount]
+  byte animBaseLike[248]
+  uint posArgCount
+  AANPOSARG posArgs[posArgCount]
+  uint rotArgCount
+  AANROTARG rotArgs[rotArgCount]
   # Only know instances that terminate with zero
   b"\x00\x00\x00\x00"
+
+model::ArgVisibilityNode :=
+  uip"model::ArgVisibilityNode"
+  uint_string name
+  byte unknown[36]
 
 # Validated from binary
 
