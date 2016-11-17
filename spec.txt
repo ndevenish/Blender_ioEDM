@@ -251,7 +251,7 @@ osg::Vec4f :=
 
 CRNODEDICT :=
   uint count
-  CRNODEDICTENTRY entry
+  CRNODEDICTENTRY entry[count]
 
 CRNODEDICTENTRY := CONNECTORS | RENDER_NODES
 
@@ -266,10 +266,43 @@ model::Connector :=
   byte data[16]
 
 RENDER_NODES :=
+  uip"RENDER_NODES"
   uint node_count
   model::RenderNode renderNodes[node_count]
+
+RNINTSECTION := RNTWOINT | RNTHREEINT
+
+RNTWOINT := 
+  uint data[1]
+  b"\xFF\xFF\xFF\xFF"
+
+RNTHREEINT :=
+  uint data[2]
+  b"\xFF\xFF\xFF\xFF"
+
+RNINDEXDATA := RNSHORTINDEX | RNCHARINDEX
+
+RNSHORTINDEX := 
+  b"\x01"
+  uint entries
+  uint unknown
+  ushort indexData[entries]
+
+RNCHARINDEX :=
+  b"\x00"
+  uint entries
+  uint unknown
+  uchar indexData[entries]
 
 model::RenderNode :=
   uip"model::RenderNode"
   uint_string name
+  model::BaseNode base
+  uint material
+  uint isectionCount
+  RNINTSECTION iSection[isectionCount]
+  uint vertexCount
+  uint vertexStride
+  float vertexData[vertexCount*vertexStride]
+  RNINDEXDATA indexData
 
