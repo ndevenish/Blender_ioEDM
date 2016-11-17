@@ -161,12 +161,12 @@ model::Property<float> :=
 model::Property<osg::Vec2f> :=
   uip"model::Property<osg::Vec2f>"
   uint_string name
-  osg::Vec2f vector
+  osg::Vec2f value
 
 model::Property<osg::Vec3f> :=
   uip"model::Property<osg::Vec3f>"
   uint_string name
-  osg::Vec3f vector
+  osg::Vec3f value
 
 model::AnimatedProperty<float> :=
   uip"model::AnimatedProperty<float>"
@@ -187,7 +187,8 @@ DEFDEPTHBIAS :=
 
 DEFVERTEXFORMAT :=
   uip"VERTEX_FORMAT"
-  byte format[30]
+  uint formatChannels
+  byte channels[formatChannels]
 
 DEFTEXCOORDCHANNELS :=
   uip"TEXTURE_COORDINATES_CHANNELS"

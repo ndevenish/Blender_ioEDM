@@ -3,3 +3,5 @@ obj.obj
 *.pyc
 .python-version
 *.out
+EDMENV
+

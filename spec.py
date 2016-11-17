@@ -19,6 +19,9 @@ import re
 import struct
 import codecs
 from collections import namedtuple, OrderedDict
+import pickle
+
+from edm.types import Material, VertexFormat
 
 LiteralReader = namedtuple("LiteralReader", ["data", "name"])
 TypeReader = namedtuple("TypeReader", ["type", "name"])
@@ -289,6 +292,12 @@ class SpecReader(object):
   def __init__(self, filename):
     self.specfile = filename
     self.spec = parse_spec(filename)
+    self._postprocessors = {}
+
+  def postprocess(self, typename):
+    def _process(func):
+      self._postprocessors[typename] = func
+    return _process
 
   def readfile(self, filename):
     """Reads a binary file according to the spec"""
@@ -364,18 +373,62 @@ class SpecReader(object):
       else:
         raise NotImplementedError("No implementation for {}".format(str(entry)))
 
-    print("  "*depth + str(props))
+    if typename in self._postprocessors:
+      props = self._postprocessors[typename](props)
+    else:
+      print("  "*depth + str(props))
     return props
 
+
 reader = SpecReader("spec.txt")
+
+@reader.postprocess("PROPLIST")
+def processPropList(item):
+  """Convert a property list object to an actual dictionary"""
+  props = OrderedDict()
+  for prop in item["props"]:
+    props[prop["name"]] = prop["value"]
+  return props
+
+@reader.postprocess("MATERIALLIST")
+def processMaterialList(item):
+  """Turn remove the material list indirection"""
+  return item["defs"]
+
+@reader.postprocess("model::Material")
+def processMaterial(item):
+  """Process a lookup table of material objects into an object representing materials"""
+  # Massage props
+  props = OrderedDict()
+  for entry in item["defs"]:
+    if isinstance(entry, VertexFormat):
+      props["VERTEX_FORMAT"] = entry
+    else:
+      props[entry["_type"]] = entry
+      del entry["_type"]
+  return Material(props)
+
+@reader.postprocess("DEFVERTEXFORMAT")
+def processVertexFormat(item):
+  data = item["channels"]
+  # Ensure that other channels are not filled... otherwise we don't know what they are
+  assert data[2:4] == b'\x00\x00'
+  assert all(x == 0 for x in data[5:])
+  return VertexFormat(position=int(data[0]), normal=int(data[1]), texture=int(data[4]))
+
 binfile = reader.readfile("Cockpit_Su-25T.EDM")
 
-matCount = binfile["firstNode"]["matList"]["length"]
+
+
+matCount = len(binfile["firstNode"]["matList"])
 
 print("Number of materials: {}".format(matCount))
 
-import pdb
-pdb.set_trace()
+with open("parsed_su25.pck", 'wb') as f:
+  pickle.dump(binfile, f)
+
+# import pdb
+# pdb.set_trace()
 #       TypeReader = namedtuple("TypeReader", ["type", "name"])
 # ArrayReader = namedtuple("ArrayReader", ["type", "name", "count"])
 # OneOfReader = namedtuple("OneOfReader", ["types"])
