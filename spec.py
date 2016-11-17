@@ -370,6 +370,12 @@ class SpecReader(object):
 reader = SpecReader("spec.txt")
 binfile = reader.readfile("Cockpit_Su-25T.EDM")
 
+matCount = binfile["firstNode"]["matList"]["length"]
+
+print("Number of materials: {}".format(matCount))
+
+import pdb
+pdb.set_trace()
 #       TypeReader = namedtuple("TypeReader", ["type", "name"])
 # ArrayReader = namedtuple("ArrayReader", ["type", "name", "count"])
 # OneOfReader = namedtuple("OneOfReader", ["types"])

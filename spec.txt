@@ -12,6 +12,8 @@
 FILE := 
   HEADER header
   model::RootNode firstNode
+  byte unknown[1652]
+  CRNODEDICT lookup
 
 INDEX_ENTRY :=
   uint_string name
@@ -246,4 +248,28 @@ osg::Vec3f :=
 
 osg::Vec4f :=
   float data[3]
+
+CRNODEDICT :=
+  uint count
+  CRNODEDICTENTRY entry
+
+CRNODEDICTENTRY := CONNECTORS | RENDER_NODES
+
+CONNECTORS :=
+  uip"CONNECTORS"
+  uint count
+  model::Connector connectors[count]
+
+model::Connector :=
+  uip"model::Connector"
+  uint_string name
+  byte data[16]
+
+RENDER_NODES :=
+  uint node_count
+  model::RenderNode renderNodes[node_count]
+
+model::RenderNode :=
+  uip"model::RenderNode"
+  uint_string name
 
