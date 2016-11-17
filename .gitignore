@@ -1,0 +1,5 @@
+__pycache__
+obj.obj
+*.pyc
+.python-version
+*.out
