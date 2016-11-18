@@ -4,6 +4,7 @@ Allows registration of type-readers by name, and retrieval of those readers.
 Each reader function takes a single argument; a BaseReader object
 
 """
+from inspect import isclass
 
 from collections import namedtuple
 
@@ -28,7 +29,12 @@ def generate_property_reader(generic_type):
 def reads_type(withName):
   """Simple registration function to read named type objects"""
   def wrapper(fn):
-    _typeReaders[withName] = fn
+    if not isclass(fn):
+      _typeReaders[withName] = fn
+    elif hasattr(fn, "read"):
+      _typeReaders[withName] = fn.read
+    else:
+      raise RuntimeError("Unrecognised type reader {}".format(fn))
     fn.forTypeName = withName
     return fn
   return wrapper
@@ -68,16 +74,10 @@ def _read_apf(data):
   unk = data.read_format("<8f")
   return Property(name, unk)
 
-@reads_type("model::BaseNode")
-def read_baseNode(stream):
-  return stream.read_uints(3)
+@reads_type("osg::Matrixf")
+def readMatrixf(stream):
+  return stream.read_floats(16)
 
-@reads_type("model::RootNode")
-def read_rootNode(stream):
-  return RootNode.read(stream)
-
-
-class RootNode(object):
-  @classmethod
-  def read(cls, stream):
-    
+@reads_type("osg::Matrixd")
+def readMatrixd(stream):
+  return stream.read_doubles(16)

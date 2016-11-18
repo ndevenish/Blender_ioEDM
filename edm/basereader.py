@@ -3,7 +3,7 @@
 import struct
 from collections import namedtuple
 
-from .typereader import get_type_reader
+# from .typereader import get_type_reader
 
 import logging
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class BaseReader(object):
   def read_float(self):
     return struct.unpack("<f", self.stream.read(4))[0]
 
-  def read_float(self, count):
+  def read_floats(self, count):
     return struct.unpack("<{}f".format(count), self.stream.read(4*count))
   
   def read_double(self):
@@ -91,8 +91,8 @@ class BaseReader(object):
       entries.append(reader(self))
     return entries
 
-  def read_single_type(self):
-    """Reads a single instance of a name-prefixed type"""
-    typeName = self.read_string()
-    reader = get_type_reader(typeName)
-    return reader(self)
+  # def read_single_type(self):
+  #   """Reads a single instance of a name-prefixed type"""
+  #   typeName = self.read_string()
+  #   reader = get_type_reader(typeName)
+  #   return reader(self)

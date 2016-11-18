@@ -1,2 +1,2 @@
 
-from .types import Material
+from .types import EDMFile
