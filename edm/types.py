@@ -7,6 +7,7 @@ from .typereader import reads_type, get_type_reader, readMatrixf, readMatrixd
 from .basereader import BaseReader
 
 from collections import namedtuple, OrderedDict
+import struct
 
 VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
 
@@ -33,6 +34,48 @@ def read_property_list(stream):
     prop = read_named_type(stream)
     data[prop.name] = prop.value
   return data
+
+class EDMFile(object):
+  def __init__(self, filename):
+    reader = BaseReader(filename)
+    reader.read_constant(b'EDM')
+    self.version = reader.read_ushort()
+    assert self.version == 8, "Unexpected .EDM file version"
+    # Read the two indexes
+    self.indexA = read_string_uint_dict(reader)
+    self.indexB = read_string_uint_dict(reader)
+    self.node = read_named_type(reader)
+    assert reader.read_int() == -1
+    reader.read(1648)
+
+    # Now read the connectors/rendernode list
+    objects = {}
+    for _ in range(reader.read_uint()):
+      name = reader.read_string()
+      objects[name] = reader.read_list(read_named_type)
+    assert len(objects) == 2
+    self.connectors = objects["CONNECTORS"]
+    self.renderNodes = objects["RENDER_NODES"]
+
+    # Verify we are at the end of the file without unconsumed data.
+    endPos = reader.tell()
+    if len(reader.read(1)) != 0:
+      print("Warning: Ended parse at {} but still have data remaining".format(endPos))
+
+@reads_type("model::RootNode")
+class RootNode(object):
+  unknown_parts = []
+  @classmethod
+  def read(cls, stream):
+    self = cls()
+    self.name = stream.read_string()
+    self.version = stream.read_uint()
+    self.properties = read_property_list(stream)
+    self.unknown_parts.append(stream.read(145))
+    self.materials = stream.read_list(Material.read)
+    self.unknown_parts.append(stream.read(8))
+    self.nodes = stream.read_list(read_named_type)
+    return self
 
 @reads_type("model::BaseNode")
 class BaseNode(object):
@@ -132,37 +175,6 @@ class ArgVisibilityNode(object):
     data = stream.read(16*count)
     return (arg, count, data)
 
-
-class EDMFile(object):
-  def __init__(self, filename):
-    reader = BaseReader(filename)
-    reader.read_constant(b'EDM')
-    self.version = reader.read_ushort()
-    assert self.version == 8, "Unexpected .EDM file version"
-    # Read the two indexes
-    self.indexA = read_string_uint_dict(reader)
-    self.indexB = read_string_uint_dict(reader)
-    self.node = read_named_type(reader)
-
-
-@reads_type("model::RootNode")
-class RootNode(object):
-  unknown_parts = []
-  @classmethod
-  def read(cls, stream):
-    self = cls()
-    self.name = stream.read_string()
-    self.version = stream.read_uint()
-    self.properties = read_property_list(stream)
-    self.unknown_parts.append(stream.read(145))
-    self.materials = stream.read_list(Material.read)
-    self.unknown_parts.append(stream.read(8))
-    self.nodes = stream.read_list(read_named_type)
-
-    import pdb
-    pdb.set_trace()
-    return self
-
 def _read_material_VertexFormat(reader):
   channels = reader.read_uint()
   # data = [int(x) for x in reader.read(channels)]
@@ -205,4 +217,58 @@ class Material(object):
       props[name] = _material_entry_lookup[name](stream)
     self.props = props
     return self
+
+
+@reads_type("model::Connector")
+class Connector(object):
+  @classmethod
+  def read(cls, stream):
+    self = cls()
+    self.name = stream.read_string()
+    self.data = stream.read(16)
+    return self
+
+uint_negative_one = struct.unpack("<I", struct.pack("<i", -1))[0]
+
+@reads_type("model::RenderNode")
+class RenderNode(BaseNode):
+  @classmethod
+  def read(cls, stream):
+    self = cls()
+    self.name = stream.read_string()
+    super(RenderNode, cls).read(stream)
+    self.material = stream.read_uint()
+    self.intData = stream.read_list(cls._read_int_section)
+    self.vertexCount = stream.read_uint()
+    self.vertexStride = stream.read_uint()
+    # Read and group this according to stride
+    vtx = stream.read_floats(self.vertexCount * self.vertexStride)
+    n = self.vertexStride
+    self.vertexData = [vtx[i:i+n] for i in range(0, len(vtx), n)]
+
+    # Now read the index data
+    dataType = stream.read_uchar()
+    entries = stream.read_uint()
+    assert stream.read_uint() == 5
+    if dataType == 0:
+      self.indexData = stream.read_uchars(entries)
+    elif dataType == 1:
+      self.indexData = stream.read_ushorts(entries)
+    else:
+      raise IOError("Unknown vertex index type '{}'".format(dataType))
+    return self
+
+  @classmethod
+  def _read_int_section(cls, stream):
+    # Read uint values until we get -1 (signed)
+    # This will either be <uint> <-1> or <uint> <uint> <-1>
+    def _read_to_next_negative():
+      data  = stream.read_uint()
+      if data == uint_negative_one:
+        return []
+      else:
+        return [data] + _read_to_next_negative()
+    section = _read_to_next_negative()
+    assert len(section) == 1 or len(section) == 2
+    return section
 
