@@ -81,3 +81,5 @@ def readMatrixf(stream):
 @reads_type("osg::Matrixd")
 def readMatrixd(stream):
   return stream.read_doubles(16)
+
+print("Loaded typereaders ({})".format(len(_typeReaders)))

@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 
+import sys
+sys.path.append("/Users/xgkkp/python/edm")
+
 from edm import EDMFile
+import code
 
 edm = EDMFile("Cockpit_Su-25T.EDM")
 
+import bpy
 
 
+code.interact(local={"edm": edm})
 
 
 # import struct
