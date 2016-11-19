@@ -57,6 +57,10 @@ class EDMFile(object):
     self.connectors = objects["CONNECTORS"]
     self.renderNodes = objects["RENDER_NODES"]
 
+    # Tie each of the renderNodes to the relevant material
+    for node in self.renderNodes:
+      node.material = self.node.materials[node.material]
+
     # Verify we are at the end of the file without unconsumed data.
     endPos = reader.tell()
     if len(reader.read(1)) != 0:
@@ -216,6 +220,7 @@ class Material(object):
       name = stream.read_string()
       props[name] = _material_entry_lookup[name](stream)
     self.props = props
+    self.vertex_format = props["VERTEX_FORMAT"]
     return self
 
 

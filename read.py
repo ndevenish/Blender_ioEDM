@@ -6,12 +6,69 @@ sys.path.append("/Users/xgkkp/python/edm")
 from edm import EDMFile
 import code
 
+import glob
+
 edm = EDMFile("Cockpit_Su-25T.EDM")
 
 import bpy
 
+def create_object(renderNode):
+  mesh = bpy.data.meshes.new(renderNode.name)
+  ob = bpy.data.objects.new(renderNode.name, mesh)
+  # Marshal the vertices/faces into sets
+  assert renderNode.material.vertex_format.position == 4
+  vertexPositionData = [(x[0], x[2], x[1]) for x in renderNode.vertexData]
+  assert len(renderNode.indexData) % 3 == 0
+  indexData = [renderNode.indexData[i:i+3] for i in range(0, len(renderNode.indexData), 3)]
 
-code.interact(local={"edm": edm})
+  # import pdb
+  # pdb.set_trace()
+  mesh.from_pydata(vertexPositionData, [], indexData)
+
+  if renderNode.material.vertex_format.normal == 3:
+    normalData = [(x[3], x[5], x[4]) for x in renderNode.vertexData]
+    for vertex, normal in zip(mesh.vertices, normalData):
+      vertex.normal = normal
+
+
+  bpy.context.scene.objects.link(ob)
+
+
+
+
+def _find_texture_file(name):
+  files = glob.glob(name+"*")
+  if not files:
+    files = glob.glob("textures/"+name+"*")
+  if not files:
+    raise IOError("Could not find texture named {}".format(name))
+  assert len(files) == 1
+  textureFilename = files[0]
+  return textureFilename
+
+def create_materials(material):
+  """Create a blender material from an EDM one"""
+  # Find the actual file for the texture name
+  assert len(material.props["TEXTURES"]) == 1
+  name = material.props["TEXTURES"][0][0]
+  filename = _find_texture_file(name)
+  tex = bpy.data.textures.new("ColorTex", type="IMAGE")
+  tex.image = bpy.data.images.load(filename)
+
+  import pdb
+  pdb.set_trace()
+
+
+# Should get rid of the cube
+bpy.context.scene.objects.unlink(bpy.context.object)
+
+for node in edm.renderNodes:
+  create_object(node)
+
+bpy.context.scene.update()
+# create_materials(edm.renderNodes[0].material)
+
+# code.interact(local={"edm": edm})
 
 
 # import struct
