@@ -6,14 +6,24 @@
 from .typereader import reads_type, get_type_reader, readMatrixf, readMatrixd
 from .basereader import BaseReader
 
-from collections import namedtuple, OrderedDict
+from collections import namedtuple, OrderedDict, Counter
 import struct
 
 VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
 
+class TrackingReader(BaseReader):
+  def __init__(self, *args, **kwargs):
+    self.typecount = Counter()
+    self.autoTypeCount = Counter()
+    super(TrackingReader, self).__init__(*args, **kwargs)
+
+  def mark_type_read(self, name, amount=1):
+    self.typecount[name] += amount
+
 def read_named_type(reader):
   """Reads a typename, and then reads the type named"""
   typename = reader.read_string()
+  reader.autoTypeCount[typename] += 1
   return get_type_reader(typename)(reader)
 
 def read_string_uint_dict(stream):
@@ -26,9 +36,12 @@ def read_string_uint_dict(stream):
     data[key] = value
   return data
 
-def read_property_list(stream):
+
+def read_propertyset(stream):
   """Reads a typed list of properties and returns as an ordered dict"""
   length = stream.read_uint()
+  if length > 0:
+    stream.mark_type_read("model::PropertiesSet")
   data = OrderedDict()
   for _ in range(length):
     prop = read_named_type(stream)
@@ -37,7 +50,7 @@ def read_property_list(stream):
 
 class EDMFile(object):
   def __init__(self, filename):
-    reader = BaseReader(filename)
+    reader = TrackingReader(filename)
     reader.read_constant(b'EDM')
     self.version = reader.read_ushort()
     assert self.version == 8, "Unexpected .EDM file version"
@@ -46,6 +59,14 @@ class EDMFile(object):
     self.indexB = read_string_uint_dict(reader)
     self.node = read_named_type(reader)
     assert reader.read_int() == -1
+
+    # Validate against the index
+    rems = Counter(self.indexA) - Counter({x: c for (x,c) in reader.typecount.items() if x in self.indexA})
+    print("IndexA items remaining before RENDER_NODES/CONNECTORS: {}".format(rems))
+    import pdb
+    pdb.set_trace()
+
+    # Big block of we don't know
     reader.read(1648)
 
     # Now read the connectors/rendernode list
@@ -66,15 +87,19 @@ class EDMFile(object):
     if len(reader.read(1)) != 0:
       print("Warning: Ended parse at {} but still have data remaining".format(endPos))
 
+    import pdb
+    pdb.set_trace()
+
 @reads_type("model::RootNode")
 class RootNode(object):
   unknown_parts = []
   @classmethod
   def read(cls, stream):
+    # stream.mark_type_read("model::RootNode")
     self = cls()
     self.name = stream.read_string()
     self.version = stream.read_uint()
-    self.properties = read_property_list(stream)
+    self.properties = read_propertyset(stream)
     self.unknown_parts.append(stream.read(145))
     self.materials = stream.read_list(Material.read)
     self.unknown_parts.append(stream.read(8))
@@ -91,7 +116,10 @@ class BaseNode(object):
 
 @reads_type("model::Node")
 class Node(BaseNode):
-  pass
+  @classmethod
+  def read(cls, stream):
+    # stream.mark_type_read("model::Node")
+    super(Node, cls).read(stream)
 
 @reads_type("model::TransformNode")
 class TransformNode(BaseNode):
@@ -105,6 +133,7 @@ class TransformNode(BaseNode):
 class ArgRotationNode(object):
   @classmethod
   def read(cls, stream):
+    stream.mark_type_read("model::ArgAnimationNode")
     self = cls()
     self.name = stream.read_string()
     self.base_data = stream.read(248)
@@ -124,6 +153,7 @@ class ArgRotationNode(object):
 class ArgPositionNode(object):
   @classmethod
   def read(cls, stream):
+    stream.mark_type_read("model::ArgAnimationNode")
     self = cls()
     self.name = stream.read_string()
     self.base_data = stream.read(248)
@@ -142,6 +172,7 @@ class ArgPositionNode(object):
 class ArgScaleNode(object):
   @classmethod
   def read(cls, stream):
+    stream.mark_type_read("model::ArgAnimationNode")
     self = cls()
     self.name = stream.read_string()
     self.base_data = stream.read(248)
@@ -206,8 +237,8 @@ _material_entry_lookup = {
   "NAME": lambda x: x.read_string(),
   "SHADOWS": lambda x: x.read_uchar(),
   "VERTEX_FORMAT": _read_material_VertexFormat,
-  "UNIFORMS": read_property_list,
-  "ANIMATED_UNIFORMS": read_property_list,
+  "UNIFORMS": read_propertyset,
+  "ANIMATED_UNIFORMS": read_propertyset,
   "TEXTURES": lambda x: x.read_list(_read_material_texture)
 }
 
@@ -248,6 +279,7 @@ class RenderNode(BaseNode):
     self.vertexStride = stream.read_uint()
     # Read and group this according to stride
     vtx = stream.read_floats(self.vertexCount * self.vertexStride)
+    stream.mark_type_read("__gv_bytes", len(vtx)*4)
     n = self.vertexStride
     self.vertexData = [vtx[i:i+n] for i in range(0, len(vtx), n)]
 
@@ -257,8 +289,10 @@ class RenderNode(BaseNode):
     assert stream.read_uint() == 5
     if dataType == 0:
       self.indexData = stream.read_uchars(entries)
+      stream.mark_type_read("__gi_bytes", entries)
     elif dataType == 1:
       self.indexData = stream.read_ushorts(entries)
+      stream.mark_type_read("__gi_bytes", entries*2)
     else:
       raise IOError("Unknown vertex index type '{}'".format(dataType))
     return self

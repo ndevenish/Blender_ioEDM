@@ -8,7 +8,9 @@ import code
 
 import glob
 
-edm = EDMFile("Cockpit_Su-25T.EDM")
+
+# edm = EDMFile("Cockpit_Su-25T.EDM")
+edm = EDMFile("TwoPyramids.EDM")
 
 import bpy
 
