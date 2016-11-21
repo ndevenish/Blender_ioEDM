@@ -68,12 +68,6 @@ def _read_vec2f(data):
 def _read_vec2f(data):
   return Vector3(*data.read_format("<fff"))
 
-@reads_type("model::AnimatedProperty<float>")
-def _read_apf(data):
-  name = data.read_string()
-  unk = data.read_format("<8f")
-  return Property(name, unk)
-
 @reads_type("osg::Matrixf")
 def readMatrixf(stream):
   return stream.read_floats(16)

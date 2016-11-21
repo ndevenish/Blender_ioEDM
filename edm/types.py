@@ -3,13 +3,16 @@
 # from .typereader import Property, allow_properties, reads_type
 # from collections import namedtuple
 
-from .typereader import reads_type, get_type_reader, readMatrixf, readMatrixd
+from .typereader import reads_type, readMatrixf, readMatrixd
+from .typereader import get_type_reader as _tr_get_type_reader
 from .basereader import BaseReader
 
 from collections import namedtuple, OrderedDict, Counter
 import struct
 
 VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
+AnimatedProperty = namedtuple("AnimatedProperty", ["name", "id", "keys"])
+
 
 class TrackingReader(BaseReader):
   def __init__(self, *args, **kwargs):
@@ -20,10 +23,18 @@ class TrackingReader(BaseReader):
   def mark_type_read(self, name, amount=1):
     self.typecount[name] += amount
 
+def get_type_reader(name):
+  _readfun = _tr_get_type_reader(name)
+  def _reader(reader):
+    reader.typecount[name] += 1
+    return _readfun(reader)
+  return _reader
+
 def read_named_type(reader):
   """Reads a typename, and then reads the type named"""
   typename = reader.read_string()
-  reader.autoTypeCount[typename] += 1
+  # reader.typecount[typename] += 1
+  # reader.autoTypeCount[typename] += 1
   return get_type_reader(typename)(reader)
 
 def read_string_uint_dict(stream):
@@ -60,23 +71,57 @@ class EDMFile(object):
     self.node = read_named_type(reader)
     assert reader.read_int() == -1
 
+    # Read the object list once we find it
+    def read_object_list(reader, count, name):
+      """Reads an object list having already read the first name and count"""
+      objects = {}
+      for i in range(count):
+        if i > 0:
+          name = reader.read_string()
+        objects[name] = reader.read_list(read_named_type)
+      return objects
+
+    # Ends with <count> <10> "CONNECTORS"
+    # or                <12> "RENDER_NODES"
+    # So, search keeping last 20 bytes until we find one of the above
+    preObjPos = reader.tell()
+    objects = {}
+    data = reader.read(20)
+    while True:
+      if data[-10:] == b"CONNECTORS":
+        objPos = reader.tell()-18
+        objCount = struct.unpack("<I", data[-18:-14])[0]
+        print("objects: {}".format(objCount))
+        objects = read_object_list(reader, objCount, "CONNECTORS")
+        break
+      if data[-12:] == b"RENDER_NODES":
+        objPos = reader.tell()-20
+        objCount = struct.unpack("<I", data[-20:-16])[0]
+        objects = read_object_list(reader, objCount, "RENDER_NODES")
+        break
+      data = data[1:] + reader.read(1)
+
+    print("Found object list at {}, gap size = {}".format(objPos, objPos-preObjPos))
+
     # Validate against the index
-    rems = Counter(self.indexA) - Counter({x: c for (x,c) in reader.typecount.items() if x in self.indexA})
+    rems = Counter(self.indexA)
+    rems.subtract(Counter({x: c for (x,c) in reader.typecount.items() if x in self.indexA}))
+    for k in [x for x in rems.keys() if rems[x] == 0]:
+      del rems[k]
+
     print("IndexA items remaining before RENDER_NODES/CONNECTORS: {}".format(rems))
+    cB = Counter({x: c for (x,c) in reader.typecount.items() if x in self.indexB})
+    remBs = Counter(self.indexB)
+    remBs.subtract(cB)
+    for k in [x for x in remBs.keys() if remBs[x] == 0]:
+      del remBs[k]
+    
     import pdb
     pdb.set_trace()
 
-    # Big block of we don't know
-    reader.read(1648)
-
-    # Now read the connectors/rendernode list
-    objects = {}
-    for _ in range(reader.read_uint()):
-      name = reader.read_string()
-      objects[name] = reader.read_list(read_named_type)
-    assert len(objects) == 2
-    self.connectors = objects["CONNECTORS"]
-    self.renderNodes = objects["RENDER_NODES"]
+    assert len(objects) <= 2
+    self.connectors = objects.get("CONNECTORS", [])
+    self.renderNodes = objects.get("RENDER_NODES", [])
 
     # Tie each of the renderNodes to the relevant material
     for node in self.renderNodes:
@@ -86,9 +131,6 @@ class EDMFile(object):
     endPos = reader.tell()
     if len(reader.read(1)) != 0:
       print("Warning: Ended parse at {} but still have data remaining".format(endPos))
-
-    import pdb
-    pdb.set_trace()
 
 @reads_type("model::RootNode")
 class RootNode(object):
@@ -100,8 +142,12 @@ class RootNode(object):
     self.name = stream.read_string()
     self.version = stream.read_uint()
     self.properties = read_propertyset(stream)
-    self.unknown_parts.append(stream.read(145))
+    print("Unknown A: {}x145".format(stream.tell()))
+    self.unknown_parts.append(stream.read_uchar())
+    self.unknown_parts.append(stream.read_doubles(12))
+    self.unknown_parts.append(stream.read(48))
     self.materials = stream.read_list(Material.read)
+    print("Unknown B: {}x8".format(stream.tell()))
     self.unknown_parts.append(stream.read(8))
     self.nodes = stream.read_list(read_named_type)
     return self
@@ -144,10 +190,11 @@ class ArgRotationNode(object):
 
   @classmethod
   def _read_AANRotationArg(cls, stream):
+    stream.mark_type_read("model::ArgAnimationNode::Rotation")
     arg = stream.read_uint()
     count = stream.read_uint()
-    data = stream.read(40*count)
-    return (arg, count, data)
+    keys = [get_type_reader("model::Key<key::ROTATION>")(stream) for _ in range(count)]
+    return (arg, count, keys)
 
 @reads_type("model::ArgPositionNode")
 class ArgPositionNode(object):
@@ -163,10 +210,11 @@ class ArgPositionNode(object):
     
   @classmethod
   def _read_AANPositionArg(cls, stream):
+    stream.mark_type_read("model::ArgAnimationNode::Position")
     arg = stream.read_uint()
     count = stream.read_uint()
-    data = stream.read(32*count)
-    return (arg, count, data)
+    keys = [get_type_reader("model::Key<key::POSITION>")(stream) for _ in range(count)]
+    return (arg, count, keys)
 
 @reads_type("model::ArgScaleNode")
 class ArgScaleNode(object):
@@ -179,6 +227,40 @@ class ArgScaleNode(object):
     # ASSUME that it is layed out in a similar way, but have no non-null examples.
     # So, until we do, assert that this is zero always
     assert all(x == 0 for x in stream.read(12))
+    return self
+
+@reads_type("model::Key<key::ROTATION>")
+class RotationKey(object):
+  @classmethod
+  def read(cls, stream):
+    self = cls()
+    self.data = stream.read(40)
+    return self
+
+@reads_type("model::Key<key::POSITION>")
+class PositionKey(object):
+  @classmethod
+  def read(cls, stream):
+    self = cls()
+    self.data = stream.read(32)
+    return self
+
+@reads_type("model::AnimatedProperty<float>")
+def _read_apf(stream):
+  name = stream.read_string()
+  iVal = stream.read_uint()
+  count = stream.read_uint()
+  keys = [get_type_reader("model::Key<key::FLOAT>")(stream) for _ in range(count)]
+  # unk = data.read_format("<8f")
+  return AnimatedProperty(name, iVal, keys)
+
+@reads_type("model::Key<key::FLOAT>")
+class FloatKey(object):
+  @classmethod
+  def read(cls, stream):
+    self = cls()
+    key = stream.read_double()
+    value = stream.read_float()
     return self
 
 @reads_type("model::ArgAnimationNode")
@@ -205,9 +287,11 @@ class ArgVisibilityNode(object):
 
   @classmethod
   def _read_AANVisibilityArg(cls, stream):
+    stream.mark_type_read("model::ArgVisibilityNode::Arg")
     arg = stream.read_uint()
     count = stream.read_uint()
     data = stream.read(16*count)
+    stream.mark_type_read("model::ArgVisibilityNode::Range", count)
     return (arg, count, data)
 
 def _read_material_VertexFormat(reader):
@@ -227,6 +311,14 @@ def _read_material_texture(reader):
   matrix = readMatrixf(reader)
   return (name, matrix)
 
+def _read_animateduniforms(stream):
+  length = stream.read_uint()
+  data = OrderedDict()
+  for _ in range(length):
+    prop = read_named_type(stream)
+    data[prop.name] = (prop.id, prop.keys)
+  return data
+
 # Lookup table for material reading types
 _material_entry_lookup = {
   "BLENDING": lambda x: x.read_uchar(),
@@ -238,7 +330,7 @@ _material_entry_lookup = {
   "SHADOWS": lambda x: x.read_uchar(),
   "VERTEX_FORMAT": _read_material_VertexFormat,
   "UNIFORMS": read_propertyset,
-  "ANIMATED_UNIFORMS": read_propertyset,
+  "ANIMATED_UNIFORMS": _read_animateduniforms,
   "TEXTURES": lambda x: x.read_list(_read_material_texture)
 }
 
