@@ -6,66 +6,132 @@ sys.path.append("/Users/xgkkp/python/edm")
 from edm import EDMFile
 import code
 
-import glob
+import re
+import glob, fnmatch
 
 
 # edm = EDMFile("Cockpit_Su-25T.EDM")
-edm = EDMFile("TwoPyramids.EDM")
+edm = EDMFile("Intro_Spheres.EDM")
 
 import bpy
+import bmesh
 
 def create_object(renderNode):
-  mesh = bpy.data.meshes.new(renderNode.name)
-  ob = bpy.data.objects.new(renderNode.name, mesh)
-  # Marshal the vertices/faces into sets
-  assert renderNode.material.vertex_format.position == 4
-  vertexPositionData = [(x[0], x[2], x[1]) for x in renderNode.vertexData]
+  # Marshal the vertices/faces into sets ready for consumption
+  assert renderNode.material.vertex_format.nposition == 4
+  posIndex = renderNode.material.vertex_format.position_indices
+  vertexPositionData = [(x[posIndex[0]], -x[posIndex[2]], x[posIndex[1]]) for x in renderNode.vertexData]
   assert len(renderNode.indexData) % 3 == 0
   indexData = [renderNode.indexData[i:i+3] for i in range(0, len(renderNode.indexData), 3)]
 
-  # import pdb
-  # pdb.set_trace()
-  mesh.from_pydata(vertexPositionData, [], indexData)
+  # Prepare the normals for each vertex
+  if renderNode.material.vertex_format.nnormal == 3:
+    nI = renderNode.material.vertex_format.normal_indices
+    normalData = [(x[nI[0]], -x[nI[2]], x[nI[1]]) for x in renderNode.vertexData]
+  
+  # Generate a lookup table of UV data for each face
+  uI = renderNode.material.vertex_format.texture_indices
+  def _getIndexUV(index):
+    return tuple(renderNode.vertexData[index][x] for x in uI)
+  uvData = [tuple(_getIndexUV(index) for index in face) for face in indexData]
+  
+  bm = bmesh.new()
 
-  if renderNode.material.vertex_format.normal == 3:
-    normalData = [(x[3], x[5], x[4]) for x in renderNode.vertexData]
-    for vertex, normal in zip(mesh.vertices, normalData):
-      vertex.normal = normal
+  # Create the BMesh vertices
+  for v, normal in zip(vertexPositionData, normalData):
+    vert = bm.verts.new(v)
+    vert.normal = normal
+  
+  bm.verts.ensure_lookup_table()
 
+  # Ensure a UV layer exists before creating faces
+  uv_layer = bm.loops.layers.uv.verify()
+  bm.faces.layers.tex.verify()  # currently blender needs both layers.
+
+  for face, uvs in zip(indexData, uvData):
+    f = bm.faces.new([bm.verts[i] for i in face])
+    for loop, uv in zip(f.loops, uvs):
+      loop[uv_layer].uv = uv
+
+  # Put the mesh data into the scene
+  mesh = bpy.data.meshes.new(renderNode.name)
+  bm.to_mesh(mesh)
+  mesh.update()
+  ob = bpy.data.objects.new(renderNode.name, mesh)
+  ob.data.materials.append(renderNode.material.blender_material)
 
   bpy.context.scene.objects.link(ob)
-
-
-
 
 def _find_texture_file(name):
   files = glob.glob(name+"*")
   if not files:
-    files = glob.glob("textures/"+name+"*")
-  if not files:
-    raise IOError("Could not find texture named {}".format(name))
+    matcher = re.compile(fnmatch.translate(name+"*"), re.IGNORECASE)
+    files = [x for x in glob.glob("*") if matcher.match(x)]
+    if not files:
+      files = glob.glob("textures/"+name+"*")
+      if not files:
+        matcher = re.compile(fnmatch.translate("textures/"+name+"*"), re.IGNORECASE)
+        files = [x for x in glob.glob("textures/*") if matcher.match(x)]
+        if not files:
+          import pdb
+          pdb.set_trace()
+          raise IOError("Could not find texture named {}".format(name))
+
   assert len(files) == 1
   textureFilename = files[0]
   return textureFilename
 
-def create_materials(material):
+def create_material(material):
   """Create a blender material from an EDM one"""
   # Find the actual file for the texture name
   assert len(material.props["TEXTURES"]) == 1
   name = material.props["TEXTURES"][0][0]
   filename = _find_texture_file(name)
-  tex = bpy.data.textures.new("ColorTex", type="IMAGE")
+  tex = bpy.data.textures.new(name, type="IMAGE")
   tex.image = bpy.data.images.load(filename)
 
-  import pdb
-  pdb.set_trace()
+  # Create material
+  mat = bpy.data.materials.new(material.name)
+  mat.use_shadeless = True
 
+  mtex = mat.texture_slots.add()
+  mtex.texture = tex
+  mtex.texture_coords = "UV"
+  mtex.use_map_color_diffuse = True
+  # import pdb
+  # pdb.set_trace()
+
+  return mat
+
+
+# def createMaterial():    
+#     # Create image texture from image. Change here if the snippet 
+#     # folder is not located in you home directory.
+#     realpath = os.path.expanduser('~/snippets/textures/color.png')
+#     tex = bpy.data.textures.new('ColorTex', type = 'IMAGE')
+#     tex.image = bpy.data.images.load(realpath)
+#     tex.use_alpha = True
+ 
+#     # Create shadeless material and MTex
+#     mat = bpy.data.materials.new('TexMat')
+#     mat.use_shadeless = True
+#     mtex = mat.texture_slots.add()
+#     mtex.texture = tex
+#     mtex.texture_coords = 'UV'
+#     mtex.use_map_color_diffuse = True 
+#     return mat
 
 # Should get rid of the cube
 bpy.context.scene.objects.unlink(bpy.context.object)
 
+# Convert the materials
+for material in edm.node.materials:
+  material.blender_material = create_material(material)
+# materials = [create_material(x) for x in edm.node.materials]
+
 for node in edm.renderNodes:
-  create_object(node)
+  obj = create_object(node)
+
 
 bpy.context.scene.update()
 # create_materials(edm.renderNodes[0].material)

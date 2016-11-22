@@ -10,8 +10,26 @@ from .basereader import BaseReader
 from collections import namedtuple, OrderedDict, Counter
 import struct
 
-VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
+# VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
 AnimatedProperty = namedtuple("AnimatedProperty", ["name", "id", "keys"])
+
+class VertexFormat(object):
+  def __init__(self, position, normal, texture):
+    self.nposition = position
+    self.nnormal = normal
+    self.ntexture = texture
+
+  @property
+  def position_indices(self):
+    return [0,1,2]
+
+  @property
+  def normal_indices(self):
+    return list(range(self.nposition, self.nposition+self.nnormal))
+
+  @property
+  def texture_indices(self):
+    return list(range(self.nposition+self.nnormal, self.nposition+self.nnormal+self.ntexture))
 
 
 class TrackingReader(BaseReader):
@@ -344,8 +362,8 @@ class Material(object):
       props[name] = _material_entry_lookup[name](stream)
     self.props = props
     self.vertex_format = props["VERTEX_FORMAT"]
+    self.name = props["NAME"]
     return self
-
 
 @reads_type("model::Connector")
 class Connector(object):
