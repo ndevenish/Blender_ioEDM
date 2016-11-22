@@ -384,7 +384,7 @@ class RenderNode(BaseNode):
     self.name = stream.read_string()
     super(RenderNode, cls).read(stream)
     self.material = stream.read_uint()
-    self.intData = stream.read_list(cls._read_int_section)
+    self.parentData = stream.read_list(cls._read_parent_section)
     self.vertexCount = stream.read_uint()
     self.vertexStride = stream.read_uint()
     # Read and group this according to stride
@@ -408,7 +408,7 @@ class RenderNode(BaseNode):
     return self
 
   @classmethod
-  def _read_int_section(cls, stream):
+  def _read_parent_section(cls, stream):
     # Read uint values until we get -1 (signed)
     # This will either be <uint> <-1> or <uint> <uint> <-1>
     def _read_to_next_negative():
