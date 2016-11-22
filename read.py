@@ -15,6 +15,7 @@ edm = EDMFile("Cockpit_Su-25T.EDM")
 
 import bpy
 import bmesh
+from edm.mathtypes import Matrix, Vector
 
 def create_object(renderNode):
   # Marshal the vertices/faces into sets ready for consumption
@@ -112,6 +113,23 @@ def create_material(material):
 
   return mat
 
+def create_connector(connector):
+  xform = connector.parent.matrix
+  # Swap into blender coordinates
+  mat = Matrix([xform[0], -xform[2], xform[1], xform[3]])
+  loc, rot, sca = mat.decompose()
+
+  # Create a new empty object with a cube representation
+  ob = bpy.data.objects.new(connector.name, None)
+  ob.empty_draw_type = "CUBE"
+  ob.empty_draw_size = 0.01
+  ob.location = loc
+  ob.rotation_quaternion = rot
+  ob.scale = sca
+  ob.is_connector = True
+  # import pdb
+  # pdb.set_trace()
+  bpy.context.scene.objects.link(ob)
 
 # def createMaterial():    
 #     # Create image texture from image. Change here if the snippet 
@@ -140,6 +158,10 @@ for material in edm.node.materials:
 
 for node in edm.renderNodes:
   obj = create_object(node)
+
+# Convert all the connectors!
+for connector in edm.connectors:
+  obj = create_connector(connector)  
 
 
 bpy.context.scene.update()

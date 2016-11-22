@@ -7,7 +7,7 @@ Each reader function takes a single argument; a BaseReader object
 from inspect import isclass
 
 from collections import namedtuple
-from .mathtypes import Vector
+from .mathtypes import Vector, Matrix
 
 _typeReaders = {}
 
@@ -71,10 +71,13 @@ def _read_vec2f(data):
 
 @reads_type("osg::Matrixf")
 def readMatrixf(stream):
-  return stream.read_floats(16)
+  md = stream.read_floats(16)
+  return Matrix([md[0:4], md[4:8], md[8:12], md[12:16]]).transposed()
 
 @reads_type("osg::Matrixd")
 def readMatrixd(stream):
-  return stream.read_doubles(16)
+  md = stream.read_doubles(16)
+  return Matrix([md[0:4], md[4:8], md[8:12], md[12:16]]).transposed()
+
 
 print("Loaded typereaders ({})".format(len(_typeReaders)))

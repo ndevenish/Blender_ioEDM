@@ -136,9 +136,6 @@ class EDMFile(object):
     for k in [x for x in remBs.keys() if remBs[x] == 0]:
       del remBs[k]
     
-    import pdb
-    pdb.set_trace()
-
     assert len(objects) <= 2
     self.connectors = objects.get("CONNECTORS", [])
     self.renderNodes = objects.get("RENDER_NODES", [])
@@ -146,6 +143,12 @@ class EDMFile(object):
     # Tie each of the renderNodes to the relevant material
     for node in self.renderNodes:
       node.material = self.node.materials[node.material]
+    # Tie each of the connectors to it's parent node
+    for conn in self.connectors:
+      conn.parent = self.node.nodes[conn.parent]
+    
+    import pdb
+    pdb.set_trace()
 
     # Verify we are at the end of the file without unconsumed data.
     endPos = reader.tell()
@@ -234,9 +237,6 @@ class ArgPositionNode(object):
     arg = stream.read_uint()
     count = stream.read_uint()
     keys = [get_type_reader("model::Key<key::POSITION>")(stream) for _ in range(count)]
-    import pdb
-    pdb.set_trace()
-
     return (arg, keys)
 
 @reads_type("model::ArgScaleNode")
@@ -379,7 +379,9 @@ class Connector(object):
   def read(cls, stream):
     self = cls()
     self.name = stream.read_string()
-    self.data = stream.read(16)
+    self.data = stream.read_uints(2)
+    self.parent = stream.read_uint()
+    self.data = self.data + (stream.read_uint(),)
     return self
 
 uint_negative_one = struct.unpack("<I", struct.pack("<i", -1))[0]
