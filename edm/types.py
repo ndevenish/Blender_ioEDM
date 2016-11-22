@@ -188,7 +188,7 @@ class Node(BaseNode):
   @classmethod
   def read(cls, stream):
     # stream.mark_type_read("model::Node")
-    super(Node, cls).read(stream)
+    return super(Node, cls).read(stream)
 
 @reads_type("model::TransformNode")
 class TransformNode(BaseNode):
