@@ -17,3 +17,6 @@ class DCSWorldPanel(bpy.types.Panel):
       self.layout.prop(context.object, "is_connector")
 
 bpy.utils.register_class(DCSWorldPanel)
+
+# In unregistration:
+# del bpy.types.Object.is_connector
