@@ -7,7 +7,7 @@ Each reader function takes a single argument; a BaseReader object
 from inspect import isclass
 
 from collections import namedtuple
-from .mathtypes import Vector, Matrix
+from .mathtypes import Vector, Matrix, Quaternion
 
 _typeReaders = {}
 

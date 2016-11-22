@@ -258,7 +258,7 @@ class RotationKey(object):
   def read(cls, stream):
     self = cls()
     self.key = stream.read_double()
-    self.value = readQuaternion()
+    self.value = readQuaternion(stream)
     return self
   def __repr__(self):
     return "key::ROTATION({}: {})".format(self.key, repr(self.value))
