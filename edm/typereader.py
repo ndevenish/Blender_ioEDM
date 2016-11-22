@@ -7,6 +7,7 @@ Each reader function takes a single argument; a BaseReader object
 from inspect import isclass
 
 from collections import namedtuple
+from .mathtypes import Vector
 
 _typeReaders = {}
 
@@ -45,8 +46,8 @@ def allow_properties(w):
   _typeReaders[name] = generate_property_reader(w.forTypeName)
   return w
 
-Vector2 = namedtuple("Vector2", ["x", "y"])
-Vector3 = namedtuple("Vector3", ["x", "y", "z"])
+# Vector2 = namedtuple("Vector2", ["x", "y"])
+# Vector3 = namedtuple("Vector3", ["x", "y", "z"])
 
 @allow_properties
 @reads_type("unsigned int")
@@ -61,12 +62,12 @@ def read_prop_float(data):
 @allow_properties
 @reads_type("osg::Vec2f")
 def _read_vec2f(data):
-  return Vector2(*data.read_format("<ff"))
+  return Vector(data.read_format("<ff"))
 
 @allow_properties
 @reads_type("osg::Vec3f")
 def _read_vec2f(data):
-  return Vector3(*data.read_format("<fff"))
+  return Vector(data.read_format("<fff"))
 
 @reads_type("osg::Matrixf")
 def readMatrixf(stream):

@@ -10,6 +10,8 @@ from .basereader import BaseReader
 from collections import namedtuple, OrderedDict, Counter
 import struct
 
+from .mathtypes import Vector
+
 # VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
 AnimatedProperty = namedtuple("AnimatedProperty", ["name", "id", "keys"])
 
@@ -232,7 +234,10 @@ class ArgPositionNode(object):
     arg = stream.read_uint()
     count = stream.read_uint()
     keys = [get_type_reader("model::Key<key::POSITION>")(stream) for _ in range(count)]
-    return (arg, count, keys)
+    import pdb
+    pdb.set_trace()
+
+    return (arg, keys)
 
 @reads_type("model::ArgScaleNode")
 class ArgScaleNode(object):
@@ -260,8 +265,11 @@ class PositionKey(object):
   @classmethod
   def read(cls, stream):
     self = cls()
-    self.data = stream.read(32)
+    self.key = stream.read_double()
+    self.value = Vector(stream.read_doubles(3))
     return self
+  def __repr__(self):
+    return "key::POSITION({}: {})".format(self.key, repr(self.value))
 
 @reads_type("model::AnimatedProperty<float>")
 def _read_apf(stream):
