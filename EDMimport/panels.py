@@ -1,9 +1,9 @@
 import bpy
 
 
-class DCSWorldPanel(bpy.types.Panel):
-  bl_idname = "OBJECT_PT_dcs_world"
-  bl_label = "DCS World"
+class EDMDataPanel(bpy.types.Panel):
+  bl_idname = "OBJECT_PT_edmtools"
+  bl_label = "EDM Tools"
   bl_space_type = 'PROPERTIES'
   bl_region_type = 'WINDOW'
   bl_context = "data"
@@ -15,7 +15,8 @@ class DCSWorldPanel(bpy.types.Panel):
   def draw(self, context):
     self.layout.prop(context.object, "is_connector")
 
-bpy.utils.register_class(DCSWorldPanel)
+def register():
+  bpy.utils.register_class(EDMDataPanel)
 
-# In unregistration:
-# del bpy.types.Object.is_connector
+def unregister():
+  bpy.utils.unregister_class(EDMDataPanel)
