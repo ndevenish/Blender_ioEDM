@@ -12,9 +12,12 @@ class DCSWorldPanel(bpy.types.Panel):
   bl_region_type = 'WINDOW'
   bl_context = "data"
 
+  @classmethod
+  def poll(cls, context):
+    return context.object.type == 'EMPTY'  
+
   def draw(self, context):
-    if context.object.type == 'EMPTY':
-      self.layout.prop(context.object, "is_connector")
+    self.layout.prop(context.object, "is_connector")
 
 bpy.utils.register_class(DCSWorldPanel)
 
