@@ -10,8 +10,8 @@ import re
 import glob, fnmatch
 
 
-# edm = EDMFile("Cockpit_Su-25T.EDM")
-edm = EDMFile("Intro_Spheres.EDM")
+edm = EDMFile("Cockpit_Su-25T.EDM")
+# edm = EDMFile("Intro_Spheres.EDM")
 
 import bpy
 import bmesh
@@ -28,6 +28,8 @@ def create_object(renderNode):
   if renderNode.material.vertex_format.nnormal == 3:
     nI = renderNode.material.vertex_format.normal_indices
     normalData = [(x[nI[0]], -x[nI[2]], x[nI[1]]) for x in renderNode.vertexData]
+  else:
+    normalData = None
   
   # Generate a lookup table of UV data for each face
   uI = renderNode.material.vertex_format.texture_indices
@@ -38,10 +40,14 @@ def create_object(renderNode):
   bm = bmesh.new()
 
   # Create the BMesh vertices
-  for v, normal in zip(vertexPositionData, normalData):
-    vert = bm.verts.new(v)
-    vert.normal = normal
-  
+  if normalData:
+    for v, normal in zip(vertexPositionData, normalData):
+      vert = bm.verts.new(v)
+      vert.normal = normal
+  else:
+    for v in vertexPositionData:
+      vert = bm.verts.new(v)
+    
   bm.verts.ensure_lookup_table()
 
   # Ensure a UV layer exists before creating faces
@@ -49,9 +55,12 @@ def create_object(renderNode):
   bm.faces.layers.tex.verify()  # currently blender needs both layers.
 
   for face, uvs in zip(indexData, uvData):
-    f = bm.faces.new([bm.verts[i] for i in face])
-    for loop, uv in zip(f.loops, uvs):
-      loop[uv_layer].uv = uv
+    try:
+      f = bm.faces.new([bm.verts[i] for i in face])
+      for loop, uv in zip(f.loops, uvs):
+        loop[uv_layer].uv = (uv[0], -uv[1])
+    except ValueError as e:
+      print("Error: {}".format(e))
 
   # Put the mesh data into the scene
   mesh = bpy.data.meshes.new(renderNode.name)
@@ -63,20 +72,19 @@ def create_object(renderNode):
   bpy.context.scene.objects.link(ob)
 
 def _find_texture_file(name):
-  files = glob.glob(name+"*")
+  files = glob.glob(name+".*")
   if not files:
-    matcher = re.compile(fnmatch.translate(name+"*"), re.IGNORECASE)
-    files = [x for x in glob.glob("*") if matcher.match(x)]
+    matcher = re.compile(fnmatch.translate(name+".*"), re.IGNORECASE)
+    files = [x for x in glob.glob(".*") if matcher.match(x)]
     if not files:
-      files = glob.glob("textures/"+name+"*")
+      files = glob.glob("textures/"+name+".*")
       if not files:
-        matcher = re.compile(fnmatch.translate("textures/"+name+"*"), re.IGNORECASE)
-        files = [x for x in glob.glob("textures/*") if matcher.match(x)]
+        matcher = re.compile(fnmatch.translate("textures/"+name+".*"), re.IGNORECASE)
+        files = [x for x in glob.glob("textures/.*") if matcher.match(x)]
         if not files:
-          import pdb
-          pdb.set_trace()
-          raise IOError("Could not find texture named {}".format(name))
-
+          print("Warning: Could not find texture named {}".format(name))
+          return None
+  # print("Found {} as: {}".format(name, files))
   assert len(files) == 1
   textureFilename = files[0]
   return textureFilename
@@ -88,7 +96,8 @@ def create_material(material):
   name = material.props["TEXTURES"][0][0]
   filename = _find_texture_file(name)
   tex = bpy.data.textures.new(name, type="IMAGE")
-  tex.image = bpy.data.images.load(filename)
+  if filename:
+    tex.image = bpy.data.images.load(filename)
 
   # Create material
   mat = bpy.data.materials.new(material.name)
