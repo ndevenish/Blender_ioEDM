@@ -3,6 +3,10 @@
 import sys
 sys.path.append("/Users/xgkkp/python/edm")
 
+# Ensure we have loaded all the EDM meta-tools
+import EDMimport
+EDMimport.register()
+
 from edm import EDMFile
 import code
 

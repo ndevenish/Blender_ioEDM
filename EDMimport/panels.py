@@ -1,9 +1,5 @@
 import bpy
 
-bpy.types.Object.is_connector = bpy.props.BoolProperty(
-    default=False, 
-    name="Is Connector?", 
-    description="Is this empty a connector object?")
 
 class DCSWorldPanel(bpy.types.Panel):
   bl_idname = "OBJECT_PT_dcs_world"
