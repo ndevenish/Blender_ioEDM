@@ -79,5 +79,10 @@ def readMatrixd(stream):
   md = stream.read_doubles(16)
   return Matrix([md[0:4], md[4:8], md[8:12], md[12:16]]).transposed()
 
+@reads_type("osg::Quat")
+def readQuaternion(stream):
+  qd = stream.read_doubles(4)
+  # Reorder as osg saves xyzw and we want wxyz
+  return Quaternion([qd[3], qd[0], qd[1], qd[2]])
 
 print("Loaded typereaders ({})".format(len(_typeReaders)))

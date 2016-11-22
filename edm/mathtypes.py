@@ -1,6 +1,6 @@
 
 try:
-  from mathutils import Matrix, Vector
+  from mathutils import Matrix, Vector, Quaternion
 except ImportError:
   # We don't have mathutils. Make some very basic replacements.
   class Vector(tuple):
@@ -12,3 +12,8 @@ except ImportError:
       return Matrix(cols)
     def __repr__(self):
       return "Matrix({})".format(super(Matrix, self).__repr__())
+
+  class Quaternion(tuple):
+    def ___repr__(self):
+      return "Quaternion({})".format(super(Quaternion, self).__repr__())
+

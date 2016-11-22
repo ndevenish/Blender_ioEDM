@@ -3,7 +3,7 @@
 # from .typereader import Property, allow_properties, reads_type
 # from collections import namedtuple
 
-from .typereader import reads_type, readMatrixf, readMatrixd
+from .typereader import reads_type, readMatrixf, readMatrixd, readQuaternion
 from .typereader import get_type_reader as _tr_get_type_reader
 from .basereader import BaseReader
 
@@ -146,7 +146,7 @@ class EDMFile(object):
     # Tie each of the connectors to it's parent node
     for conn in self.connectors:
       conn.parent = self.node.nodes[conn.parent]
-    
+
     import pdb
     pdb.set_trace()
 
@@ -217,7 +217,7 @@ class ArgRotationNode(object):
     arg = stream.read_uint()
     count = stream.read_uint()
     keys = [get_type_reader("model::Key<key::ROTATION>")(stream) for _ in range(count)]
-    return (arg, count, keys)
+    return (arg, keys)
 
 @reads_type("model::ArgPositionNode")
 class ArgPositionNode(object):
@@ -257,8 +257,11 @@ class RotationKey(object):
   @classmethod
   def read(cls, stream):
     self = cls()
-    self.data = stream.read(40)
+    self.key = stream.read_double()
+    self.value = readQuaternion()
     return self
+  def __repr__(self):
+    return "key::ROTATION({}: {})".format(self.key, repr(self.value))
 
 @reads_type("model::Key<key::POSITION>")
 class PositionKey(object):
