@@ -33,11 +33,8 @@ def create_object(renderNode):
   # Prepare the normals for each vertex
   if renderNode.material.vertex_format.nnormal == 3:
     nI = renderNode.material.vertex_format.normal_indices
-    normalData = [(x[nI[0]], -x[nI[2]], x[nI[1]]) for x in renderNode.vertexData]
     normal_vectors = [Vector([x[ind] for ind in nI]) for x in renderNode.vertexData]
-    normalData2 = [vector_to_blender(x) for x in normal_vectors]
-    import pdb
-    pdb.set_trace()
+    normalData = [vector_to_blender(x) for x in normal_vectors]
   else:
     normalData = None
     
@@ -52,7 +49,6 @@ def create_object(renderNode):
   bm.verts.ensure_lookup_table()
 
   # Only do texture coordinate generation if we have texture coordinates....
-  uvData = None
   if renderNode.material.vertex_format.ntexture:
     # Generate a lookup table of UV data for each face
     uI = renderNode.material.vertex_format.texture_indices
@@ -63,6 +59,8 @@ def create_object(renderNode):
     # Ensure a UV layer exists before creating faces
     uv_layer = bm.loops.layers.uv.verify()
     bm.faces.layers.tex.verify()  # currently blender needs both layers.
+  else:
+    uvData = None
 
   for i, face in enumerate(indexData):
   # for face, uvs in zip(indexData, uvData):
