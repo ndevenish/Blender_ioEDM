@@ -14,8 +14,8 @@ import re
 import glob, fnmatch
 
 
-# edm = EDMFile("Cockpit_Su-25T.EDM")
-edm = EDMFile("ArgCube.EDM")
+edm = EDMFile("Cockpit_Su-25T.EDM")
+# edm = EDMFile("PosArgUnambiguous.EDM")
 # edm = EDMFile("Intro_Spheres.EDM")
 
 import bpy
@@ -27,8 +27,9 @@ def create_object(renderNode):
   assert renderNode.material.vertex_format.nposition == 4
   posIndex = renderNode.material.vertex_format.position_indices
   vertexPositionData = [vector_to_blender(Vector(x[idx] for idx in posIndex)) for x in renderNode.vertexData]
-  assert len(renderNode.indexData) % 3 == 0
-  indexData = [renderNode.indexData[i:i+3] for i in range(0, len(renderNode.indexData), 3)]
+  # assert len(renderNode.indexData) % 3 == 0
+  # indexData = [renderNode.indexData[i:i+3] for i in range(0, len(renderNode.indexData), 3)]
+  indexData = renderNode.indexData
 
   # Prepare the normals for each vertex
   if renderNode.material.vertex_format.nnormal == 3:
@@ -53,7 +54,11 @@ def create_object(renderNode):
     # Generate a lookup table of UV data for each face
     uI = renderNode.material.vertex_format.texture_indices
     def _getIndexUV(index):
-      return tuple(renderNode.vertexData[index][x] for x in uI)
+      try:
+        return tuple(renderNode.vertexData[index][x] for x in uI)
+      except IndexError:
+        import pdb
+        pdb.set_trace()
     uvData = [tuple(_getIndexUV(index) for index in face) for face in indexData]
 
     # Ensure a UV layer exists before creating faces
@@ -80,7 +85,14 @@ def create_object(renderNode):
   ob = bpy.data.objects.new(renderNode.name, mesh)
   ob.data.materials.append(renderNode.material.blender_material)
 
+  # Start putting in animation data
+  ob.rotation_mode = 'QUATERNION'
+
+  # import pdb
+  # pdb.set_trace()
   bpy.context.scene.objects.link(ob)
+
+  return ob
 
 def _find_texture_file(name):
   files = glob.glob(name+".*")
@@ -111,6 +123,7 @@ def create_material(material):
   tex = bpy.data.textures.new(name, type="IMAGE")
   if filename:
     tex.image = bpy.data.images.load(filename)
+    tex.image.use_alpha = False
 
   # Create material
   mat = bpy.data.materials.new(material.name)
@@ -160,8 +173,9 @@ def create_connector(connector):
 #     mtex.use_map_color_diffuse = True 
 #     return mat
 
-# Should get rid of the cube
-bpy.context.scene.objects.unlink(bpy.context.object)
+# Should get rid of all objects
+for obj in bpy.context.scene.objects:
+  bpy.context.scene.objects.unlink(obj)
 
 # Convert the materials
 for material in edm.node.materials:
@@ -169,7 +183,14 @@ for material in edm.node.materials:
 # materials = [create_material(x) for x in edm.node.materials]
 
 for node in edm.renderNodes:
-  obj = create_object(node)
+  if node.children:
+    parent = bpy.data.objects.new(node.name, None)
+    bpy.context.scene.objects.link(parent)
+    for child in node.children:
+      obj = create_object(child)
+      obj.parent = parent
+  else:
+    obj = create_object(node)
 
 # Convert all the connectors!
 for connector in edm.connectors:

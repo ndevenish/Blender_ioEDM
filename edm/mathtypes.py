@@ -17,6 +17,12 @@ except ImportError:
     def ___repr__(self):
       return "Quaternion({})".format(super(Quaternion, self).__repr__())
 
+def sequence_to_matrix(seq):
+  return Matrix([seq[:4], seq[4:8], seq[8:12], seq[12:16]]).transposed()
+
+def sequence_to_quaternion(seq):
+  return Quaternion((seq[3], seq[0], seq[1], seq[2]))
+
 def matrix_to_blender(matrix):
   return Matrix([matrix[0], -matrix[2], matrix[1], matrix[3]])
 
