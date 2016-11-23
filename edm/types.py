@@ -14,6 +14,7 @@ from .mathtypes import Vector, sequence_to_matrix
 
 # VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
 AnimatedProperty = namedtuple("AnimatedProperty", ["name", "id", "keys"])
+Key = namedtuple("Key", ("frame", "value"))
 
 class VertexFormat(object):
   def __init__(self, position, normal, texture):
@@ -269,7 +270,7 @@ class ArgRotationNode(ArgAnimationNode):
 
 @reads_type("model::ArgPositionNode")
 class ArgPositionNode(ArgAnimationNode):
-    """A special case of ArgAnimationNode with only positional data.
+  """A special case of ArgAnimationNode with only positional data.
   Despite this, it is written and read from disk in exactly the same way."""
   @classmethod
   def read(cls, stream):
@@ -292,6 +293,8 @@ class ArgScaleNode(ArgAnimationNode):
     self = cls()
     self.name = stream.read_string()
     self.base = self._read_base_data(stream)
+    self.posData = []
+    self.rotData = []
     # ASSUME that it is layed out in a similar way, but have no non-null examples.
     # So, until we do, assert that this is zero always
     assert all(x == 0 for x in stream.read(12))
@@ -302,22 +305,23 @@ class RotationKey(object):
   @classmethod
   def read(cls, stream):
     self = cls()
-    self.key = stream.read_double()
+    self.frame = stream.read_double()
     self.value = readQuaternion(stream)
     return self
+
   def __repr__(self):
-    return "key::ROTATION({}: {})".format(self.key, repr(self.value))
+    return "Key(frame={}, value={})".format(self.frame, repr(self.value))
 
 @reads_type("model::Key<key::POSITION>")
 class PositionKey(object):
   @classmethod
   def read(cls, stream):
     self = cls()
-    self.key = stream.read_double()
+    self.frame = stream.read_double()
     self.value = Vector(stream.read_doubles(3))
     return self
   def __repr__(self):
-    return "key::POSITION({}: {})".format(self.key, repr(self.value))
+    return "Key(frame={}, value={})".format(self.frame, repr(self.value))
 
 @reads_type("model::AnimatedProperty<float>")
 def _read_apf(stream):
@@ -333,9 +337,11 @@ class FloatKey(object):
   @classmethod
   def read(cls, stream):
     self = cls()
-    key = stream.read_double()
-    value = stream.read_float()
+    self.frame = stream.read_double()
+    self.value = stream.read_float()
     return self
+  def __repr__(self):
+    return "Key(frame={}, value={})".format(self.frame, repr(self.value))
 
 @reads_type("model::ArgVisibilityNode")
 class ArgVisibilityNode(object):

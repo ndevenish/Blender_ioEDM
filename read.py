@@ -14,13 +14,14 @@ import re
 import glob, fnmatch
 
 
-edm = EDMFile("Cockpit_Su-25T.EDM")
-# edm = EDMFile("PosArgUnambiguous.EDM")
+# edm = EDMFile("Cockpit_Su-25T.EDM")
+edm = EDMFile("samples/ArgUnambiguous.EDM")
 # edm = EDMFile("Intro_Spheres.EDM")
 
 import bpy
 import bmesh
 from edm.mathtypes import *
+from edm.types import ArgAnimationNode, ArgRotationNode
 
 def create_object(renderNode):
   # Marshal the vertices/faces into sets ready for consumption
@@ -87,6 +88,56 @@ def create_object(renderNode):
 
   # Start putting in animation data
   ob.rotation_mode = 'QUATERNION'
+
+  if isinstance(renderNode.parent, ArgAnimationNode):
+    argNode = renderNode.parent
+    # print ("""from collections import namedtuple\nArgAnimationBase = namedtuple("ArgAnimationBase", ["unknown", "matrix", "position", "quat_1", "quat_2", "scale"])""")
+    print(renderNode.name)
+    print("aab = " + repr(argNode.base))
+    print("posData = " + repr(argNode.posData))
+    print("rotData = " + repr(argNode.rotData))
+
+    # obj.keyframe_insert(data_path="location", frame=10.0, index=2)
+    # Work out the transformation chain for this object
+
+    # Scale is weird because there is no easy direct way to build it in blender
+    fixScale = Matrix.Scale(1,4)
+    fixScale[0][0] = argNode.base.scale[0]
+    fixScale[1][1] = argNode.base.scale[1]
+    fixScale[2][2] = argNode.base.scale[2]
+    
+    fixTrans = Matrix.Translation(argNode.base.position)
+    fixQuat1 = argNode.base.quat_1.to_matrix().to_4x4()
+    fixQuat2 = argNode.base.quat_2.to_matrix().to_4x4()
+    baseTransform = fixTrans * fixQuat1 * fixQuat2 * fixScale * argNode.base.matrix
+
+    ob.location, ob.rotation_quaternion, ob.scale = baseTransform.decompose()
+
+    ob.animation_data_create()
+
+    if isinstance(argNode, ArgRotationNode):
+      for arg, rotData in argNode.rotData:
+        # Calculate the frame range
+        maxFrame = max(abs(x.frame) for x in rotData)
+        frameScale = 100 / maxFrame
+        # Create an action for this rotation
+        actionName = "{}Action{}".format(renderNode.name, arg)
+        action = bpy.data.actions.new(actionName)
+        action.use_fake_user = True
+        action.argument = arg
+        ob.animation_data.action = action
+
+        for key in rotData:
+          keyRot = key.value.to_matrix().to_4x4()
+          keyTransform = fixTrans * fixQuat1 * keyRot * fixQuat2 * fixScale * argNode.base.matrix
+          l, r, s = keyTransform.decompose()   
+          ob.rotation_quaternion = r
+          ob.keyframe_insert(data_path="rotation_quaternion", frame=int(key.frame*frameScale))
+
+        # Go through and set everything to linear interpolation
+        for fcurve in ob.animation_data.action.fcurves:
+          for kf in fcurve.keyframe_points:
+            kf.interpolation = 'LINEAR'
 
   # import pdb
   # pdb.set_trace()
