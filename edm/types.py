@@ -234,6 +234,8 @@ class ArgAnimationNode(object):
     self.base = self._read_base_data(stream)
     self.posData = stream.read_list(ArgPositionNode._read_AANPositionArg)
     self.rotData = stream.read_list(ArgRotationNode._read_AANRotationArg)
+    # Appears to be scale data, which we don't have examples of yet -
+    # expect a constant until we do
     assert stream.read_uint() == 0
     return self
 
@@ -250,17 +252,12 @@ class ArgAnimationNode(object):
 
 @reads_type("model::ArgRotationNode")
 class ArgRotationNode(ArgAnimationNode):
+  """A special case of ArgAnimationNode with only rotational data.
+  Despite this, it is written and read from disk in exactly the same way."""
   @classmethod
   def read(cls, stream):
     stream.mark_type_read("model::ArgAnimationNode")
-    self = cls()
-    self.name = stream.read_string()
-    self.base = self._read_base_data(stream)
-    assert stream.read_uint() == 0
-    self.posData = []
-    self.rotData = stream.read_list(cls._read_AANRotationArg)
-    assert stream.read_uint() == 0
-    return self
+    return super(ArgRotationNode, cls).read(stream)
 
   @classmethod
   def _read_AANRotationArg(cls, stream):
@@ -272,17 +269,13 @@ class ArgRotationNode(ArgAnimationNode):
 
 @reads_type("model::ArgPositionNode")
 class ArgPositionNode(ArgAnimationNode):
+    """A special case of ArgAnimationNode with only positional data.
+  Despite this, it is written and read from disk in exactly the same way."""
   @classmethod
   def read(cls, stream):
     stream.mark_type_read("model::ArgAnimationNode")
-    self = cls()
-    self.name = stream.read_string()
-    self.base = self._read_base_data(stream)
-    self.posData = stream.read_list(cls._read_AANPositionArg)
-    self.rotData = []
-    self.unknown = stream.read_uints(2)
-    return self
-    
+    return super(ArgPositionNode, cls).read(stream)
+
   @classmethod
   def _read_AANPositionArg(cls, stream):
     stream.mark_type_read("model::ArgAnimationNode::Position")
