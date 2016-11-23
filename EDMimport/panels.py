@@ -16,20 +16,23 @@ class EDMDataPanel(bpy.types.Panel):
     self.layout.prop(context.object, "is_connector")
 
 class DopeActionProperties(bpy.types.Panel):
-    """Creates a Panel in the Object properties window"""
-    bl_label = "EDM Action Properties"
-    bl_idname = "OBJECT_PT_dope_action"
-    bl_space_type = 'DOPESHEET_EDITOR'
-    bl_region_type = 'UI'
-    bl_context = "action"
+  """Creates a Panel in the Object properties window"""
+  bl_label = "EDM Action Properties"
+  bl_idname = "OBJECT_PT_dope_action"
+  bl_space_type = 'DOPESHEET_EDITOR'
+  bl_region_type = 'UI'
+  bl_context = "action"
 
-    @classmethod
-    def poll(self, context):
-        return context.object.animation_data.action != None
-    
-    def draw(self, context):
-        row = self.layout.row()
-        row.prop(context.object.animation_data.action, "argument")
+  @classmethod
+  def poll(self, context):
+    try:
+      return context.object.animation_data.action != None
+    except AttributeError:
+        return False
+
+  def draw(self, context):
+    row = self.layout.row()
+    row.prop(context.object.animation_data.action, "argument")
 
 def register():
   bpy.utils.register_class(EDMDataPanel)
