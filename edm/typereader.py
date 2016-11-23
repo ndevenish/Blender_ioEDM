@@ -7,7 +7,7 @@ Each reader function takes a single argument; a BaseReader object
 from inspect import isclass
 
 from collections import namedtuple
-from .mathtypes import Vector, Matrix, Quaternion
+from .mathtypes import Vector, Matrix, Quaternion, sequence_to_matrix
 
 _typeReaders = {}
 
@@ -61,23 +61,28 @@ def read_prop_float(data):
 
 @allow_properties
 @reads_type("osg::Vec2f")
-def _read_vec2f(data):
+def readVec2f(data):
   return Vector(data.read_format("<ff"))
 
 @allow_properties
 @reads_type("osg::Vec3f")
-def _read_vec2f(data):
+def readVec3f(data):
   return Vector(data.read_format("<fff"))
+
+@allow_properties
+@reads_type("osg::Vec3d")
+def readVec3d(data):
+  return Vector(data.read_format("<ddd"))
 
 @reads_type("osg::Matrixf")
 def readMatrixf(stream):
   md = stream.read_floats(16)
-  return Matrix([md[0:4], md[4:8], md[8:12], md[12:16]]).transposed()
+  return sequence_to_matrix(md)
 
 @reads_type("osg::Matrixd")
 def readMatrixd(stream):
   md = stream.read_doubles(16)
-  return Matrix([md[0:4], md[4:8], md[8:12], md[12:16]]).transposed()
+  return sequence_to_matrix(md)
 
 @reads_type("osg::Quat")
 def readQuaternion(stream):

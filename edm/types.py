@@ -3,7 +3,7 @@
 # from .typereader import Property, allow_properties, reads_type
 # from collections import namedtuple
 
-from .typereader import reads_type, readMatrixf, readMatrixd, readQuaternion
+from .typereader import reads_type, readMatrixf, readMatrixd, readQuaternion, readVec3d
 from .typereader import get_type_reader as _tr_get_type_reader
 from .basereader import BaseReader
 
@@ -143,6 +143,7 @@ class EDMFile(object):
     # Tie each of the renderNodes to the relevant material
     for node in self.renderNodes:
       node.material = self.node.materials[node.material]
+    
     # Tie each of the connectors to it's parent node
     for conn in self.connectors:
       conn.parent = self.node.nodes[conn.parent]
@@ -150,6 +151,14 @@ class EDMFile(object):
     # Split subobjects
     for node in self.renderNodes:
       node.split_subobjects()
+
+    # Assign each of the nodes/children to a parent node
+    for node in self.renderNodes:
+      if len(node.parentData) == 1:
+        node.parent = self.node.nodes[node.parentData[0][0]]
+      if node.children:
+        for child in node.children:
+          child.parent = self.node.nodes[child.parentData[0]]
 
     # Read and dump information about the render arg node
     # argNode = self.node.nodes[1]
@@ -161,6 +170,7 @@ class EDMFile(object):
     # print("Position:\n{}".format(argNode.posData))
     # print("Rotation:\n{}".format(argNode.rotData))
 
+    # Pause at end of file parsing, before generation
     import pdb
     pdb.set_trace()
 
@@ -212,14 +222,40 @@ class TransformNode(BaseNode):
     self.matrix = readMatrixd(stream)
     return self
 
+
+ArgAnimationBase = namedtuple("ArgAnimationBase", ["unknown", "matrix", "position", "quat_1", "quat_2", "scale"])
+
+@reads_type("model::ArgAnimationNode")
+class ArgAnimationNode(object):
+  @classmethod
+  def read(cls, stream):
+    self = cls()
+    self.name = stream.read_string()
+    self.base = self._read_base_data(stream)
+    self.posData = stream.read_list(ArgPositionNode._read_AANPositionArg)
+    self.rotData = stream.read_list(ArgRotationNode._read_AANRotationArg)
+    assert stream.read_uint() == 0
+    return self
+
+  def _read_base_data(self, stream):
+    # base_data = stream.read(248)
+    data = {}
+    data["unknown"] = stream.read(8)
+    data["matrix"] = readMatrixd(stream)
+    data["position"] = readVec3d(stream)
+    data["quat_1"] = readQuaternion(stream)
+    data["quat_2"] = readQuaternion(stream)
+    data["scale"] = readVec3d(stream)
+    return ArgAnimationBase(**data)
+
 @reads_type("model::ArgRotationNode")
-class ArgRotationNode(object):
+class ArgRotationNode(ArgAnimationNode):
   @classmethod
   def read(cls, stream):
     stream.mark_type_read("model::ArgAnimationNode")
     self = cls()
     self.name = stream.read_string()
-    self.base_data = stream.read(248)
+    self.base = self._read_base_data(stream)
     assert stream.read_uint() == 0
     self.posData = []
     self.rotData = stream.read_list(cls._read_AANRotationArg)
@@ -235,13 +271,13 @@ class ArgRotationNode(object):
     return (arg, keys)
 
 @reads_type("model::ArgPositionNode")
-class ArgPositionNode(object):
+class ArgPositionNode(ArgAnimationNode):
   @classmethod
   def read(cls, stream):
     stream.mark_type_read("model::ArgAnimationNode")
     self = cls()
     self.name = stream.read_string()
-    self.base_data = stream.read(248)
+    self.base = self._read_base_data(stream)
     self.posData = stream.read_list(cls._read_AANPositionArg)
     self.rotData = []
     self.unknown = stream.read_uints(2)
@@ -256,13 +292,13 @@ class ArgPositionNode(object):
     return (arg, keys)
 
 @reads_type("model::ArgScaleNode")
-class ArgScaleNode(object):
+class ArgScaleNode(ArgAnimationNode):
   @classmethod
   def read(cls, stream):
     stream.mark_type_read("model::ArgAnimationNode")
     self = cls()
     self.name = stream.read_string()
-    self.base_data = stream.read(248)
+    self.base = self._read_base_data(stream)
     # ASSUME that it is layed out in a similar way, but have no non-null examples.
     # So, until we do, assert that this is zero always
     assert all(x == 0 for x in stream.read(12))
@@ -306,18 +342,6 @@ class FloatKey(object):
     self = cls()
     key = stream.read_double()
     value = stream.read_float()
-    return self
-
-@reads_type("model::ArgAnimationNode")
-class ArgAnimationNode(object):
-  @classmethod
-  def read(cls, stream):
-    self = cls()
-    self.name = stream.read_string()
-    self.base_data = stream.read(248)
-    self.posData = stream.read_list(ArgPositionNode._read_AANPositionArg)
-    self.rotData = stream.read_list(ArgRotationNode._read_AANRotationArg)
-    assert stream.read_uint() == 0
     return self
 
 @reads_type("model::ArgVisibilityNode")
@@ -461,7 +485,7 @@ class RenderNode(BaseNode):
     # Don't split for one child
     if len(objects) == 1:
       return
-    
+
     # Validate that we separated properly
     for start, end in objects:
       groups = set(self.vertexData[i][3] for i in range(start, end))
@@ -484,7 +508,7 @@ class RenderNode(BaseNode):
       obj.name = "{}_{}".format(self.name, i)
       obj.material = self.material
       parindex = int(self.vertexData[start][3])
-      obj.parent = self.parentData[parindex]
+      obj.parentData = self.parentData[parindex]
       obj.vertexCount = end-start
       # Recalculate the indices
       # Member indices
