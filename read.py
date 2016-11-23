@@ -14,18 +14,19 @@ import re
 import glob, fnmatch
 
 
-edm = EDMFile("Cockpit_Su-25T.EDM")
+# edm = EDMFile("Cockpit_Su-25T.EDM")
+edm = EDMFile("ArgCube.EDM")
 # edm = EDMFile("Intro_Spheres.EDM")
 
 import bpy
 import bmesh
-from edm.mathtypes import Matrix, Vector
+from edm.mathtypes import *
 
 def create_object(renderNode):
   # Marshal the vertices/faces into sets ready for consumption
   assert renderNode.material.vertex_format.nposition == 4
   posIndex = renderNode.material.vertex_format.position_indices
-  vertexPositionData = [(x[posIndex[0]], -x[posIndex[2]], x[posIndex[1]]) for x in renderNode.vertexData]
+  vertexPositionData = [vector_to_blender(Vector(x[idx] for idx in posIndex)) for x in renderNode.vertexData]
   assert len(renderNode.indexData) % 3 == 0
   indexData = [renderNode.indexData[i:i+3] for i in range(0, len(renderNode.indexData), 3)]
 
@@ -33,37 +34,44 @@ def create_object(renderNode):
   if renderNode.material.vertex_format.nnormal == 3:
     nI = renderNode.material.vertex_format.normal_indices
     normalData = [(x[nI[0]], -x[nI[2]], x[nI[1]]) for x in renderNode.vertexData]
+    normal_vectors = [Vector([x[ind] for ind in nI]) for x in renderNode.vertexData]
+    normalData2 = [vector_to_blender(x) for x in normal_vectors]
+    import pdb
+    pdb.set_trace()
   else:
     normalData = None
-  
-  # Generate a lookup table of UV data for each face
-  uI = renderNode.material.vertex_format.texture_indices
-  def _getIndexUV(index):
-    return tuple(renderNode.vertexData[index][x] for x in uI)
-  uvData = [tuple(_getIndexUV(index) for index in face) for face in indexData]
-  
+    
   bm = bmesh.new()
 
-  # Create the BMesh vertices
-  if normalData:
-    for v, normal in zip(vertexPositionData, normalData):
-      vert = bm.verts.new(v)
-      vert.normal = normal
-  else:
-    for v in vertexPositionData:
-      vert = bm.verts.new(v)
-    
+  # Create the BMesh vertices, optionally with normals
+  for i, vtx in enumerate(vertexPositionData):
+    vert = bm.verts.new(vtx)
+    if normalData:
+      vert.normal = normalData[i]
+
   bm.verts.ensure_lookup_table()
 
-  # Ensure a UV layer exists before creating faces
-  uv_layer = bm.loops.layers.uv.verify()
-  bm.faces.layers.tex.verify()  # currently blender needs both layers.
+  # Only do texture coordinate generation if we have texture coordinates....
+  uvData = None
+  if renderNode.material.vertex_format.ntexture:
+    # Generate a lookup table of UV data for each face
+    uI = renderNode.material.vertex_format.texture_indices
+    def _getIndexUV(index):
+      return tuple(renderNode.vertexData[index][x] for x in uI)
+    uvData = [tuple(_getIndexUV(index) for index in face) for face in indexData]
 
-  for face, uvs in zip(indexData, uvData):
+    # Ensure a UV layer exists before creating faces
+    uv_layer = bm.loops.layers.uv.verify()
+    bm.faces.layers.tex.verify()  # currently blender needs both layers.
+
+  for i, face in enumerate(indexData):
+  # for face, uvs in zip(indexData, uvData):
     try:
       f = bm.faces.new([bm.verts[i] for i in face])
-      for loop, uv in zip(f.loops, uvs):
-        loop[uv_layer].uv = (uv[0], -uv[1])
+      # Add UV data if we have any
+      if uvData:
+        for loop, uv in zip(f.loops, uvData[i]):
+          loop[uv_layer].uv = (uv[0], -uv[1])
     except ValueError as e:
       print("Error: {}".format(e))
 
@@ -97,6 +105,8 @@ def _find_texture_file(name):
 def create_material(material):
   """Create a blender material from an EDM one"""
   # Find the actual file for the texture name
+  if len(material.props["TEXTURES"]) == 0:
+    return None
   assert len(material.props["TEXTURES"]) == 1
   name = material.props["TEXTURES"][0][0]
   filename = _find_texture_file(name)

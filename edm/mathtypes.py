@@ -17,3 +17,14 @@ except ImportError:
     def ___repr__(self):
       return "Quaternion({})".format(super(Quaternion, self).__repr__())
 
+def matrix_to_blender(matrix):
+  return Matrix([matrix[0], -matrix[2], matrix[1], matrix[3]])
+
+def matrix_to_edm(matrix):
+  return Matrix([matrix[0], matrix[2], -matrix[1], matrix[3]])
+
+def vector_to_blender(v):
+  return Vector([v[0], -v[2], v[1]])
+
+def vector_to_edm(vector):
+  return Vector([v[0], v[2], -v[1]])
