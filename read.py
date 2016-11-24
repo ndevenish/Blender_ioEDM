@@ -7,7 +7,7 @@ sys.path.append("/Users/xgkkp/python/edm")
 import io_EDM
 io_EDM.register()
 
-from edm import EDMFile
+from io_EDM.edm import EDMFile
 import code
 
 import re
@@ -20,8 +20,8 @@ edm = EDMFile("Cockpit_Su-25T.EDM")
 
 import bpy
 import bmesh
-from edm.mathtypes import *
-from edm.types import AnimatingNode, ArgAnimationNode, ArgRotationNode, ArgPositionNode, ArgVisibilityNode
+from io_EDM.edm.mathtypes import *
+from io_EDM.edm.types import AnimatingNode, ArgAnimationNode, ArgRotationNode, ArgPositionNode, ArgVisibilityNode
 
 
 
