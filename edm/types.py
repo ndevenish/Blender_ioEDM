@@ -12,9 +12,14 @@ import struct
 
 from .mathtypes import Vector, sequence_to_matrix
 
+from abc import ABC
+
 # VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
 AnimatedProperty = namedtuple("AnimatedProperty", ["name", "id", "keys"])
 Key = namedtuple("Key", ("frame", "value"))
+
+class AnimatingNode(ABC):
+  """Abstract base class for all nodes that animate the object"""
 
 class VertexFormat(object):
   def __init__(self, position, normal, texture):
@@ -227,7 +232,7 @@ class TransformNode(BaseNode):
 ArgAnimationBase = namedtuple("ArgAnimationBase", ["unknown", "matrix", "position", "quat_1", "quat_2", "scale"])
 
 @reads_type("model::ArgAnimationNode")
-class ArgAnimationNode(object):
+class ArgAnimationNode(AnimatingNode):
   @classmethod
   def read(cls, stream):
     self = cls()
@@ -344,7 +349,7 @@ class FloatKey(object):
     return "Key(frame={}, value={})".format(self.frame, repr(self.value))
 
 @reads_type("model::ArgVisibilityNode")
-class ArgVisibilityNode(object):
+class ArgVisibilityNode(AnimatingNode):
   @classmethod
   def read(cls, stream):
     self = cls()
@@ -358,9 +363,12 @@ class ArgVisibilityNode(object):
     stream.mark_type_read("model::ArgVisibilityNode::Arg")
     arg = stream.read_uint()
     count = stream.read_uint()
-    data = stream.read(16*count)
+    # Not entirely sure of which way round AVN::Arg and ::Range are
+    # as have only ever seen instances where count == 1
+    assert count == 1, "Have seen no examples of count > 1"
+    data = [stream.read_doubles(2) for _ in range(count)]
     stream.mark_type_read("model::ArgVisibilityNode::Range", count)
-    return (arg, count, data)
+    return (arg, data)
 
 def _read_material_VertexFormat(reader):
   channels = reader.read_uint()
