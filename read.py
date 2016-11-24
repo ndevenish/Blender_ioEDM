@@ -14,8 +14,8 @@ import re
 import glob, fnmatch
 
 
-# edm = EDMFile("Cockpit_Su-25T.EDM")
-edm = EDMFile("samples/ArgUnambiguous.EDM")
+edm = EDMFile("Cockpit_Su-25T.EDM")
+# edm = EDMFile("samples/ArgUnambiguous.EDM")
 # edm = EDMFile("Intro_Spheres.EDM")
 
 import bpy
@@ -128,10 +128,12 @@ def create_object(renderNode):
         ob.animation_data.action = action
 
         for key in rotData:
-          keyRot = key.value.to_matrix().to_4x4()
-          keyTransform = fixTrans * fixQuat1 * keyRot * fixQuat2 * fixScale * argNode.base.matrix
-          l, r, s = keyTransform.decompose()   
-          ob.rotation_quaternion = r
+          keyRot = key.value
+          # keyRot = key.value.to_matrix().to_4x4()
+          # keyTransform = fixTrans * fixQuat1 * keyRot * fixQuat2 * fixScale * argNode.base.matrix
+          rot = argNode.base.quat_1 * key.value * argNode.base.quat_2 * argNode.base.matrix.decompose()[1]
+          # l, r, s = keyTransform.decompose()   
+          ob.rotation_quaternion = rot
           ob.keyframe_insert(data_path="rotation_quaternion", frame=int(key.frame*frameScale))
 
         # Go through and set everything to linear interpolation
