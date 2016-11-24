@@ -141,6 +141,8 @@ class EDMFile(object):
     remBs.subtract(cB)
     for k in [x for x in remBs.keys() if remBs[x] == 0]:
       del remBs[k]
+    print("IndexB items remaining before RENDER_NODES/CONNECTORS: {}".format(remBs))
+    
     
     assert len(objects) <= 2
     self.connectors = objects.get("CONNECTORS", [])
