@@ -1,13 +1,11 @@
 
-print("Loading EDMimport")
-
 bl_info = {
-  'name': "Import: DCS World .EDM",
-  'description': "Importing of DCS world .edm files for aircraft/cockpits",
+  'name': "Import: .EDM model files",
+  'description': "Importing of .EDM model files",
   'author': "Nicholas Devenish",
   'version': (0,0,1),
   'blender': (2, 78, 0),
-  'location': "File > Import/Export > DCS World",
+  'location': "File > Import/Export > .EDM Files",
   'category': 'Import-Export',
 }
 

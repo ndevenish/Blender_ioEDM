@@ -15,7 +15,7 @@ well enough to build a simple exporter.
 
 What Works
 ----------
-- Rough parsing of the entire binary file structure (with one exception)
+- Rough parsing of the entire binary file structure
 - Geometry import, with normals and UV textures
 - Simple texture materials
 - Simple rotation, translation and visibility animations
@@ -25,7 +25,8 @@ What Doesn't Work
 -----------------
 - Exporting
 - Currently only tested with a limited range of EDM files, so e.g. bone-based
-  animation is currently not handled and files using it will not work.
+  animation is currently not handled and files using it, and any other unrecognised
+  nodes will not work.
 - Multiple argument animations per object - decisions on the best way to 
   represent this in Blender need to be made (NLA? Custom Action attributes?)
 - Complex translation of material settings, including specular, bump maps etc
@@ -36,4 +37,3 @@ Unanswered Questions
   'second quaternion' in the `ArgAnimationNode` common base data
 - What is the mysterious data block directly before the CONNECTORS/RENDER_NODES block
 - What is model::RNControlNode (the only index count object not understood)
-
