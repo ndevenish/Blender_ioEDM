@@ -34,6 +34,23 @@ class DopeActionProperties(bpy.types.Panel):
     row = self.layout.row()
     row.prop(context.object.animation_data.action, "argument")
 
+
+class EDMMaterialPanel(bpy.types.Panel):
+  bl_label = "EDM Material Properties"
+  bl_idname = "SCENE_PT_edm_materials"
+  bl_space_type = 'PROPERTIES'
+  bl_region_type = 'WINDOW'
+  bl_context = "material"
+
+  @classmethod
+  def poll(self, context):
+    return context.object.active_material != None
+
+  def draw(self, context):
+      layout = self.layout
+      layout.label(text="EDM Base material:")
+      layout.prop(context.object.active_material, "edm_material", text="")
+
 def register():
   bpy.utils.register_class(EDMDataPanel)
   bpy.utils.register_class(DopeActionProperties)

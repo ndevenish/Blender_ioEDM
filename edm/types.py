@@ -413,6 +413,7 @@ class Material(object):
     self.props = props
     self.vertex_format = props["VERTEX_FORMAT"]
     self.name = props["NAME"]
+    self.base_material = props["MATERIAL_NAME"]
     return self
 
 @reads_type("model::Connector")

@@ -181,6 +181,7 @@ def create_material(material):
   # Create material
   mat = bpy.data.materials.new(material.name)
   mat.use_shadeless = True
+  mat.edm_material = material.base_material
 
   mtex = mat.texture_slots.add()
   mtex.texture = tex
