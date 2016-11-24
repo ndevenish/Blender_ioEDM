@@ -21,7 +21,7 @@ edm = EDMFile("Cockpit_Su-25T.EDM")
 import bpy
 import bmesh
 from edm.mathtypes import *
-from edm.types import ArgAnimationNode, ArgRotationNode
+from edm.types import ArgAnimationNode, ArgRotationNode, ArgPositionNode
 
 def create_object(renderNode):
   # Marshal the vertices/faces into sets ready for consumption
@@ -111,6 +111,20 @@ def create_object(renderNode):
     fixQuat2 = argNode.base.quat_2.to_matrix().to_4x4()
     baseTransform = fixTrans * fixQuat1 * fixQuat2 * fixScale * argNode.base.matrix
 
+    # With:
+    #   aabT = Matrix.Translation(argNode.base.position)
+    #   aabS = argNode.base.scale as a Scale Matrix
+    #   q1m  = argNode.base.quat_1 as a Matrix (e.g. fixQuat1)
+    #   q2m  = argNode.base.quat_2 as a Matrix (e.g. fixQuat2)
+    #   mat  = argNode.base.matrix
+    #   m2b  = matrix_to_blender e.g. swapping Z -> -Y
+
+    # Initial tests had supposed that the transformation was:
+    #    baseTransform = aabT * q1m * q2m * aabS * mat
+    # However the correct transform for e.g. kpp_baraban_0 is the following
+    #    C.object.location = (m2b(mat)*aabT*q1m).decompose()[0]
+    # For which case where q2m, aabS are identity. 
+
     ob.location, ob.rotation_quaternion, ob.scale = baseTransform.decompose()
 
     ob.animation_data_create()
@@ -140,6 +154,22 @@ def create_object(renderNode):
         for fcurve in ob.animation_data.action.fcurves:
           for kf in fcurve.keyframe_points:
             kf.interpolation = 'LINEAR'
+
+    if isinstance(argNode, ArgPositionNode):
+      for arg, posData in argNode.posData:
+        # Calculate the frame range
+        maxFrame = max(abs(x.frame) for x in posData)
+        frameScale = 100 / maxFrame
+        # Create an action for this translation
+        actionName = "{}Action{}".format(renderNode.name, arg)
+        action = bpy.data.actions.new(actionName)
+        action.use_fake_user = True
+        action.argument = arg
+        ob.animation_data.action = action
+
+        # for key in posData:
+        #   import pdb
+        #   pdb.set_trace()
 
   # import pdb
   # pdb.set_trace()
