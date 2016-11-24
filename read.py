@@ -147,19 +147,25 @@ def create_object(renderNode):
       print("posData = " + repr(argNode.posData))
       print("rotData = " + repr(argNode.rotData))
 
-      # obj.keyframe_insert(data_path="location", frame=10.0, index=2)
-      # Work out the transformation chain for this object
+      # Rotation quaternion for rotating -90 degrees around the X
+      # axis. It seems animation data is not transformed into the
+      # DCS world space automatically, and so we need to 'undo' the
+      # transformation that was initially applied to the vertices when
+      # reading into blender.
+      RX = Quaternion((0.707, -0.707, 0, 0))
+      RXm = RX.to_matrix().to_4x4()
 
-      # Scale is weird because there is no easy direct way to build it in blender
-      fixScale = Matrix.Scale(1,4)
-      fixScale[0][0] = argNode.base.scale[0]
-      fixScale[1][1] = argNode.base.scale[1]
-      fixScale[2][2] = argNode.base.scale[2]
-      
-      fixTrans = Matrix.Translation(argNode.base.position)
-      fixQuat1 = argNode.base.quat_1.to_matrix().to_4x4()
-      fixQuat2 = argNode.base.quat_2.to_matrix().to_4x4()
-      baseTransform = fixTrans * fixQuat1 * fixQuat2 * fixScale * argNode.base.matrix
+      # Work out the transformation chain for this object
+      aabS = MatrixScale(argNode.base.scale)
+      aabT = Matrix.Translation(argNode.base.position)
+      q1 = argNode.base.quat_1
+      q2 = argNode.base.quat_2
+      q1m = q1.to_matrix().to_4x4()
+      q2m = q2.to_matrix().to_4x4()
+      mat = argNode.base.matrix
+
+      # Calculate the transform matrix quaternion part for pure rotations
+      matQuat = matrix_to_blender(mat).decompose()[1]
 
       # With:
       #   aabT = Matrix.Translation(argNode.base.position)
@@ -179,12 +185,22 @@ def create_object(renderNode):
       # For stick_base_1 the scale-expanded:
       #     loc, scale <<= m2b(mat) * aabT * q1m * aabS
       # works, however rotation is off by 90 degrees in y
+      # 
+      # For Cylinder55_13 with RXm as a rotation -90 degrees in X,
+      # and Ar as the rotation from animation:
+      # 
+      #   l, r, s <<= m2b(mat) * aabT * q1m * Ar * aabS * RXm
+      #
+      # Wondering if animation vertex data is unshifted in coordinate
+      # space, and so the correction when importing needs to be
+      # uncorrected when applying rotations
 
+      # baseTransform = aabT * q1m * q2m * aabS * mat
+      baseTransform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
 
       ob.location, ob.rotation_quaternion, ob.scale = baseTransform.decompose()
 
-      ob.animation_data_create()
-
+      # Now do the specific instance calculations
       if isinstance(argNode, ArgRotationNode):
         for arg, rotData in argNode.rotData:
           # Calculate the frame range
@@ -199,11 +215,9 @@ def create_object(renderNode):
 
           for key in rotData:
             keyRot = key.value
-            # keyRot = key.value.to_matrix().to_4x4()
-            # keyTransform = fixTrans * fixQuat1 * keyRot * fixQuat2 * fixScale * argNode.base.matrix
-            rot = argNode.base.quat_1 * key.value * argNode.base.quat_2 * argNode.base.matrix.decompose()[1]
-            # l, r, s = keyTransform.decompose()   
-            ob.rotation_quaternion = rot
+            # rot = argNode.base.quat_1 * key.value * argNode.base.quat_2 * argNode.base.matrix.decompose()[1]
+            # Apply the rotation purely in quaternions, to conserve sign
+            ob.rotation_quaternion = matQuat * q1 * keyRot * RX
             ob.keyframe_insert(data_path="rotation_quaternion", frame=int(key.frame*frameScale))
 
           # Go through and set everything to linear interpolation

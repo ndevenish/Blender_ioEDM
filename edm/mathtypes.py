@@ -17,6 +17,11 @@ except ImportError:
     def ___repr__(self):
       return "Quaternion({})".format(super(Quaternion, self).__repr__())
 
+def MatrixScale(vector):
+  mat = Matrix.Scale(1,4)
+  mat[0][0], mat[1][1], mat[2][2] = vector[:3]
+  return mat
+
 def sequence_to_matrix(seq):
   return Matrix([seq[:4], seq[4:8], seq[8:12], seq[12:16]]).transposed()
 
