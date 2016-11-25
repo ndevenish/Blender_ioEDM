@@ -19,7 +19,8 @@ What Works
 - Importing of the SU-27t cockpit, without getting everything perfectly
 - Geometry import, with normals and UV textures
 - Simple rotation, translation and visibility animations
-- Simple texture materials
+- Simple texture materials, IF the textures are in the same directory
+  or a subdirectory called "textures"
 - Connectors, and UI integration to mark empties as such
 
 What Doesn't Work

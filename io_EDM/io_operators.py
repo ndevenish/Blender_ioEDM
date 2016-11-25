@@ -12,6 +12,8 @@ import os
 import logging
 logger = logging.getLogger(__name__)
 
+from .reader import read_file
+
 class ImportEDM(Operator, ImportHelper):
   bl_idname = "import_mesh.edm"
   bl_label = "Import EDM"
@@ -42,7 +44,7 @@ class ImportEDM(Operator, ImportHelper):
     # Import the file
     logger.warning("Reading EDM file {}".format(paths[0]))
     
-
+    read_file(paths[0])
     return {'FINISHED'}
 
 def menu_import(self, context):
