@@ -1,8 +1,6 @@
 __pycache__
-obj.obj
 *.pyc
 .python-version
 *.out
 EDMENV
-parsetab.py
 .DS_Store
