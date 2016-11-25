@@ -90,4 +90,3 @@ def readQuaternion(stream):
   # Reorder as osg saves xyzw and we want wxyz
   return Quaternion([qd[3], qd[0], qd[1], qd[2]])
 
-print("Loaded typereaders ({})".format(len(_typeReaders)))

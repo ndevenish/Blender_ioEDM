@@ -1,9 +1,15 @@
-#!/usr/bin/env python3
+"""
+BaseReader
+
+A very simple extended stream reader, with capability to read single or 
+arrays of standard types.
+
+It additionally has functions to read a uint-prefixed string, and a 
+uint-prefixed list of some item, defined by the function passed in
+"""
 
 import struct
 from collections import namedtuple
-
-# from .typereader import get_type_reader
 
 import logging
 logger = logging.getLogger(__name__)

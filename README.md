@@ -16,7 +16,7 @@ file format well enough to build a simple exporter.
 What Works
 ----------
 - Rough parsing of the entire binary file structure
-- Importing of the SU-27t cockpit, without getting everything perfectly
+- Importing of the SU-25t cockpit, without getting everything perfect
 - Geometry import, with normals and UV textures
 - Simple rotation, translation and visibility animations
 - Simple texture materials, IF the textures are in the same directory
@@ -34,18 +34,54 @@ What Doesn't Work
 - Complex translation of material settings, including specular, bump maps etc
 - Not all the sub-object positions are currently correct
 
-Unanswered Questions
---------------------
-- How are the transformations for e.g. the SU-27t foot pedals applied - the 
+Unanswered Questions about the EDM files
+----------------------------------------
+- How are the transformations for e.g. the SU-25t foot pedals applied - the 
   transformation data attached to the root render node does not seem sufficient
   for proper positioning
 - Exactly how are the animation transformations applied, and the purpose of
   the 'second quaternion' in the `ArgAnimationNode` common base data
-- What is the mysterious data block directly before the CONNECTORS/RENDER_NODES
-- What is model::RNControlNode (the only index count object not understood)
+- The meaning of the mysterious data block directly before the
+  `CONNECTORS`/`RENDER_NODES` section (after the `RootNode` and `-1` data)
+- What is `model::RNControlNode` (the only index count object not understood)
+- The `model::RenderNode` have a structure mapping vertex data to parent
+  objects - however sometimes this is a paired entry and the purpose of the
+  second value is currently unknown
+- Lots of other details needed on e.g. the first 12 bytes of `BaseNode`, the
+  occasional 
 
 Installation
-============
+------------
+Simply add `io_EDM` as a Blender addon in the usual way (e.g. adding to your 
+Preferences->Files->Addon path and enabling). This should not be necessary
+if debugging with `read.py`.
+
+Developers
+==========
+- There is a `read.py` file that can be used to launch blender with an instant
+  import, to be used e.g. `blender --python read.py -- edmfile.EDM`. This makes
+  the cycle of change/debug/rewrite more manageable
+- All of the file->Blender conversion is done in io_EDM.reader, and most of
+  the actual functionality is currently in one large function,
+  `create_object`
+- All parsing of the binary data is done in the `io_EDM.edm` sub-package, and
+  is at time of writing separate from Blenders API - although if the API is
+  available, the `bpy.mathutils` module is used for 
+  `Vector`/`Matrix`/`Quaternion` representations. Most of the edm-specific
+  reading is done in `io_EDM.edm.types` module, starting with the `EDMFile`
+  class `__init__`.
+- A summary of the knowledge gained about the `.EDM` file format can be found
+  in the `EDM_Specification.md` file also located in this repository.
 
 EDM Modelling tool concepts in Blender
 ======================================
+Blender obviously differs from 3DS, and so not everything can be implemented
+in exactly the same way. Here is a quick summary of the differences - some of
+which are only partially implemented.
+
+|                    | 3DS Max             |   Blender                             |
+|--------------------|---------------------|---------------------------------------|
+| Connectors         | Named dummy objects | Named empties with the new object property `Is Connector` checked - not all empties are exported |
+| Argument Animation | Controllers         | Actions for an object, with an `Argument` property accesible in the dope-sheet properties. |
+| Multiple Animations| Controllers         | Not yet implemented - considering using the NLA sheet |
+| EDM materials      | 'Make Cool' button  | Directly integrated to material properties - currently only basis material is translated, however. |

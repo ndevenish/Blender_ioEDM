@@ -1,6 +1,7 @@
 #!/usr/bin/env blender
 
 import sys
+import os
 
 import bpy
 import addon_utils

@@ -1,3 +1,12 @@
+"""
+Simple math types to represent Vector, Matrix, Quaternion
+
+If the blender mathutils module is available, the blender API types are
+used, but otherwise a (minimally) compatible internal type is used instead.
+
+Also included are tools to create from simple lists, and convert between the
+EDM and blender axis interpretations.
+"""
 
 try:
   from mathutils import Matrix, Vector, Quaternion
