@@ -21,7 +21,7 @@ import bpy
 
 
 def register():
-  from .importer import register as importer_register
+  from .io_operators import register as importer_register
   from .rna import register as rna_register
   from .panels import register as panels_register
   rna_register()
@@ -30,7 +30,7 @@ def register():
   bpy.utils.register_module(__name__)
   
 def unregister():
-  from .importer import unregister as importer_unregister
+  from .io_operators import unregister as importer_unregister
   from .rna import unregister as rna_unregister
   from .panels import unregister as panels_unregister
   importer_unregister()

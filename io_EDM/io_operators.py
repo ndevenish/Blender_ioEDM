@@ -7,8 +7,10 @@ from bpy.props import ( StringProperty,
                         EnumProperty,
                         FloatProperty,
                       )
-
 import os
+
+import logging
+logger = logging.getLogger(__name__)
 
 class ImportEDM(Operator, ImportHelper):
   bl_idname = "import_mesh.edm"
@@ -33,8 +35,13 @@ class ImportEDM(Operator, ImportHelper):
     if not paths:
       paths.append(self.filepath)
 
-    # Get a nice display name
-    # bpy.path.display_name(os.path.basename(self.filepath))
+    if len(paths) > 1:
+      self.report("ERROR", "Importer cannot handle more than one input file currently")
+      return "CANCELLED"
+    
+    # Import the file
+    logger.warning("Reading EDM file {}".format(paths[0]))
+    
 
     return {'FINISHED'}
 
