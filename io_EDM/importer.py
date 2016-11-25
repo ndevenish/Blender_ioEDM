@@ -8,6 +8,8 @@ from bpy.props import ( StringProperty,
                         FloatProperty,
                       )
 
+import os
+
 class ImportEDM(Operator, ImportHelper):
   bl_idname = "import_mesh.edm"
   bl_label = "Import EDM"
