@@ -12,6 +12,8 @@ def _main(args):
     args = args[myArgumentIndex+1:]
   except StopIteration:
     print("Error: No .EDM files passed for opening. Rememeber to separate from blender arguments with '--'")
+    return -1
+
   print("Reading", args)
 
   default, state = addon_utils.check("io_EDM")
@@ -29,4 +31,5 @@ def _main(args):
   bpy.ops.import_mesh.edm(filepath=args[0])
 
 if __name__ == "__main__":
-  _main(sys.argv)
+  if _main(sys.argv) == -1:
+    sys.exit()
