@@ -1,3 +1,9 @@
+"""
+panels
+
+Contains blender UI panels to allow editing of custom data
+"""
+
 import bpy
 
 

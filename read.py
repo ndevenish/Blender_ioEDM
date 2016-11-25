@@ -2,21 +2,34 @@
 
 import sys
 
+import bpy
+import addon_utils
+
 def _main(args):
   try:
-    import pdb
-    pdb.set_trace()
     myArgumentIndex = next(i for i, v in enumerate(sys.argv) if v == "--")
     args = args[myArgumentIndex+1:]
   except StopIteration:
     print("Error: No .EDM files passed for opening. Rememeber to separate from blender arguments with '--'")
   print("Reading", args)
 
+  default, state = addon_utils.check("io_EDM")
+  if not state:
+    import io_EDM
+    io_EDM.register()
+
+  # Call the import operator
+  bpy.ops.import_mesh.edm(filepath=args[0])
+
 if __name__ == "__main__":
   _main(sys.argv)
 
 sys.exit()
   
+
+
+
+
 # Ensure we have loaded all the EDM meta-tools
 import io_EDM
 io_EDM.register()
