@@ -262,6 +262,16 @@ class Bone(BaseNode):
     self.data = [readMatrixd(reader), readMatrixd(reader)]
     return self
 
+@reads_type("model::ArgAnimatedBone")
+class ArgAnimatedBone(object):
+  @classmethod
+  def read(cls, reader):
+    self = cls()
+    # We can do better than this, but wait until we have more examples
+    self.name = reader.read_string()
+    self.data = reader.read(476)
+    return self
+
 ArgAnimationBase = namedtuple("ArgAnimationBase", ["unknown", "matrix", "position", "quat_1", "quat_2", "scale"])
 
 @reads_type("model::ArgAnimationNode")
