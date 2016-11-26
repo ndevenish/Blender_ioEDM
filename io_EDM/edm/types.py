@@ -210,6 +210,8 @@ class RootNode(object):
     self.name = stream.read_string()
     self.version = stream.read_uint()
     self.properties = read_propertyset(stream)
+    # For some reason this doesn't seem to count as a propertiesset...
+    stream.typecount["model::PropertiesSet"] -= 1
     self.unknown_parts.append(stream.read_uchar())
     self.unknown_parts.append(stream.read_doubles(12))
     self.unknown_parts.append(stream.read(48))
@@ -439,7 +441,10 @@ class LodNode(object):
   @classmethod
   def read(cls, stream):
     self = cls()
-    self.data = stream.read(80)
+    assert stream.read_uints(3) == (0,0,0)
+    count = stream.read_uint()
+    self.level = [stream.read_floats(4) for x in range(count)]
+    stream.mark_type_read("model::LodNode::Level", count)
     return self
 
 @reads_type("model::Connector")
