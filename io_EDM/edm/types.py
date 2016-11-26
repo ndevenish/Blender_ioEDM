@@ -179,8 +179,8 @@ class EDMFile(object):
     # print("Rotation:\n{}".format(argNode.rotData))
 
     # Pause at end of file parsing, before generation
-    import pdb
-    pdb.set_trace()
+    # import pdb
+    # pdb.set_trace()
 
     # Verify we are at the end of the file without unconsumed data.
     endPos = reader.tell()
