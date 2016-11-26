@@ -125,7 +125,10 @@ class EDMFile(object):
     preObjPos = reader.tell()
     objects = {}
     possible_entries = [b"CONNECTORS", b"RENDER_NODES", b"SHELL_NODES"]
-    data = reader.read(max(len(x) for x in possible_entries)+8)
+    possible_entries = sorted(possible_entries, key=lambda x: len(x))
+    
+    data = reader.read(min(len(x) for x in possible_entries)+8)
+    maxLen = max(len(x) for x in possible_entries)+8
     unfound = True
     while unfound:
       for entry in possible_entries:
@@ -137,7 +140,9 @@ class EDMFile(object):
           objects = read_object_list(reader, objCount, entry.decode("utf-8"))
           break
       if unfound:
-        data = data[1:] + reader.read(1)
+        data = data + reader.read(1)
+        if len(data) > maxLen:
+          data = data[-maxLen:]
 
     print("Found object list at {}, gap size = {}".format(objPos, objPos-preObjPos))
 
