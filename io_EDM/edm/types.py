@@ -489,7 +489,9 @@ class RenderNode(BaseNode):
     # Now read the index data
     dataType = stream.read_uchar()
     entries = stream.read_uint()
-    assert stream.read_uint() == 5
+    # We don't know what this is... have observed 5 and 1
+    self.unknown_indexPrefix = stream.read_uint()
+    # assert stream.read_uint() == 5
     if dataType == 0:
       self.indexData = stream.read_uchars(entries)
       stream.mark_type_read("__gi_bytes", entries)
