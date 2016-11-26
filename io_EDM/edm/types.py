@@ -500,8 +500,8 @@ class RenderNode(BaseNode):
   @classmethod
   def read(cls, stream):
     self = cls()
-    self.name = stream.read_string()
     super(RenderNode, cls).read(stream)
+    self.unknown_start = stream.read_uint()
     self.material = stream.read_uint()
     self.parentData = stream.read_list(cls._read_parent_section)
     self.vertexCount = stream.read_uint()
