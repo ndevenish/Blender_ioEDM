@@ -254,6 +254,13 @@ class TransformNode(BaseNode):
     self.matrix = readMatrixd(stream)
     return self
 
+@reads_type("model::Bone")
+class Bone(BaseNode):
+  @classmethod
+  def read(cls, reader):
+    self = super(Bone, cls).read(reader)
+    self.data = [readMatrixd(reader), readMatrixd(reader)]
+    return self
 
 ArgAnimationBase = namedtuple("ArgAnimationBase", ["unknown", "matrix", "position", "quat_1", "quat_2", "scale"])
 
