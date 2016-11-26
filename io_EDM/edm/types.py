@@ -390,10 +390,13 @@ def _read_material_VertexFormat(reader):
   assert channels == 26, "Channel length: {}".format(channels)
 
   # data = [int(x) for x in reader.read(channels)]
-  data = reader.read(channels)
-  # Ensure we don't have any unknown values
-  assert data[2:4] == b'\x00\x00'
-  assert all(x == 0 for x in data[5:])
+  data = reader.read_uchars(channels)
+  # Which channels have data?
+  knownChannels = {0,1,4}
+  dataChannels = {i for i, x in enumerate(data) if x != 0} - knownChannels
+  # assert not dataChannels, "Unknown vertex data channels"
+  if dataChannels:
+    print("Warning: Vertex channel data in unrecognised channels: {}".format(dataChannels))
   vf = VertexFormat(position=int(data[0]), normal=int(data[1]), texture=int(data[4]))
   return vf
 
