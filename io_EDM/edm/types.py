@@ -147,13 +147,15 @@ class EDMFile(object):
     for k in [x for x in rems.keys() if rems[x] == 0]:
       del rems[k]
 
-    print("IndexA items remaining before RENDER_NODES/CONNECTORS: {}".format(rems))
+    if rems:
+      print("IndexA items remaining before RENDER_NODES/CONNECTORS: {}".format(rems))
     cB = Counter({x: c for (x,c) in reader.typecount.items() if x in self.indexB})
     remBs = Counter(self.indexB)
     remBs.subtract(cB)
     for k in [x for x in remBs.keys() if remBs[x] == 0]:
       del remBs[k]
-    print("IndexB items remaining before RENDER_NODES/CONNECTORS: {}".format(remBs))
+    if remBs:
+      print("IndexB items remaining before RENDER_NODES/CONNECTORS: {}".format(remBs))
 
     # Make sure all objects are identified
     assert all(x.encode("utf-8") in possible_entries for x in objects.keys())    
@@ -384,6 +386,9 @@ class ArgVisibilityNode(AnimatingNode):
 
 def _read_material_VertexFormat(reader):
   channels = reader.read_uint()
+  # Just make sure that if this is different, it makes sense
+  assert channels == 26, "Channel length: {}".format(channels)
+
   # data = [int(x) for x in reader.read(channels)]
   data = reader.read(channels)
   # Ensure we don't have any unknown values
@@ -578,7 +583,6 @@ class ShellNode(object):
     assert reader.read_ushort() == 0
     self.vertexCount = reader.read_uint()
     vStride = reader.read_uint()
-    assert vStride == 3
     vData = reader.read_floats(self.vertexCount*vStride)
     reader.mark_type_read("__cv_bytes", 4*len(vData))
     self.vertexData = [vData[i:i+vStride] for i in range(0, len(vData), vStride)]
