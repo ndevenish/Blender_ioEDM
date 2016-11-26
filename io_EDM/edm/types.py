@@ -562,3 +562,27 @@ class RenderNode(BaseNode):
     assert len(section) == 1 or len(section) == 2
     return section
 
+@reads_type("model::ShellNode")
+class ShellNode(object):
+  @classmethod
+  def read(cls, reader):
+    self = cls()
+    self.name = reader.read_string()
+    self.parts = []
+    self.parts.append(reader.read_uints(10))
+    assert reader.read_ushort() == 0
+    self.vertexCount = reader.read_uint()
+    vStride = reader.read_uint()
+    assert vStride == 3
+    vData = reader.read_floats(self.vertexCount*vStride)
+    reader.mark_type_read("__cv_bytes", 4*len(vData))
+    self.vertexData = [vData[i:i+vStride] for i in range(0, len(vData), vStride)]
+
+    # Read the index data
+    assert reader.read_uchar() == 0
+    self.indexCount = reader.read_uint()
+    assert reader.read_uint() == 5
+    self.indexData = reader.read_uchars(self.indexCount)
+    reader.mark_type_read("__ci_bytes", self.indexCount)
+
+    return self
