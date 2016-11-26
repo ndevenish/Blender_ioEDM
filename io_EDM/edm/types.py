@@ -232,7 +232,11 @@ class BaseNode(object):
   @classmethod
   def read(cls, stream):
     node = cls()
-    node.base_data = stream.read_uints(3)
+    # Have now encountered a non-root node with a name..
+    # Which basically confirms that it has at least similar
+    # structure. Now need a third entry with a dictionary...
+    node.name = stream.read_string()
+    node.base_data = stream.read_uints(2)
     return node
 
 @reads_type("model::Node")
