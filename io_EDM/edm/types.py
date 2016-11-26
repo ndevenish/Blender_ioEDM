@@ -501,8 +501,10 @@ class RenderNode(BaseNode):
     else:
       raise IOError("Unknown vertex index type '{}'".format(dataType))
     # Group the index data
-    assert len(self.indexData) % 3 == 0
-    self.indexData = [self.indexData[i:i+3] for i in range(0, len(self.indexData), 3)]
+    if len(self.indexData) % 3 == 0:
+      self.indexData = [self.indexData[i:i+3] for i in range(0, len(self.indexData), 3)]
+    else:
+      print("Warning: Have non-multiple of 3 index data count. Case not understood.")
 
     return self
 
@@ -595,7 +597,7 @@ class ShellNode(object):
     # Read the index data
     assert reader.read_uchar() == 0
     self.indexCount = reader.read_uint()
-    assert reader.read_uint() == 5
+    self.unknown_indexPrefix = reader.read_uint()
     self.indexData = reader.read_uchars(self.indexCount)
     reader.mark_type_read("__ci_bytes", self.indexCount)
 
