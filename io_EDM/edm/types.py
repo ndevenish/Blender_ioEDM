@@ -17,6 +17,7 @@ from abc import ABC
 # VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
 AnimatedProperty = namedtuple("AnimatedProperty", ["name", "id", "keys"])
 Key = namedtuple("Key", ("frame", "value"))
+Texture = namedtuple("Texture", ["unknownA", "name", "unknownB", "matrix"])
 
 class AnimatingNode(ABC):
   """Abstract base class for all nodes that animate the object"""
@@ -61,7 +62,11 @@ def read_named_type(reader):
   typename = reader.read_string()
   # reader.typecount[typename] += 1
   # reader.autoTypeCount[typename] += 1
-  return get_type_reader(typename)(reader)
+  try:
+    return get_type_reader(typename)(reader)
+  except KeyError:
+    print("Error at position {}".format(reader.tell()))
+    raise
 
 def read_string_uint_dict(stream):
   """Reads a dictionary of type String : uint"""
@@ -88,6 +93,13 @@ def read_propertyset(stream):
 class EDMFile(object):
   def __init__(self, filename):
     reader = TrackingReader(filename)
+    try:
+      self._read(reader)
+    except:
+      print("ERROR at {}".format(reader.tell()))
+      raise
+
+  def _read(self, reader):
     reader.read_constant(b'EDM')
     self.version = reader.read_ushort()
     assert self.version == 8, "Unexpected .EDM file version"
@@ -112,20 +124,20 @@ class EDMFile(object):
     # So, search keeping last 20 bytes until we find one of the above
     preObjPos = reader.tell()
     objects = {}
-    data = reader.read(20)
-    while True:
-      if data[-10:] == b"CONNECTORS":
-        objPos = reader.tell()-18
-        objCount = struct.unpack("<I", data[-18:-14])[0]
-        print("objects: {}".format(objCount))
-        objects = read_object_list(reader, objCount, "CONNECTORS")
-        break
-      if data[-12:] == b"RENDER_NODES":
-        objPos = reader.tell()-20
-        objCount = struct.unpack("<I", data[-20:-16])[0]
-        objects = read_object_list(reader, objCount, "RENDER_NODES")
-        break
-      data = data[1:] + reader.read(1)
+    possible_entries = [b"CONNECTORS", b"RENDER_NODES", b"SHELL_NODES"]
+    data = reader.read(max(len(x) for x in possible_entries)+8)
+    unfound = True
+    while unfound:
+      for entry in possible_entries:
+        if data[-len(entry):] == entry:
+          objPos = reader.tell()-8-len(entry)
+          objCount = struct.unpack("<I", data[-len(entry)-8:-len(entry)-4])[0]
+          # print("objects: {}".format(objCount))
+          unfound = False
+          objects = read_object_list(reader, objCount, entry.decode("utf-8"))
+          break
+      if unfound:
+        data = data[1:] + reader.read(1)
 
     print("Found object list at {}, gap size = {}".format(objPos, objPos-preObjPos))
 
@@ -142,11 +154,12 @@ class EDMFile(object):
     for k in [x for x in remBs.keys() if remBs[x] == 0]:
       del remBs[k]
     print("IndexB items remaining before RENDER_NODES/CONNECTORS: {}".format(remBs))
-    
-    
-    assert len(objects) <= 2
+
+    # Make sure all objects are identified
+    assert all(x.encode("utf-8") in possible_entries for x in objects.keys())    
     self.connectors = objects.get("CONNECTORS", [])
     self.renderNodes = objects.get("RENDER_NODES", [])
+    self.shellNodes = objects.get("SHELL_NODES", [])
 
     # Tie each of the renderNodes to the relevant material
     for node in self.renderNodes:
@@ -197,12 +210,10 @@ class RootNode(object):
     self.name = stream.read_string()
     self.version = stream.read_uint()
     self.properties = read_propertyset(stream)
-    print("Unknown A: {}x145".format(stream.tell()))
     self.unknown_parts.append(stream.read_uchar())
     self.unknown_parts.append(stream.read_doubles(12))
     self.unknown_parts.append(stream.read(48))
     self.materials = stream.read_list(Material.read)
-    print("Unknown B: {}x8".format(stream.tell()))
     self.unknown_parts.append(stream.read(8))
     self.nodes = stream.read_list(read_named_type)
     return self
@@ -365,9 +376,6 @@ class ArgVisibilityNode(AnimatingNode):
     stream.mark_type_read("model::ArgVisibilityNode::Arg")
     arg = stream.read_uint()
     count = stream.read_uint()
-    # Not entirely sure of which way round AVN::Arg and ::Range are
-    # as have only ever seen instances where count == 1
-    assert count == 1, "Have seen no examples of count > 1"
     data = [stream.read_doubles(2) for _ in range(count)]
     stream.mark_type_read("model::ArgVisibilityNode::Range", count)
     return (arg, data)
@@ -383,11 +391,11 @@ def _read_material_VertexFormat(reader):
   return vf
 
 def _read_material_texture(reader):
-  reader.read_constant(b"\x00\x00\x00\x00\xff\xff\xff\xff")
+  unknowna = reader.read(8)
   name = reader.read_string()
-  reader.read_constant(b"\x02\x00\x00\x00\x02\x00\x00\x00\n\x00\x00\x00\x06\x00\x00\x00")
+  unknownb = reader.read(16)
   matrix = readMatrixf(reader)
-  return (name, matrix)
+  return Texture(unknowna, name, unknownb, matrix)
 
 def _read_animateduniforms(stream):
   length = stream.read_uint()
@@ -424,6 +432,14 @@ class Material(object):
     self.vertex_format = props["VERTEX_FORMAT"]
     self.name = props["NAME"]
     self.base_material = props["MATERIAL_NAME"]
+    return self
+
+@reads_type("model::LodNode")
+class LodNode(object):
+  @classmethod
+  def read(cls, stream):
+    self = cls()
+    self.data = stream.read(80)
     return self
 
 @reads_type("model::Connector")

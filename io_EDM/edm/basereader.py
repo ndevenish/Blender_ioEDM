@@ -84,6 +84,7 @@ class BaseReader(object):
     """Read a length-prefixed string from the file"""
     prepos = self.stream.tell()
     length = self.read_uint()
+    assert length < 200, "Overly long string length found; {} at {}".format(length, prepos)
     try:
       return self.stream.read(length).decode("UTF-8")
     except UnicodeDecodeError:
