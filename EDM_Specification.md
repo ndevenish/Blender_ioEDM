@@ -412,3 +412,5 @@ unknown but has not been observed
 
 ### Vertex Format
 
+Channel     Represents
+21          Bone data - number of bone references? (appears to be x2 entries in vertex data)

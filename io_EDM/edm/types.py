@@ -171,17 +171,15 @@ class EDMFile(object):
     # Tie each of the renderNodes to the relevant material
     for node in self.renderNodes:
       node.material = self.node.materials[node.material]
-    
+      if isinstance(node, RenderNode):
+        node.split_subobjects()
+
     # Tie each of the connectors to it's parent node
     for conn in self.connectors:
       conn.parent = self.node.nodes[conn.parent]
 
-    # Split subobjects
-    for node in self.renderNodes:
-      node.split_subobjects()
-
     # Assign each of the nodes/children to a parent node
-    for node in self.renderNodes:
+    for node in [x for x in self.renderNodes if isinstance(x, RenderNode)]:
       if len(node.parentData) == 1:
         node.parent = self.node.nodes[node.parentData[0][0]]
       if node.children:
@@ -533,8 +531,7 @@ class RenderNode(BaseNode):
   children = []
   @classmethod
   def read(cls, stream):
-    self = cls()
-    super(RenderNode, cls).read(stream)
+    self = super(RenderNode, cls).read(stream)
     self.unknown_start = stream.read_uint()
     self.material = stream.read_uint()
     self.parentData = stream.read_list(cls._read_parent_section)
@@ -559,14 +556,14 @@ class RenderNode(BaseNode):
     group = self.vertexData[0][3]
     start = 0
     objects = []
-    for i in range(1, self.vertexCount):
+    for i in range(1, len(self.vertexData)):
       if self.vertexData[i][3] != group:
         objects.append((start, i))
         start = i
         group = self.vertexData[i][3]
     # End the final object
     if start != i:
-      objects.append((start, self.vertexCount))
+      objects.append((start, len(self.vertexData)))
 
     # Don't split for one child
     if len(objects) == 1:
@@ -625,12 +622,12 @@ class RenderNode(BaseNode):
 @reads_type("model::ShellNode")
 class ShellNode(object):
   @classmethod
-  def read(cls, reader):
+  def read(cls, stream):
     self = cls()
-    self.name = reader.read_string()
+    self.name = stream.read_string()
     self.parts = []
-    self.parts.append(reader.read_uints(10))
-    assert reader.read_ushort() == 0
+    self.parts.append(stream.read_uints(10))
+    assert stream.read_ushort() == 0
 
     # Read the vertex and index data
     self.vertexData = _read_vertex_data(stream, "__cv_bytes")
