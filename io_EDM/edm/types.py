@@ -235,7 +235,14 @@ class BaseNode(object):
     # Which basically confirms that it has at least similar
     # structure. Now need a third entry with a dictionary...
     node.name = stream.read_string()
-    node.base_data = stream.read_uints(2)
+    node.base_unknown = stream.read_uint()
+    # Read the potential Propertiesset-like dictionary
+    propCount = stream.read_uint()
+    props = {}
+    for _ in range(propCount):
+      prop = read_named_type(stream)
+      props[prop.name] = prop.value
+    node.props = props
     return node
 
 @reads_type("model::Node")
@@ -400,7 +407,7 @@ def _read_apv3(stream):
   name = stream.read_string()
   arg = stream.read_uint()
   count = stream.read_uint()
-  keys = [get_type_reader("model::Key<key::VECTOR3F>")(stream) for _ in range(count)]
+  keys = [get_type_reader("model::Key<key::VEC3F>")(stream) for _ in range(count)]
   # unk = data.read_format("<8f")
   return AnimatedProperty(name, arg, keys)
 
@@ -416,7 +423,7 @@ class FloatKey(object):
   def __repr__(self):
     return "Key(frame={}, value={})".format(self.frame, repr(self.value))
 
-@reads_type("model::Key<key::VECTOR3F>")
+@reads_type("model::Key<key::VEC3F>")
 class Vec3fKey(object):
   @classmethod
   def read(cls, stream):
@@ -644,6 +651,7 @@ class RenderNode(BaseNode):
 
   @classmethod
   def _read_parent_section(cls, stream):
+    startpos = stream.tell()
     # Read uint values until we get -1 (signed)
     # This will either be <uint> <-1> or <uint> <uint> <-1>
     def _read_to_next_negative():
