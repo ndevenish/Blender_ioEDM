@@ -3,7 +3,7 @@
 # from .typereader import Property, allow_properties, reads_type
 # from collections import namedtuple
 
-from .typereader import reads_type, readMatrixf, readMatrixd, readQuaternion, readVec3d, readVec3f
+from .typereader import reads_type, readMatrixf, readMatrixd, readQuaternion, readVec3d, readVec3f, readVec2f
 from .typereader import get_type_reader as _tr_get_type_reader
 from .basereader import BaseReader
 
@@ -410,6 +410,16 @@ def _read_apv3(stream):
   # unk = data.read_format("<8f")
   return AnimatedProperty(name, arg, keys)
 
+@reads_type("model::AnimatedProperty<osg::Vec2f>")
+def _read_apv2f(stream):
+  name = stream.read_string()
+  arg = stream.read_uint()
+  count = stream.read_uint()
+  keys = [get_type_reader("model::Key<key::VEC2F>")(stream) for _ in range(count)]
+  # unk = data.read_format("<8f")
+  return AnimatedProperty(name, arg, keys)
+
+# readVec2f
 
 @reads_type("model::Key<key::FLOAT>")
 class FloatKey(object):
@@ -432,6 +442,19 @@ class Vec3fKey(object):
     return self
   def __repr__(self):
     return "Key(frame={}, value={})".format(self.frame, repr(self.value))
+
+
+@reads_type("model::Key<key::VEC2F>")
+class Vec2fKey(object):
+  @classmethod
+  def read(cls, stream):
+    self = cls()
+    self.frame = stream.read_double()
+    self.value = readVec2f(stream)
+    return self
+  def __repr__(self):
+    return "Key(frame={}, value={})".format(self.frame, repr(self.value))
+
 
 @reads_type("model::ArgVisibilityNode")
 class ArgVisibilityNode(AnimatingNode):
