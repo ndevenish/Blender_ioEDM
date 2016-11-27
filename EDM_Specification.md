@@ -69,8 +69,9 @@ prefixed strings, *without* trailing null character:
       unsigned_int count
       char         data[count];
 
-Strings are particularly important in understanding one of the most common
-patterns in EDM files, the `named_type`:
+And the character data is encoded in **windows-1251** encoding. Strings are
+particularly important in understanding one of the most common patterns in EDM
+files, the `named_type`:
 
     named_type :=
       string    typeName;
