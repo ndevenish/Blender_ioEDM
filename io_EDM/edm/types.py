@@ -233,7 +233,7 @@ class BaseNode(object):
     # Which basically confirms that it has at least similar
     # structure. Now need a third entry with a dictionary...
     node.name = stream.read_string()
-    node.base_unknown = stream.read_uint()
+    node.version = stream.read_uint()
     # Read the potential Propertiesset-like dictionary
     propCount = stream.read_uint()
     props = {}
