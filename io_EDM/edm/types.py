@@ -608,16 +608,12 @@ class RenderNode(BaseNode):
   @classmethod
   def _read_parent_section(cls, stream):
     startpos = stream.tell()
+    
     # Read uint values until we get -1 (signed)
     # This will either be <uint> <-1> or <uint> <uint> <-1>
-    def _read_to_next_negative():
-      data  = stream.read_uint()
-      if data == uint_negative_one:
-        return []
-      else:
-        return [data] + _read_to_next_negative()
-    section = _read_to_next_negative()
-    assert len(section) == 1 or len(section) == 2
+    section = list(iter(stream.read_uint, uint_negative_one))
+
+    assert len(section) == 1 or len(section) == 2, "Error: {} length section (starting at {})".format(len(section), startpos)
     return section
 
 @reads_type("model::ShellNode")
