@@ -138,6 +138,7 @@ class EDMFile(object):
       for entry in possible_entries:
         if data[-len(entry):] == entry:
           objPos = reader.tell()-8-len(entry)
+          print("Found object list at {}, gap size = {}".format(objPos, objPos-preObjPos))
           objCount = struct.unpack("<I", data[-len(entry)-8:-len(entry)-4])[0]
           # print("objects: {}".format(objCount))
           unfound = False
@@ -147,8 +148,6 @@ class EDMFile(object):
         data = data + reader.read(1)
         if len(data) > maxLen:
           data = data[-maxLen:]
-
-    print("Found object list at {}, gap size = {}".format(objPos, objPos-preObjPos))
 
     # Validate against the index
     rems = Counter(self.indexA)
