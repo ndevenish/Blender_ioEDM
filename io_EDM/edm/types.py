@@ -79,9 +79,15 @@ def read_string_uint_dict(stream):
 
 def read_propertyset(stream):
   """Reads a typed list of properties and returns as an ordered dict"""
-  length = stream.read_uint()
-  if length > 0:
+  data = read_raw_propertiesset(stream)
+  if data:
     stream.mark_type_read("model::PropertiesSet")
+  return data
+
+
+def read_raw_propertiesset(stream):
+  # Read the potential Propertiesset-like dictionary
+  length = stream.read_uint()
   data = OrderedDict()
   for _ in range(length):
     prop = read_named_type(stream)
@@ -203,27 +209,6 @@ class EDMFile(object):
     if len(reader.read(1)) != 0:
       print("Warning: Ended parse at {} but still have data remaining".format(endPos))
 
-@reads_type("model::RootNode")
-class RootNode(object):
-  unknown_parts = []
-  @classmethod
-  def read(cls, stream):
-    # stream.mark_type_read("model::RootNode")
-    self = cls()
-    self.name = stream.read_string()
-    self.version = stream.read_uint()
-    self.properties = read_propertyset(stream)
-    # For some reason this doesn't seem to count as a propertiesset...
-    stream.typecount["model::PropertiesSet"] -= 1
-    self.unknown_parts.append(stream.read_uchar())
-    self.unknown_parts.append(stream.read_doubles(12))
-    self.unknown_parts.append(stream.read(48))
-    self.materials = stream.read_list(Material.read)
-    self.unknown_parts.append(stream.read(8))
-    self.nodes = stream.read_list(read_named_type)
-
-    return self
-
 @reads_type("model::BaseNode")
 class BaseNode(object):
   @classmethod
@@ -234,14 +219,25 @@ class BaseNode(object):
     # structure. Now need a third entry with a dictionary...
     node.name = stream.read_string()
     node.version = stream.read_uint()
-    # Read the potential Propertiesset-like dictionary
-    propCount = stream.read_uint()
-    props = {}
-    for _ in range(propCount):
-      prop = read_named_type(stream)
-      props[prop.name] = prop.value
-    node.props = props
+    node.props = read_raw_propertiesset(stream)
     return node
+
+@reads_type("model::RootNode")
+class RootNode(BaseNode):
+  unknown_parts = []
+  @classmethod
+  def read(cls, stream):
+    self = super(RootNode, cls).read(stream)
+    self.unknown_parts.append(stream.read_uchar())
+    self.unknown_parts.append(stream.read_doubles(12))
+    self.unknown_parts.append(stream.read(48))
+    self.materials = stream.read_list(Material.read)
+    stream.materials = self.materials
+    self.unknown_parts.append(stream.read(8))
+    self.nodes = stream.read_list(read_named_type)
+    stream.nodes = self.nodes
+    print("NodeCount: {}".format(len(self.nodes)))
+    return self
 
 @reads_type("model::Node")
 class Node(BaseNode):
@@ -269,11 +265,10 @@ class Bone(BaseNode):
 ArgAnimationBase = namedtuple("ArgAnimationBase", ["matrix", "position", "quat_1", "quat_2", "scale"])
 
 @reads_type("model::ArgAnimationNode")
-class ArgAnimationNode(AnimatingNode):
+class ArgAnimationNode(BaseNode, AnimatingNode):
   @classmethod
   def read(cls, stream):
-    self = cls()
-    self.name = stream.read_string()
+    self = super(ArgAnimationNode, cls).read(stream)
     self.base = self._read_base_data(stream)
     self.posData = stream.read_list(ArgPositionNode._read_AANPositionArg)
     self.rotData = stream.read_list(ArgRotationNode._read_AANRotationArg)
@@ -283,7 +278,6 @@ class ArgAnimationNode(AnimatingNode):
   def _read_base_data(self, stream):
     # base_data = stream.read(248)
     data = {}
-    stream.read(8)
     data["matrix"] = readMatrixd(stream)
     data["position"] = readVec3d(stream)
     data["quat_1"] = readQuaternion(stream)
@@ -391,12 +385,10 @@ class ScaleKey(object):
     return "Key(frame={}, value={})".format(self.frame, repr(self.value))
 
 @reads_type("model::ArgVisibilityNode")
-class ArgVisibilityNode(AnimatingNode):
+class ArgVisibilityNode(BaseNode, AnimatingNode):
   @classmethod
   def read(cls, stream):
-    self = cls()
-    self.name = stream.read_string()
-    self.unknown = stream.read(8)
+    self = super(ArgVisibilityNode, cls).read(stream)
     self.visData = stream.read_list(cls._read_AANVisibilityArg)
     return self
 
