@@ -261,17 +261,7 @@ class Bone(BaseNode):
     self.data = [readMatrixd(reader), readMatrixd(reader)]
     return self
 
-@reads_type("model::ArgAnimatedBone")
-class ArgAnimatedBone(object):
-  @classmethod
-  def read(cls, reader):
-    self = cls()
-    # We can do better than this, but wait until we have more examples
-    self.name = reader.read_string()
-    self.data = reader.read(476)
-    return self
-
-ArgAnimationBase = namedtuple("ArgAnimationBase", ["unknown", "matrix", "position", "quat_1", "quat_2", "scale"])
+ArgAnimationBase = namedtuple("ArgAnimationBase", ["matrix", "position", "quat_1", "quat_2", "scale"])
 
 @reads_type("model::ArgAnimationNode")
 class ArgAnimationNode(AnimatingNode):
@@ -290,13 +280,22 @@ class ArgAnimationNode(AnimatingNode):
   def _read_base_data(self, stream):
     # base_data = stream.read(248)
     data = {}
-    data["unknown"] = stream.read(8)
+    stream.read(8)
     data["matrix"] = readMatrixd(stream)
     data["position"] = readVec3d(stream)
     data["quat_1"] = readQuaternion(stream)
     data["quat_2"] = readQuaternion(stream)
     data["scale"] = readVec3d(stream)
     return ArgAnimationBase(**data)
+
+
+@reads_type("model::ArgAnimatedBone")
+class ArgAnimatedBone(ArgAnimationNode):
+  @classmethod
+  def read(cls, stream):
+    self = super(ArgAnimatedBone, cls).read(stream)
+    self.boneTransform = readMatrixd(stream)
+    return self
 
 @reads_type("model::ArgRotationNode")
 class ArgRotationNode(ArgAnimationNode):
