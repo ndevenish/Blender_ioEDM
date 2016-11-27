@@ -15,8 +15,6 @@ from .mathtypes import Vector, sequence_to_matrix
 from abc import ABC
 
 # VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
-AnimatedProperty = namedtuple("AnimatedProperty", ["name", "id", "keys"])
-Key = namedtuple("Key", ("frame", "value"))
 Texture = namedtuple("Texture", ["unknownA", "name", "unknownB", "matrix"])
 
 class AnimatingNode(ABC):
@@ -392,70 +390,6 @@ class ScaleKey(object):
   def __repr__(self):
     return "Key(frame={}, value={})".format(self.frame, repr(self.value))
 
-@reads_type("model::AnimatedProperty<float>")
-def _read_apf(stream):
-  name = stream.read_string()
-  iVal = stream.read_uint()
-  count = stream.read_uint()
-  keys = [get_type_reader("model::Key<key::FLOAT>")(stream) for _ in range(count)]
-  # unk = data.read_format("<8f")
-  return AnimatedProperty(name, iVal, keys)
-
-@reads_type("model::AnimatedProperty<osg::Vec3f>")
-def _read_apv3(stream):
-  name = stream.read_string()
-  arg = stream.read_uint()
-  count = stream.read_uint()
-  keys = [get_type_reader("model::Key<key::VEC3F>")(stream) for _ in range(count)]
-  # unk = data.read_format("<8f")
-  return AnimatedProperty(name, arg, keys)
-
-@reads_type("model::AnimatedProperty<osg::Vec2f>")
-def _read_apv2f(stream):
-  name = stream.read_string()
-  arg = stream.read_uint()
-  count = stream.read_uint()
-  keys = [get_type_reader("model::Key<key::VEC2F>")(stream) for _ in range(count)]
-  # unk = data.read_format("<8f")
-  return AnimatedProperty(name, arg, keys)
-
-# readVec2f
-
-@reads_type("model::Key<key::FLOAT>")
-class FloatKey(object):
-  @classmethod
-  def read(cls, stream):
-    self = cls()
-    self.frame = stream.read_double()
-    self.value = stream.read_float()
-    return self
-  def __repr__(self):
-    return "Key(frame={}, value={})".format(self.frame, repr(self.value))
-
-@reads_type("model::Key<key::VEC3F>")
-class Vec3fKey(object):
-  @classmethod
-  def read(cls, stream):
-    self = cls()
-    self.frame = stream.read_double()
-    self.value = readVec3f(stream)
-    return self
-  def __repr__(self):
-    return "Key(frame={}, value={})".format(self.frame, repr(self.value))
-
-
-@reads_type("model::Key<key::VEC2F>")
-class Vec2fKey(object):
-  @classmethod
-  def read(cls, stream):
-    self = cls()
-    self.frame = stream.read_double()
-    self.value = readVec2f(stream)
-    return self
-  def __repr__(self):
-    return "Key(frame={}, value={})".format(self.frame, repr(self.value))
-
-
 @reads_type("model::ArgVisibilityNode")
 class ArgVisibilityNode(AnimatingNode):
   @classmethod
@@ -503,7 +437,7 @@ def _read_animateduniforms(stream):
   data = OrderedDict()
   for _ in range(length):
     prop = read_named_type(stream)
-    data[prop.name] = (prop.id, prop.keys)
+    data[prop.name] = prop
   return data
 
 # Lookup table for material reading types

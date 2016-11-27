@@ -11,7 +11,10 @@ from .mathtypes import Vector, Matrix, Quaternion, sequence_to_matrix
 
 _typeReaders = {}
 
+
 Property = namedtuple("Property", ["name", "value"])
+AnimatedProperty = namedtuple("AnimatedProperty", ["name", "argument", "keys"])
+Keyframe = namedtuple("Keyframe", ("frame", "value"))
 
 def get_type_reader(typeName):
   try:
@@ -26,6 +29,22 @@ def generate_property_reader(generic_type):
     return Property(name, data)
   return _read_property
 
+def generate_keyframe_reader(generic_type):
+  def _read_keyframe(stream):
+    frame = stream.read_double()
+    value = get_type_reader(generic_type)(stream)
+    return Keyframe(frame=frame, value=value)
+  return _read_keyframe
+
+def generate_animated_property_reader(keyframe_type):
+  def _read_animatedproperty(stream):
+    name = stream.read_string()
+    argument = stream.read_uint()
+    count = stream.read_uint()
+    reader = get_type_reader(keyframe_type)
+    keys = [reader(stream) for _ in range(count)]
+    return AnimatedProperty(name=name, argument=argument, keys=keys)
+  return _read_animatedproperty
 
 def reads_type(withName):
   """Simple registration function to read named type objects"""
@@ -46,6 +65,14 @@ def allow_properties(w):
   _typeReaders[name] = generate_property_reader(w.forTypeName)
   return w
 
+def animatable(keyname):
+  def _wrapper(fn):
+    keyframe_type = "model::Key<{}>".format(keyname)
+    prop_type = "model::AnimatedProperty<{}>".format(fn.forTypeName)
+    _typeReaders[keyframe_type] = generate_keyframe_reader(fn.forTypeName)
+    _typeReaders[prop_type] = generate_animated_property_reader(keyframe_type)
+    return fn
+  return _wrapper
 # Vector2 = namedtuple("Vector2", ["x", "y"])
 # Vector3 = namedtuple("Vector3", ["x", "y", "z"])
 
@@ -54,16 +81,19 @@ def allow_properties(w):
 def _read_uint(data):
   return data.read_uint()
 
+@animatable(keyname="key::FLOAT")
 @allow_properties
 @reads_type("float")
 def read_prop_float(data):
   return data.read_float()
 
+@animatable(keyname="key::VEC2F")
 @allow_properties
 @reads_type("osg::Vec2f")
 def readVec2f(data):
   return Vector(data.read_format("<ff"))
 
+@animatable(keyname="key::VEC3F")
 @allow_properties
 @reads_type("osg::Vec3f")
 def readVec3f(data):
