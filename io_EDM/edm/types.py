@@ -352,8 +352,7 @@ class ArgScaleNode(ArgAnimationNode):
     # keys = [get_type_reader("model::Key<key::SCALE>")(stream) for _ in range(count)]
     keys = [ScaleKey.read(stream, 4) for _ in range(count)]
     count2 = stream.read_uint()
-    # Just make sure this is right
-    assert count2 == 2
+    # Second set of keys only has three components...?
     key2s = [ScaleKey.read(stream, 3) for _ in range(count2)]
     # print("Edn of scale arg at ", steam.tell())
     return (arg, (keys, key2s))
