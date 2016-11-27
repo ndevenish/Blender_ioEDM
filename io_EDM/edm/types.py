@@ -3,7 +3,7 @@
 # from .typereader import Property, allow_properties, reads_type
 # from collections import namedtuple
 
-from .typereader import reads_type, readMatrixf, readMatrixd, readQuaternion, readVec3d
+from .typereader import reads_type, readMatrixf, readMatrixd, readQuaternion, readVec3d, readVec3f
 from .typereader import get_type_reader as _tr_get_type_reader
 from .basereader import BaseReader
 
@@ -272,9 +272,7 @@ class ArgAnimationNode(AnimatingNode):
     self.base = self._read_base_data(stream)
     self.posData = stream.read_list(ArgPositionNode._read_AANPositionArg)
     self.rotData = stream.read_list(ArgRotationNode._read_AANRotationArg)
-    # Appears to be scale data, which we don't have examples of yet -
-    # expect a constant until we do
-    assert stream.read_uint() == 0
+    self.scaleData = stream.read_list(ArgScaleNode._read_AANScaleArg)
     return self
 
   def _read_base_data(self, stream):
@@ -336,15 +334,23 @@ class ArgScaleNode(ArgAnimationNode):
   @classmethod
   def read(cls, stream):
     stream.mark_type_read("model::ArgAnimationNode")
-    self = cls()
-    self.name = stream.read_string()
-    self.base = self._read_base_data(stream)
-    self.posData = []
-    self.rotData = []
-    # ASSUME that it is layed out in a similar way, but have no non-null examples.
-    # So, until we do, assert that this is zero always
-    assert all(x == 0 for x in stream.read(12))
-    return self
+    return super(ArgScaleNode, cls).read(stream)
+
+  @classmethod
+  def _read_AANScaleArg(cls, stream):
+    stream.mark_type_read("model::ArgAnimationNode::Scale")
+    arg = stream.read_uint()
+    count = stream.read_uint()
+    # Weirdly seems to be two sets of keys; one with 4-components and one with three
+    # keys = [get_type_reader("model::Key<key::SCALE>")(stream) for _ in range(count)]
+    keys = [ScaleKey.read(stream, 4) for _ in range(count)]
+    count2 = stream.read_uint()
+    # Just make sure this is right
+    assert count2 == 2
+    key2s = [ScaleKey.read(stream, 3) for _ in range(count2)]
+    # print("Edn of scale arg at ", steam.tell())
+    return (arg, (keys, key2s))
+
 
 @reads_type("model::Key<key::ROTATION>")
 class RotationKey(object):
@@ -369,6 +375,17 @@ class PositionKey(object):
   def __repr__(self):
     return "Key(frame={}, value={})".format(self.frame, repr(self.value))
 
+@reads_type("model::Key<key::SCALE>")
+class ScaleKey(object):
+  @classmethod
+  def read(cls, stream, entrylength):
+    self = cls()
+    self.frame = stream.read_double()
+    self.value = Vector(stream.read_doubles(entrylength))
+    return self
+  def __repr__(self):
+    return "Key(frame={}, value={})".format(self.frame, repr(self.value))
+
 @reads_type("model::AnimatedProperty<float>")
 def _read_apf(stream):
   name = stream.read_string()
@@ -378,6 +395,16 @@ def _read_apf(stream):
   # unk = data.read_format("<8f")
   return AnimatedProperty(name, iVal, keys)
 
+@reads_type("model::AnimatedProperty<osg::Vec3f>")
+def _read_apv3(stream):
+  name = stream.read_string()
+  arg = stream.read_uint()
+  count = stream.read_uint()
+  keys = [get_type_reader("model::Key<key::VECTOR3F>")(stream) for _ in range(count)]
+  # unk = data.read_format("<8f")
+  return AnimatedProperty(name, arg, keys)
+
+
 @reads_type("model::Key<key::FLOAT>")
 class FloatKey(object):
   @classmethod
@@ -385,6 +412,17 @@ class FloatKey(object):
     self = cls()
     self.frame = stream.read_double()
     self.value = stream.read_float()
+    return self
+  def __repr__(self):
+    return "Key(frame={}, value={})".format(self.frame, repr(self.value))
+
+@reads_type("model::Key<key::VECTOR3F>")
+class Vec3fKey(object):
+  @classmethod
+  def read(cls, stream):
+    self = cls()
+    self.frame = stream.read_double()
+    self.value = readVec3f(stream)
     return self
   def __repr__(self):
     return "Key(frame={}, value={})".format(self.frame, repr(self.value))
