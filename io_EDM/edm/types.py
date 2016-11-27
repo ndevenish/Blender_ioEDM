@@ -653,3 +653,15 @@ class SkinNode(BaseNode):
     self.unknown_indexPrefix, self.indexData = _read_index_data(stream, classification="__gi_bytes")
 
     return self
+
+@reads_type("model::SegmentsNode")
+class SegmentsNode(BaseNode):
+  @classmethod
+  def read(cls, stream):
+    self = super(SegmentsNode, cls).read(stream)
+    self.unknown = stream.read_uint()
+    count = stream.read_uint()
+    self.data = [stream.read_floats(6) for x in range(count)]
+    stream.mark_type_read("model::SegmentsNode::Segments", count)
+    return self
+
