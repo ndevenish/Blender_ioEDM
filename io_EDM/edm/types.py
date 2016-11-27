@@ -225,6 +225,7 @@ class RootNode(object):
     self.materials = stream.read_list(Material.read)
     self.unknown_parts.append(stream.read(8))
     self.nodes = stream.read_list(read_named_type)
+
     return self
 
 @reads_type("model::BaseNode")
@@ -419,7 +420,7 @@ def _read_material_VertexFormat(reader):
   data = reader.read_uchars(channels)
   # Which channels have data?
   knownChannels = {0,1,4}
-  dataChannels = {i for i, x in enumerate(data) if x != 0} - knownChannels
+  dataChannels = {i: x for i, x in enumerate(data) if x != 0 and not i in knownChannels} 
   # assert not dataChannels, "Unknown vertex data channels"
   if dataChannels:
     print("Warning: Vertex channel data in unrecognised channels: {}".format(dataChannels))
@@ -494,6 +495,39 @@ class Connector(object):
 
 uint_negative_one = struct.unpack("<I", struct.pack("<i", -1))[0]
 
+def _read_index_data(stream, classification=None):
+  "Performs the common index-reading operation"
+  dataType = stream.read_uchar()
+  entries = stream.read_uint()
+  unknown = stream.read_uint()
+
+  if dataType == 0:
+    data = stream.read_uchars(entries)
+    _bytes = entries
+  elif dataType == 1:
+    data = stream.read_ushorts(entries)
+    _bytes = entries * 2
+  else:
+    raise IOError("Don't know how to read index data type ", dataType)
+
+  if classification:
+    stream.mark_type_read(classification, _bytes)
+
+  return (unknown, data)
+
+def _read_vertex_data(stream, classification=None):
+  count = stream.read_uint()
+  stride = stream.read_uint()
+  vtxData = stream.read_floats(count*stride)
+
+  # If given a classification, mark it off
+  if classification:
+    stream.mark_type_read(classification, count*stride*4)
+
+  # Group the vertex data according to stride
+  vtxData = [vtxData[i:i+stride] for i in range(0, len(vtxData), stride)]
+  return vtxData
+
 @reads_type("model::RenderNode")
 class RenderNode(BaseNode):
   children = []
@@ -504,28 +538,11 @@ class RenderNode(BaseNode):
     self.unknown_start = stream.read_uint()
     self.material = stream.read_uint()
     self.parentData = stream.read_list(cls._read_parent_section)
-    self.vertexCount = stream.read_uint()
-    self.vertexStride = stream.read_uint()
-    # Read and group this according to stride
-    vtx = stream.read_floats(self.vertexCount * self.vertexStride)
-    stream.mark_type_read("__gv_bytes", len(vtx)*4)
-    n = self.vertexStride
-    self.vertexData = [vtx[i:i+n] for i in range(0, len(vtx), n)]
 
-    # Now read the index data
-    dataType = stream.read_uchar()
-    entries = stream.read_uint()
-    # We don't know what this is... have observed 5 and 1
-    self.unknown_indexPrefix = stream.read_uint()
-    # assert stream.read_uint() == 5
-    if dataType == 0:
-      self.indexData = stream.read_uchars(entries)
-      stream.mark_type_read("__gi_bytes", entries)
-    elif dataType == 1:
-      self.indexData = stream.read_ushorts(entries)
-      stream.mark_type_read("__gi_bytes", entries*2)
-    else:
-      raise IOError("Unknown vertex index type '{}'".format(dataType))
+    # Read the vertex and index data
+    self.vertexData = _read_vertex_data(stream, "__gv_bytes")
+    self.unknown_indexPrefix, self.indexData = _read_index_data(stream, classification="__gi_bytes")
+
     # Group the index data
     if len(self.indexData) % 3 == 0:
       self.indexData = [self.indexData[i:i+3] for i in range(0, len(self.indexData), 3)]
@@ -614,17 +631,29 @@ class ShellNode(object):
     self.parts = []
     self.parts.append(reader.read_uints(10))
     assert reader.read_ushort() == 0
-    self.vertexCount = reader.read_uint()
-    vStride = reader.read_uint()
-    vData = reader.read_floats(self.vertexCount*vStride)
-    reader.mark_type_read("__cv_bytes", 4*len(vData))
-    self.vertexData = [vData[i:i+vStride] for i in range(0, len(vData), vStride)]
 
-    # Read the index data
-    assert reader.read_uchar() == 0
-    self.indexCount = reader.read_uint()
-    self.unknown_indexPrefix = reader.read_uint()
-    self.indexData = reader.read_uchars(self.indexCount)
-    reader.mark_type_read("__ci_bytes", self.indexCount)
+    # Read the vertex and index data
+    self.vertexData = _read_vertex_data(stream, "__cv_bytes")
+    self.unknown_indexPrefix, self.indexData = _read_index_data(stream, classification="__ci_bytes")
+
+    return self
+
+@reads_type("model::SkinNode")
+class SkinNode(BaseNode):
+  @classmethod
+  def read(cls, stream):
+    self = super(SkinNode, cls).read(stream)
+    self.unknown = stream.read_uint()
+    self.material = stream.read_uint()
+    # This... appears to be slightly similar to the 'parent'
+    # structure on renderNode, but just seems to be a single
+    # (-1)-terminated list
+    parentCount = stream.read_uint()
+    self.parentlike = stream.read_uints(parentCount)
+    assert stream.read_int() == -1
+
+    # Read the vertex and index data
+    self.vertexData = _read_vertex_data(stream, "__gv_bytes")
+    self.unknown_indexPrefix, self.indexData = _read_index_data(stream, classification="__gi_bytes")
 
     return self
