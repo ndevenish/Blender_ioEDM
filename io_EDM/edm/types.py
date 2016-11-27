@@ -534,7 +534,18 @@ class RenderNode(BaseNode):
     self = super(RenderNode, cls).read(stream)
     self.unknown_start = stream.read_uint()
     self.material = stream.read_uint()
-    self.parentData = stream.read_list(cls._read_parent_section)
+
+    # Read parent data, and ensure that all entries are the same size
+    print("Start oarent data ", stream.tell())
+    pCount = stream.read_uint()
+    parentData = []
+    for _ in range(pCount):
+      if not parentData:
+        parentData = [cls._read_parent_section(stream)]
+      else:
+        parentData.append(cls._read_parent_section(stream, size=len(parentData[0])))
+    self.parentData = parentData
+    print("End Parent data ", stream.tell(), len(self.parentData), self.parentData)
 
     # Read the vertex and index data
     self.vertexData = _read_vertex_data(stream, "__gv_bytes")
@@ -606,14 +617,18 @@ class RenderNode(BaseNode):
     self.children = children
 
   @classmethod
-  def _read_parent_section(cls, stream):
+  def _read_parent_section(cls, stream, size=None):
     startpos = stream.tell()
     
-    # Read uint values until we get -1 (signed)
-    # This will either be <uint> <-1> or <uint> <uint> <-1>
-    section = list(iter(stream.read_uint, uint_negative_one))
+    if size is None:
+      # Read uint values until we get -1 (signed)
+      # This will either be <uint> <-1> or <uint> <uint> <-1>
+      section = list(iter(stream.read_uint, uint_negative_one)) + [-1]
 
-    assert len(section) == 1 or len(section) == 2, "Error: {} length section (starting at {})".format(len(section), startpos)
+      assert len(section) == 2 or len(section) == 3, "Error: {} length section (starting at {})".format(len(section), startpos)
+    else:
+      return stream.read_uints(size)
+
     return section
 
 @reads_type("model::ShellNode")

@@ -41,6 +41,17 @@ MATERIALLIST :=
   uint length
   model::Material defs[length]
 
+named_type := 
+  uint_string typeName;
+  $typeName entry;
+
+"model::Property<unsigned int>" :=
+  uint_string name
+  uint value
+
+
+
+
 model::Material :=
   uint length
   MATERIALDEF defs[length]
