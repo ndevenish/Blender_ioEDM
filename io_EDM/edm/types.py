@@ -525,6 +525,19 @@ def _read_vertex_data(stream, classification=None):
   vtxData = [vtxData[i:i+stride] for i in range(0, len(vtxData), stride)]
   return vtxData
 
+def _read_parent_data(stream):
+    # Read the parent section
+  parentCount = stream.read_uint()
+  if parentCount == 1:
+    return [stream.read_uint(), stream.read_int()]
+  else:
+    parentData = []
+    for _ in range(parentCount):
+      node = stream.read_uint()
+      ranges = list(stream.read_ints(2))
+      parentData.append((node, ranges[0], ranges[1]))
+    return parentData
+
 @reads_type("model::RenderNode")
 class RenderNode(BaseNode):
   children = []
@@ -534,16 +547,7 @@ class RenderNode(BaseNode):
     self.unknown_start = stream.read_uint()
     self.material = stream.read_uint()
 
-    # Read the parent section
-    parentCount = stream.read_uint()
-    if parentCount == 1:
-      self.parentData = [stream.read_uint(), stream.read_int()]
-    else:
-      self.parentData = []
-      for _ in range(parentCount):
-        node = stream.read_uint()
-        ranges = list(stream.read_ints(2))
-        self.parentData.append((node, ranges[0], ranges[1]))
+    self.parentData = _read_parent_data(stream)
 
     # Read the vertex and index data
     self.vertexData = _read_vertex_data(stream, "__gv_bytes")
@@ -633,12 +637,10 @@ class SkinNode(BaseNode):
     self = super(SkinNode, cls).read(stream)
     self.unknown = stream.read_uint()
     self.material = stream.read_uint()
-    # This... appears to be slightly similar to the 'parent'
-    # structure on renderNode, but just seems to be a single
-    # (-1)-terminated list
-    parentCount = stream.read_uint()
-    self.parentlike = stream.read_uints(parentCount)
-    assert stream.read_int() == -1
+
+    boneCount = stream.read_uint()
+    self.bones = stream.read_uints(boneCount)
+    self.post_bone = stream.read_uint()
 
     # Read the vertex and index data
     self.vertexData = _read_vertex_data(stream, "__gv_bytes")
