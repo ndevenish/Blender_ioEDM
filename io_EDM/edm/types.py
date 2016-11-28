@@ -486,6 +486,7 @@ uint_negative_one = struct.unpack("<I", struct.pack("<i", -1))[0]
 
 def _read_index_data(stream, classification=None):
   "Performs the common index-reading operation"
+  dtPos = stream.tell()
   dataType = stream.read_uchar()
   entries = stream.read_uint()
   unknown = stream.read_uint()
@@ -496,8 +497,11 @@ def _read_index_data(stream, classification=None):
   elif dataType == 1:
     data = stream.read_ushorts(entries)
     _bytes = entries * 2
+  elif dataType == 2:
+    data = stream.read_uints(entries)
+    _bytes = entries * 4
   else:
-    raise IOError("Don't know how to read index data type ", dataType)
+    raise IOError("Don't know how to read index data type {} @ {}".format(int(dataType), dtPos))
 
   if classification:
     stream.mark_type_read(classification, _bytes)
