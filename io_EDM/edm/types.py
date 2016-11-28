@@ -148,7 +148,11 @@ class EDMFile(object):
           objects = read_object_list(reader, objCount, entry.decode("utf-8"))
           break
       if unfound:
-        data = data + reader.read(1)
+        newData = reader.read(1)
+        if len(newData) == 0:
+          print("Found EOF without finding object list")
+          break
+        data = data + newData
         if len(data) > maxLen:
           data = data[-maxLen:]
 
@@ -178,34 +182,10 @@ class EDMFile(object):
     # Tie each of the renderNodes to the relevant material
     for node in self.renderNodes:
       node.material = self.node.materials[node.material]
-      if isinstance(node, RenderNode):
-        node.split_subobjects()
 
     # Tie each of the connectors to it's parent node
     for conn in self.connectors:
       conn.parent = self.node.nodes[conn.parent]
-
-    # Assign each of the nodes/children to a parent node
-    for node in [x for x in self.renderNodes if isinstance(x, RenderNode)]:
-      if len(node.parentData) == 1:
-        node.parent = self.node.nodes[node.parentData[0][0]]
-      if node.children:
-        for child in node.children:
-          child.parent = self.node.nodes[child.parentData[0]]
-
-    # Read and dump information about the render arg node
-    # argNode = self.node.nodes[1]
-    # doubs = struct.unpack("<30d", argNode.base_data[8:])
-    # mat = sequence_to_matrix(doubs[:16])
-    # other = doubs[16:]
-    # print("Matrix:\n{}".format(mat))
-    # print("Other:\n{}".format(other))
-    # print("Position:\n{}".format(argNode.posData))
-    # print("Rotation:\n{}".format(argNode.rotData))
-
-    # Pause at end of file parsing, before generation
-    # import pdb
-    # pdb.set_trace()
 
     # Verify we are at the end of the file without unconsumed data.
     endPos = reader.tell()
@@ -560,64 +540,6 @@ class RenderNode(BaseNode):
       print("Warning: Have non-multiple of 3 index data count. Case not understood.")
 
     return self
-
-  def split_subobjects(self):
-    # Assume that we have four-component vertex, or no sub-objects
-    assert self.material.vertex_format.nposition == 4
-    # Ensure that all index faces DO NOT go over sub-objects
-    # Start by calculating range blocks for each subobject
-    group = self.vertexData[0][3]
-    start = 0
-    objects = []
-    for i in range(1, len(self.vertexData)):
-      if self.vertexData[i][3] != group:
-        objects.append((start, i))
-        start = i
-        group = self.vertexData[i][3]
-    # End the final object
-    if start != i:
-      objects.append((start, len(self.vertexData)))
-
-    # Don't split for one child
-    if len(objects) == 1:
-      return
-
-    # Validate that we separated properly
-    for start, end in objects:
-      groups = set(self.vertexData[i][3] for i in range(start, end))
-      assert len(groups) == 1
-
-    # Validate that for every index triple, all are within one group
-    groupMembership = []
-    self.indexErr = False
-    for i, indexGroup in enumerate(self.indexData):
-      # Find the object group
-      firstID = indexGroup[0]
-      grpIndex, group = next((i, x) for (i, x) in enumerate(objects) if x[0] <= firstID and x[1] > firstID)
-      conf = all(x in range(group[0], group[1]) for x in indexGroup)
-      groupMembership.append(grpIndex)
-      if conf and not self.indexErr:
-        self.indexErr = True
-        print("Warning: Found index set that crosses vertex groups")
-
-    # Now, split everything into sub-objects
-    children = []
-    for i, (start, end) in enumerate(objects):
-      obj = RenderNode()
-      obj.name = "{}_{}".format(self.name, i)
-      obj.material = self.material
-      parindex = int(self.vertexData[start][3])
-      obj.parentData = self.parentData[parindex]
-      obj.vertexCount = end-start
-      # Recalculate the indices
-      # Member indices
-      childFaceData = [x for g, x in zip(groupMembership, self.indexData) if g == i]
-      obj.indexData = [tuple(y - start for y in x) for x in childFaceData]
-      obj.vertexData = self.vertexData[start:end]
-      children.append(obj)
-
-    self.children = children
-
 
 @reads_type("model::ShellNode")
 class ShellNode(BaseNode):
