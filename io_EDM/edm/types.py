@@ -21,10 +21,12 @@ class AnimatingNode(ABC):
   """Abstract base class for all nodes that animate the object"""
 
 class VertexFormat(object):
-  def __init__(self, position, normal, texture):
-    self.nposition = position
-    self.nnormal = normal
-    self.ntexture = texture
+  def __init__(self, channelData):
+    # position=int(data[0]), normal=int(data[1]), texture=int(data[4])
+    self.data = channelData
+    self.nposition = int(channelData[0])
+    self.nnormal = int(channelData[1])
+    self.ntexture = int(channelData[4])
 
   @property
   def position_indices(self):
@@ -394,7 +396,7 @@ def _read_material_VertexFormat(reader):
   # assert not dataChannels, "Unknown vertex data channels"
   if dataChannels:
     print("Warning: Vertex channel data in unrecognised channels: {}".format(dataChannels))
-  vf = VertexFormat(position=int(data[0]), normal=int(data[1]), texture=int(data[4]))
+  vf = VertexFormat(data)
   return vf
 
 def _read_material_texture(reader):
@@ -446,11 +448,10 @@ class Material(object):
     return self
 
 @reads_type("model::LodNode")
-class LodNode(object):
+class LodNode(BaseNode):
   @classmethod
   def read(cls, stream):
-    self = cls()
-    assert stream.read_uints(3) == (0,0,0)
+    self = super(LodNode, BaseNode).read(stream)
     count = stream.read_uint()
     self.level = [stream.read_floats(4) for x in range(count)]
     stream.mark_type_read("model::LodNode::Level", count)

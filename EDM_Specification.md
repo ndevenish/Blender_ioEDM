@@ -153,6 +153,32 @@ Where the `named_type` is restricted to instances of `model::Property<T>`
 (and that includes subtypes e.g. `model::AnimatedProperty`). This type is
 tracked separately as a 'named' type in the main file index.
 
+Animated properties are similar, but hold keyframe data for a specific 
+animation number (`argument`):
+
+    model::AnimatedProperty<T> :=
+      string        name;
+      uint          argument;
+      uint          count;
+      model::Key<T> keyFrames[count];
+
+    model::Key<T> :=
+      double   frame;
+      T        value;
+
+The keyframe type, as appears in the main file index, does not
+directly correspond to the exact type name. The translation is relatively
+simple, however:
+
+| Animated Property Type | Keyframe Type |
+|------------------------|---------------|
+| `float`                | `key::FLOAT`  |
+| `osg::Vec2f`           | `key::VEC2F`  |
+| `osc::Vec3f`           | `key::VEC3F`  |
+
+So e.g. an `model::AnimatedProperty<osg::Vec2f>` contains a type of 
+`model::Key<key::VEC2F>`.
+
 File-level Structure
 --------------------
 
@@ -224,7 +250,7 @@ important for writing new EDM files.
 ### The Root Node
 
 The next entry is a `named_type` '`rootNode`'. This has always been observed
-to be an instance of `model::RootNode`, and is described 
+to be an instance of `model::RootNode`, and is described below.
 
 ### Unknown data block
 
@@ -233,23 +259,25 @@ EDM file that remains a complete mystery - there does not even appear to be
 any kind of size indicator, and it only ever appears to be preceeded by an 
 integer value of `-1`. 
 
-The only method of parsing that is currently known is to scan the bytestream 
-for the start of the render items section - a `uint` followed by either a 
-`string` "CONNECTORS" or "RENDER_NODES" and backtracking the appropriate
-amount.
+The only method of parsing that is currently known is to scan the bytestream
+for the start of the render items section - a `uint` followed by a  `string`
+("CONNECTORS", "RENDER_NODES", "SHELL_NODES" or "LIGHT_NODES") and
+backtracking the appropriate amount.
 
 ### Render Items
 
-Finally, after the unknown data block comes the world-placed items - a string
-identifier followed by a typed list. In practice, this map is observed thusfar
-to have a maximum of two entries, though both not need be present:
+Finally, after the unknown data block comes the world-placed objects - a string
+identifier followed by a typed list. This can have up to four entries, though
+any (or all) may be missing:
 
-| String         | Node type           |
-|----------------|---------------------|
-| `CONNECTORS`   | `model::Connector`  |
-| `RENDER_NODES` | `model::RenderNode` |
+| String         | Node types                                |
+|----------------|-------------------------------------------|
+| `CONNECTORS`   | `model::Connector`                        |
+| `RENDER_NODES` | `model::RenderNode`, `model::SkinNode`, `model::FakeOmniLightsNode`, `model::FakeSpotLightsNode` |
+| `SHELL_NODES`  | `model::ShellNode`, `model::SegmentsNode` |
+| `LIGHT_NODES`  | `model::LightNode`                        |
 
-and the contents are better described in the sections for those types.
+with the contents described in the sections for those types.
 
 It is at this point that the file should have reached it's end - with `0`
 bytes left to read, and being fully completed all final cross-checks and 
@@ -268,16 +296,16 @@ nodes and materials used in the model file.
 
     model::RootNode :=
       string            name;
-      uint              unknownA;      
+      uint              version;      # Asssumed      
       model::PropertiesSet properties;
       uchar             unknownB[145];
       list<Material>    materials;
       uchar             unknownC[8];
       list<named_type>  nodes;
 
-After the name ("Scene Root") and unknown single integer (Possibly class
-version?) comes a properties set - whose only observed contents at time of
-writing is `{"__VERSION__": 2}`.
+After the name ("Scene Root") and unknown single integer, that we shall assume
+is class version; comes a properties set - whose only observed contents at
+time of writing is `{"__VERSION__": 2}`.
 
 After this is a relatively large section of unknown data, `unknownB`; by inspecting the 
 bytes manually it *appears* to be of a structure including a chunk of at least
@@ -292,16 +320,21 @@ filled with data that does not appear to have a sensible-looking direct
 numerical value.
 
 After the list of materials, which are of a predictable type, the list of
-nodes appears to be parent transforms for renderable objects - and includes
-simple animation data. Observed types of these nodes are:
+nodes appears to be parent transforms for renderable objects - and includes 
+animation data. Types that appear in this list:
 
 - `model::Node`
 - `model::TransformNode`
-- `model::ArgVisibilityNode`
+- `model::Bone`
+- `model::LodNode`
+- `model::BillboardNode`
 - `model::ArgAnimationNode`
 - `model::ArgScaleNode`
 - `model::ArgRotationNode`
 - `model::ArgPositionNode`
+- `model::ArgAnimatedBone`
+- `model::ArgVisibilityNode`
+
 
 ## `Material`
 
@@ -335,7 +368,7 @@ The possible entries in the material map are:
 
 This describes the opacity mode.
 
-| Value | Mode setting     |              |
+| Value | Mode setting                    |
 |-------|---------------------------------|
 | 0     | None                            |
 | 1     | Blend                           |
@@ -350,10 +383,20 @@ the material settings saved in the file. It corresponds to the 3DS edm tools
 'Material' option, and should expect a unique value for each of those
 settings; the observed values are:
 
-| value                 | edm Material     | Meaning                                  |
-|-----------------------|------------------|------------------------------------------|
-| `def_material`        | Default          | Basic, diffuse, textured material        |
-| `glass_material`      | Glass            | ?(mostly transparent material with gloss)|
+| value                 | 3DS Material     | Meaning                         |
+|-----------------------|------------------|---------------------------------|
+| `additive_self_illum_material`           |                                 |
+| `bano_material`       |                  |                                 |
+| `building_material`   |                  |                                 |
+| `chrome_material`     |                  |                                 |
+| `color_material`      |                  |                                 |
+| `def_material`        | Default          | Basic, diffuse, textured material |
+| `fake_omni_lights`    |                  |                                 |
+| `fake_spot_lights`    |                  |                                 |
+| `forest_material`     |                  |                                 |
+| `glass_material`      | Glass            | ?(mostly transparent material with gloss) |
+| `lines_material`      |                  |                                 |
+| `mirror_material`     |                  |                                 |
 | `self_illum_material` | Self-illuminated | Things like panels that need to be lit when there is no light |
 | `transparent_self_illum_material` | Transparent Self-illuminated | Used for e.g. indicator bulbs |
 
@@ -363,36 +406,26 @@ Literally the shader `uniform` values, these values effectively control the
 parameters of the material. Two sets are present in the file; `UNIFORMS` are
 the basic, fixed properties, and `ANIMATED_UNIFORMS` are `AnimatedProperty`
 types including argument and keyframe information - but applied to the same
-uniform names. The exact list is currently unknown - perhaps study of the
-shaders or more edm examples is required. An example of defined uniforms with
-the base material name, taken from a parsed SU-25t cockpit:
+uniform names. A list of all materials/uniforms observed in all `.edm` files
+included in DCS World:
 
-```python
-{
- 'def_material':        {'diffuseShift',
-                         'diffuseValue',
-                         'reflectionBlurring',
-                         'reflectionValue',
-                         'specFactor',
-                         'specPower'},
- 'glass_material':      {'diffuseShift',
-                         'diffuseValue',
-                         'reflectionBlurring',
-                         'reflectionValue',
-                         'specFactor',
-                         'specPower'},
- 'self_illum_material': {'diffuseShift',
-                         'multiplyDiffuse',
-                         'phosphor',
-                         'reflectionValue',
-                         'selfIlluminationColor',
-                         'specFactor',
-                         'specPower'},
- 'transparent_self_illum_material': 
-                        {'selfIlluminationValue',
-                         'diffuseShift'}
-}
- ```
+| Base Material Name               | Uniforms                                 |
+|----------------------------------|------------------------------------------|
+| `additive_self_illum_material`   | `diffuseShift`, `multiplyDiffuse`, `phosphor`, `reflectionValue`, `selfIlluminationColor`, `selfIlluminationValue`, `specFactor`, `specMapValue`, `specPower` |
+| `bano_material`                  | `banoDistCoefs`, `diffuseValue` |
+| `building_material`              | `diffuseValue`, `reflectionValue`, `selfIlluminationValue`, `specFactor`, `specPower` |
+| `chrome_material`                | `diffuseShift`, `diffuseValue`, `normalMapValue`, `reflectionValue`, `specFactor`, `specMapValue`, `specPower` |
+| `color_material`                 | `color`, `diffuseValue`, `reflectionValue`, `selfIlluminationValue`, `specPower` |
+| `def_material`                   | `diffuseShift`, `diffuseValue`, `reflectionValue`, `specFactor`, `specMapValue`, `specPower` |
+| `fake_omni_lights`               | `shiftToCamera`, `sizeFactors` |
+| `fake_spot_lights`               | `coneSetup`, `sizeFactors` |
+| `forest_material`                | `diffuseValue`, `reflectionValue`, `selfIlluminationValue`, `specFactor`, `specPower` |
+| `glass_material`                 | `diffuseValue`, `reflectionValue`, `specFactor`, `specPower` |
+| `lines_material`                 | `color`, `selfIlluminationValue` |
+| `mirror_material`                | `diffuseShift`, `diffuseValue`, `reflectionValue`, `specFactor`, `specPower` |
+| `self_illum_material`            | `diffuseShift`, `multiplyDiffuse`, `phosphor`, `reflectionValue`, `selfIlluminationColor`, `selfIlluminationValue`, `specFactor`, `specPower` |
+| `transparent_self_illum_material`|`diffuseShift`, `selfIlluminationValue` |
+
 
 ### Textures and Texture Coordinate Channels
 
@@ -409,9 +442,396 @@ unknown but has not been observed
       osg::Matrixf  unknown3;    # Assume is a texture transformation matrix. Also
                                  # have only observed as identity
 
-
-
 ### Vertex Format
+Specifies the format of the vertex data; The render nodes store the total
+count and stride, but is otherwise an opaque block of float values. This
+defines how those floats are used:
 
-Channel     Represents
-21          Bone data - number of bone references? (appears to be x2 entries in vertex data)
+    VERTEX_FORMAT :=
+      uint    count;
+      uchar   channels[count];
+
+Most entries have a count of 26 - however a few (possibly older?) models have
+an entry of 24 - so it is not always safe to assume the length. Each of the 
+channels counts has a fixed meaning, and observed lengths:
+
+| Channel | Length | Represents                                              |
+|---------|--------|---------------------------------------------------------|
+| 0       | 4      | Position data. The last of these appears to relate to vertex group for parenting purposes |
+| 1       | 3      | Normals data                                            |
+| 2       | 3      |                                                         |
+| 3       | 3      |                                                         |
+| 4       | 2      | Texture UV                                              |
+| 5       | 2      |                                                         |
+| 6       | 2      |                                                         |
+| 7       | 2      |                                                         |
+| 8       | 2      |                                                         |
+| 20      | 3      |                                                         |
+| 21      | 4      | Bone data related - number of bone references? (appears to be x2 entries in vertex data) |
+| 24      | 3      |                                                         |
+| 25      | 3      |                                                         |
+
+## Nodes
+
+### `model::Node`
+
+The `Node` node is used both as an empty node, and also is the basis for many
+of the other nodes - which all share the identical starting layout:
+
+    model::Node :=
+      string        name;
+      uint          version;
+      propertiesset props;
+
+As with `RootNode` (which we can also see matches this exact layout) we have
+assumed that the `uint` field is representative of class version - this seems
+to have no other meaning, and makes a lot of sense in terms of allowing the
+schema to evolve over time.
+
+### `model::TransformNode`
+
+    model::TransformNode :=
+      model::Node   base;
+      osg::Matrixd  transform;
+
+### `model::LodNode`
+
+    model::LodNode :=
+      model::Node             base;
+      uint                    count;
+      model::LodNode::Level   levels[count];
+
+    model::LodNode::Level :=
+      float data[4];
+
+The exact interpretation of the level data is unknown.
+
+### `model::Bone`
+
+    model::Bone :=
+      model::Node   base;
+      osg::Matrixd  m1;
+      osg::Matrixd  m2;
+
+### `model::BillboardNode`
+
+Not much is understood about this node other than the size:
+
+    model::BillboardNode :=
+      model::Node   base;
+      uchar         unknown[154];
+
+## Animation Nodes
+
+### `model::ArgAnimationNode`, Position, Rotation and Scale
+
+This is a special node, as the nodes `model::ArgPositionNode`,
+`model::ArgRotationNode`, and `model::ArgScaleNode` are all parsed exactly the
+same way - but just appear to be written when the animation only has a single
+(position, rotation, scale) channel of animation:
+
+    model::ArgRotationNode := model::ArgAnimationNode
+    model::ArgPositionNode := model::ArgAnimationNode
+    model::ArgScaleNode    := model::ArgAnimationNode
+
+The actual `ArgAnimationNode` contains quite a lot of data:
+
+    model::ArgAnimationNode := 
+      osg::Matrixd      tf_Matrix;
+      osg::Vec3d        tf_Position;
+      osg::Quaternion   tf_Quat1;
+      osg::Quaternion   tf_Quat2;
+      osg::Vec3d        tf_Scale;
+
+      list<model::ArgAnimationNode::Position>  positionData;
+      list<model::ArgAnimationNode::Rotation>  rotationData;
+      list<model::ArgAnimationNode::Scale>     scaleData;
+
+The set of transformation `tf_` values are assumed to describe the chain of
+transformation in order to properly process the vertex data (in a `RenderNode`
+object referencing this node as it's parent). The exact application is currently
+unknown; at the moment a working best-guess is something along the lines of:
+
+    Transform = tf_Matrix * tf_Position * tf_Quat1 * keyRotation * tf_Scale
+
+Where each of the objects has obviously been transformed to be compatible with
+the other (e.g. so you can apply a matrix to a quaternion...). The entry
+`keyRotation` is the current best guess for where the keyframe rotation value
+is applied.
+
+In addition, the matrix `tf_Matrix` seems to have the extra role of swapping
+axis - animation vertex data seems to be kept in the original 3DS coordinate
+system. This is an area of active research.
+
+The position and rotation entries are relatively similar; just an animation
+argument value followed by a list of keys:
+
+    model::ArgAnimationNode::Position :=
+      uint                              argument;
+      list<model::Key<key::POSITION>>   keys;
+
+    model::ArgAnimationNode::Rotation :=
+      uint                              argument;
+      list<model::Key<key::ROTATION>>   keys;
+
+    model::Key<key::POSITION> := 
+      double          frame;
+      osg::Vector3d   value;
+
+    model::Key<key::ROTATION> :=
+      double            frame;
+      osg::Quaternion   value;
+
+However, scale appears to be handled slightly differently, and appears to
+contain two sets of keys, of currently unknown interpretation - one set
+of four doubles, and one of three:
+
+    model::ArgAnimationNode::Scale :=
+      uint argument;
+      list<ScaleKeyA>   keys;
+      list<ScaleKeyB>   keys2;
+
+    ScaleKeyA :=
+      double      frame;
+      osg::Vec4f  value;
+
+    ScaleKeyB :=
+      double      frame;
+      osg::Vec3f  value;
+
+
+### `model::ArgAnimatedBone`
+
+The bone animation node is the same as the `ArgAnimationNode`, but with the
+addition of an extra transfomation matrix:
+
+    model::ArgAnimatedBone :=
+      model::ArgAnimationNode   base;
+      osg::Matrixd              xf_Bone;
+
+The application of this extra transformation is also currently unknown,
+because at time-of-writing skeletal animation/skinning in the EDM files has
+not been investigated.
+
+### `model::ArgVisibilityNode`
+
+Not containing a transformation - only a list of toggles for on/off visibility,
+this is a much simpler node:
+
+    model::ArgVisibilityNode :=
+      model::Node   base;
+      list<model::ArgVisibilityNode::Arg>   visibilityData;
+
+    model::ArgVisibilityNode::Arg :=
+      uint                                    argument;
+      list<model::ArgVisibilityNode::Range>   keys;
+
+    model::ArgVisibilityNode::Range :=
+      double frameStart;
+      double frameEnd;
+
+Where the two key entries are the start and end ranges of visibility. Note that
+in cases where the object 'becomes visible' and stays that way, over the range
+of the animation argument, the `frameEnd` value will often be very high - 
+values of `1e300` are not uncommon.
+
+## Object Nodes
+
+### Connector
+
+Connectors are a very simple named connection to a parent transformation node:
+
+    model::Connector :=
+      model::BaseNode   base;
+      uint              parent;
+      uint              unknown;
+
+And will always have a `name` entry in the base node reading. The parent field
+is the index of the parent transformation node - that is, the index in the
+`RootNode.nodes` list that was read earlier in the file. The last entry
+remains unknown - all known examples of .edm files have this field zero, so
+does not appear to be important. The parent is simply the index
+
+### Render Nodes
+
+`RenderNode` objects generally contain very large amounts of vertex and index
+data, the actual renderable geometry of the edm file:
+
+    model::RenderNode :=
+      model::BaseNode   base;
+      uint              unknown;
+      uint              materialId;
+      PARENTDATA        parentData;
+      VERTEXDATA        vertexData;
+      INDEXDATA         indexData;
+
+The `materialId` is the index of the material to be applied to this data -
+the index in the `RootNode.materials` list. The `VERTEXDATA` and `INDEXDATA`
+types are shared with the `model::ShellNode` and `model::SkinNode` types.
+
+Let's start with the parent data, which is slightly unusual - the exact layout
+depends on the value of the first count entry:
+
+    PARENTDATA :=
+      const uint count = 1;
+      uint  parent;
+      int   unknown;
+
+Or, if `count` > 1:
+
+    PARENTDATA :=
+      uint          count;
+      PARENT_ENTRY  parents[count];
+
+    PARENT_ENTRY :=
+      uint  parent;
+      int   unknownA;
+      int   unknownB;
+
+Along with the parent reference ID, which refers to the index in the
+`RenderNode.nodes` array, the exact interpretation of the unknown fields is
+not completely unknown, we do have some idea - the unknown fields *appear* to
+relate to sections of the vertex data in the node.
+
+However, the vertex data itself has four entries for it's 'position' field -
+and the fourth entry definitely refers to the index in this
+`PARENTDATA.parents` array. Thus, having range information here would appear
+to be redundant - it is possibly used to allow multiple animations to be
+applied to the same set of vertex data (with a single parent, for example, it
+would be impossible to animate both position and visibility).
+
+This layout is required because, for efficiency reasons; many separate objects
+with identical materials are often merged into a single `RenderNode`, and the
+associated data used for separation.
+
+Let's move away from this unhappy state of affairs and examine the vertex
+data:
+
+    VERTEXDATA :=
+      uint    count;
+      uint    stride;
+      float   data[count*stride];
+
+Where the data array could also be interpreted identically as:
+
+    VERTEXDATA :=
+      uint    count;
+      uint    stride;
+      VERTEX   data[count];
+
+    VERTEX :=
+      float   data[stride];
+
+e.g. an array of `float` vertex data, where each set of `stride` values
+corresponds to a single vertex. The exact value of `stride`, and the meaning
+of each of the vertex entries - corresponds to the vertex format specified in
+the associated material. The amount of data in this array - e.g.  `count *
+stride * sizeof(float)` is counted towards the index bytes counter -
+`__gv_bytes` for `model::RenderNode`.
+
+With vertex data we also need a way to represent faces; that is where the
+index array comes in:
+
+    INDEXDATA :=
+      uchar         data_type;
+      uint          entries;
+      uint          unknown;
+      INDEXVALUE    data[entries];
+
+Where the INDEXVALUE type depends on the value of the `data_type` field:
+
+| `data_type`  | Type of each entry |
+|--------------|--------------------|
+| 0            | `uchar`            |
+| 1            | `ushort`           |
+| 2            | `uint`             |
+
+and each entry refers to the index of a single vertex in the `vertexData` 
+array. Allowing the data type to be varied allows saving of space because the
+number of vertices in a single object can - sometimes - run up to the hundreds
+of thousands, but would be a complete waste of space for the majority of
+models with, say, less than 60k vertices.
+
+The `unknown` field is either 0, 1 or 5 - most commonly 5. What *is* known is
+that the count of the index data is not always a multiple of three - but this
+does not appear to correlate with the value of the unknown field (which is
+what would be expected if, say, the unknown field represented face type).
+
+The physical data read in the index array - `entries * sizeof(data_type)` is
+counted towards the index bytes counter `__gi_bytes`, for `model::RenderNode`.
+
+#### `model::SkinNode`
+
+`SkinNode` describes a set of vertex data designed to be layered over `Bone`
+nodes. It is relatively similar to `RenderNode` except instead of parent 
+transforms it explicitly lists a set of bones:
+
+    model::SkinNode :=
+      model::Node   base;
+      uint          material;
+      list<uint>    bones;
+      uint          unknown;
+
+      VERTEXDATA    vertexData;
+      INDEXDATA     indexData;
+
+Where the `bones` refer to offset indexes in the `RootNode.nodes` array. The
+vertex data for such nodes will have bone index/weight data in - the indices
+for which can be extracted by inspecting the material vertex format. Because it
+is rendered data, the vertex and index data for these nodes contribute to the
+`__gv_bytes` and `__gi_bytes` index counts.
+
+#### `model::FakeOmniLightsNode`
+
+    model::FakeOmniLightsNode :=
+      model::Node   base;
+      uint          unknown[5]
+      uint          count;
+      double        data[count*6];
+
+#### `model::FakeSpotLightsNode`
+
+    model::FakeSpotLightsNode :=
+      model::Node   base;
+      uchar         unknown[101];
+
+### Light Nodes
+
+The general interpretation of the `model::LightNode` is unknown, however it
+does contain a properties set of light properties - which does _not_ count
+towards the general index count of `propertiesset`:
+
+    model::LightNode :=
+      model::Node     base;
+      uint            unknownA;
+      uchar           unknownB;
+      propertiesset   lightProperties;
+      uchar           unknownC;
+
+### Shell Nodes
+
+Shell nodes appear to define the collision shells for models; as such, they do
+not appear to have a material reference. They do, however, embed their own 
+vertex format:
+
+    model::ShellNode :=
+      model::Node     base;
+      uint            unknown;
+      VERTEX_FORMAT   vertex_format;
+      VERTEXDATA      vertexData;
+      INDEXDATA       indexData;
+
+Where the vertex and index raw data read for these nodes contribute to the
+`__cv_bytes` and `__ci_bytes` index counters.
+
+#### `model:SegmentsNode`
+
+Only the layout is known for these nodes:
+
+    model::SegmentsNode :=
+      model::Node     base;
+      uint            unknown;
+      list<model::SegmentsNode::Segments>   segments;
+
+    model::SegmentsNode::Segments :=
+      float   data[6];
