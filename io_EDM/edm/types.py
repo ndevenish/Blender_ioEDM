@@ -589,13 +589,16 @@ class RenderNode(BaseNode):
 
     # Validate that for every index triple, all are within one group
     groupMembership = []
+    self.indexErr = False
     for i, indexGroup in enumerate(self.indexData):
       # Find the object group
       firstID = indexGroup[0]
       grpIndex, group = next((i, x) for (i, x) in enumerate(objects) if x[0] <= firstID and x[1] > firstID)
       conf = all(x in range(group[0], group[1]) for x in indexGroup)
       groupMembership.append(grpIndex)
-      assert conf, "Found index set that crosses vertex groups"
+      if conf and not self.indexErr:
+        self.indexErr = True
+        print("Warning: Found index set that crosses vertex groups")
 
     # Now, split everything into sub-objects
     children = []
