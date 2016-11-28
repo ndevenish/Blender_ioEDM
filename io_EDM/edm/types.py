@@ -141,6 +141,7 @@ class EDMFile(object):
       for entry in possible_entries:
         if data[-len(entry):] == entry:
           objPos = reader.tell()-8-len(entry)
+          self.gap_data = (objPos-preObjPos, objPos)
           print("Found object list at {}, gap size = {}".format(objPos, objPos-preObjPos))
           objCount = struct.unpack("<I", data[-len(entry)-8:-len(entry)-4])[0]
           # print("objects: {}".format(objCount))
