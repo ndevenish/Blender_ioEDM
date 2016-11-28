@@ -445,6 +445,7 @@ class Material(object):
     self.vertex_format = props["VERTEX_FORMAT"]
     self.name = props["NAME"]
     self.base_material = props["MATERIAL_NAME"]
+    self.textures = props["TEXTURES"]
     return self
 
 @reads_type("model::LodNode")

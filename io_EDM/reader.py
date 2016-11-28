@@ -110,7 +110,7 @@ def create_material(material):
   if len(material.props["TEXTURES"]) == 0:
     return None
   assert len(material.props["TEXTURES"]) == 1
-  name = material.props["TEXTURES"][0][0]
+  name = material.textures[0].name
   filename = _find_texture_file(name)
   tex = bpy.data.textures.new(name, type="IMAGE")
   if filename:
