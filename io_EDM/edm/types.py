@@ -402,10 +402,6 @@ class ArgVisibilityNode(BaseNode, AnimatingNode):
 
 def _read_material_VertexFormat(reader):
   channels = reader.read_uint()
-  # Just make sure that if this is different, it makes sense
-  assert channels == 26, "Channel length: {}".format(channels)
-
-  # data = [int(x) for x in reader.read(channels)]
   data = reader.read_uchars(channels)
   # Which channels have data?
   knownChannels = {0,1,4}
