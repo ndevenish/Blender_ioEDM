@@ -608,3 +608,12 @@ class FakeSpotLightsNode(BaseNode):
     self.data = stream.read(101)
     return self
 
+@reads_type("model::FakeOmniLightsNode")
+class FakeOmniLightsNode(BaseNode):
+  @classmethod
+  def read(cls, stream):
+    self = super(FakeOmniLightsNode, cls).read(stream)
+    self.data = stream.read(72)
+    return self
+
+
