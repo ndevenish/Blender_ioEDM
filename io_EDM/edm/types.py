@@ -91,7 +91,10 @@ def read_raw_propertiesset(stream):
   data = OrderedDict()
   for _ in range(length):
     prop = read_named_type(stream)
-    data[prop.name] = prop.value
+    if hasattr(prop, "keys"):
+      data[prop.name] = prop.keys
+    else:
+      data[prop.name] = prop.value
   return data
 
 class EDMFile(object):
@@ -128,7 +131,7 @@ class EDMFile(object):
     # So, search keeping last 20 bytes until we find one of the above
     preObjPos = reader.tell()
     objects = {}
-    possible_entries = [b"CONNECTORS", b"RENDER_NODES", b"SHELL_NODES"]
+    possible_entries = [b"CONNECTORS", b"RENDER_NODES", b"SHELL_NODES", b"LIGHT_NODES"]
     possible_entries = sorted(possible_entries, key=lambda x: len(x))
     
     data = reader.read(min(len(x) for x in possible_entries)+8)
@@ -170,6 +173,7 @@ class EDMFile(object):
     self.connectors = objects.get("CONNECTORS", [])
     self.renderNodes = objects.get("RENDER_NODES", [])
     self.shellNodes = objects.get("SHELL_NODES", [])
+    self.lightNodes = objects.get("LIGHT_NODES", [])
 
     # Tie each of the renderNodes to the relevant material
     for node in self.renderNodes:
@@ -660,3 +664,14 @@ class BillboardNode(BaseNode):
     self = super(BillboardNode, cls).read(stream)
     self.data = stream.read(154)
     return self
+
+@reads_type("model::LightNode")
+class LightNode(BaseNode):
+  @classmethod
+  def read(cls, stream):
+    self = super(LightNode, cls).read(stream)
+    self.unknown = [stream.read_uint(), stream.read_uchar()]
+    self.lightProps = read_raw_propertiesset(stream)
+    self.unknown.append(stream.read_uchar())
+    return self
+
