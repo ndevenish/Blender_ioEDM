@@ -669,3 +669,10 @@ class SegmentsNode(BaseNode):
     stream.mark_type_read("model::SegmentsNode::Segments", count)
     return self
 
+@reads_type("model::BillboardNode")
+class BillboardNode(BaseNode):
+  @classmethod
+  def read(cls, stream):
+    self = super(BillboardNode, cls).read(stream)
+    self.data = stream.read(154)
+    return self
