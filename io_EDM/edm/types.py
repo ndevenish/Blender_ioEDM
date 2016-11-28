@@ -431,12 +431,16 @@ def _read_animateduniforms(stream):
     data[prop.name] = prop
   return data
 
+def _read_texture_coordinates_channels(stream):
+  count = stream.read_uint()
+  return stream.read_floats(count)
+
 # Lookup table for material reading types
 _material_entry_lookup = {
   "BLENDING": lambda x: x.read_uchar(),
   "CULLING" : lambda x: x.read_uchar(),
   "DEPTH_BIAS": lambda x: x.read_uint(),
-  "TEXTURE_COORDINATES_CHANNELS": lambda x: x.read(52),
+  "TEXTURE_COORDINATES_CHANNELS": _read_texture_coordinates_channels,
   "MATERIAL_NAME": lambda x: x.read_string(),
   "NAME": lambda x: x.read_string(),
   "SHADOWS": lambda x: x.read_uchar(),
