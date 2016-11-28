@@ -605,14 +605,12 @@ class RenderNode(BaseNode):
 
 
 @reads_type("model::ShellNode")
-class ShellNode(object):
+class ShellNode(BaseNode):
   @classmethod
   def read(cls, stream):
-    self = cls()
-    self.name = stream.read_string()
-    self.parts = []
-    self.parts.append(stream.read_uints(10))
-    assert stream.read_ushort() == 0
+    self = super(ShellNode, cls).read(stream)
+    self.unknown = stream.read_uint()
+    self.vertexFormat = _read_material_VertexFormat(stream)
 
     # Read the vertex and index data
     self.vertexData = _read_vertex_data(stream, "__cv_bytes")
