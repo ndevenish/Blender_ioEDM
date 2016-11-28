@@ -456,14 +456,12 @@ class LodNode(object):
     return self
 
 @reads_type("model::Connector")
-class Connector(object):
+class Connector(BaseNode):
   @classmethod
   def read(cls, stream):
-    self = cls()
-    self.name = stream.read_string()
-    self.data = stream.read_uints(2)
+    self = super(Connector, cls).read(stream)
     self.parent = stream.read_uint()
-    self.data = self.data + (stream.read_uint(),)
+    self.data = stream.read_uint()
     return self
 
 uint_negative_one = struct.unpack("<I", struct.pack("<i", -1))[0]
