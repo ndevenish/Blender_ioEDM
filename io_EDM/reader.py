@@ -109,7 +109,11 @@ def create_material(material):
   # Find the actual file for the texture name
   if len(material.props["TEXTURES"]) == 0:
     return None
-  assert len(material.props["TEXTURES"]) == 1
+  if len(material.props["TEXTURES"]) != 1:
+    import pdb
+    pdb.set_trace()
+    # assert len(material.props["TEXTURES"]) == 1
+
   name = material.textures[0].name
   filename = _find_texture_file(name)
   tex = bpy.data.textures.new(name, type="IMAGE")

@@ -23,7 +23,10 @@ class AnimatingNode(ABC):
 class VertexFormat(object):
   def __init__(self, channelData):
     # position=int(data[0]), normal=int(data[1]), texture=int(data[4])
-    self.data = channelData
+    if isinstance(channelData, str):
+      self.data = bytes(int(x) for x in channelData)
+    else:
+      self.data = channelData
     self.nposition = int(channelData[0])
     self.nnormal = int(channelData[1])
     self.ntexture = int(channelData[4])
@@ -40,6 +43,9 @@ class VertexFormat(object):
   def texture_indices(self):
     return list(range(self.nposition+self.nnormal, self.nposition+self.nnormal+self.ntexture))
 
+  def __repr__(self):
+    assert all(x < 10 for x in self.data)
+    return "VertexFormat('{}')".format("".join(str(x) for x in self.data))
 
 class TrackingReader(BaseReader):
   def __init__(self, *args, **kwargs):
@@ -452,7 +458,7 @@ class Material(object):
 class LodNode(BaseNode):
   @classmethod
   def read(cls, stream):
-    self = super(LodNode, BaseNode).read(stream)
+    self = super(LodNode, cls).read(stream)
     count = stream.read_uint()
     self.level = [stream.read_floats(4) for x in range(count)]
     stream.mark_type_read("model::LodNode::Level", count)
