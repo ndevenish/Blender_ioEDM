@@ -180,7 +180,7 @@ class EDMFile(object):
     self.lightNodes = objects.get("LIGHT_NODES", [])
 
     # Tie each of the renderNodes to the relevant material
-    for node in self.renderNodes:
+    for node in (x for x in self.renderNodes if hasattr(x, "material")):
       node.material = self.node.materials[node.material]
 
     # Tie each of the connectors to it's parent node
@@ -600,5 +600,13 @@ class LightNode(BaseNode):
     self.unknown = [stream.read_uint(), stream.read_uchar()]
     self.lightProps = read_raw_propertiesset(stream)
     self.unknown.append(stream.read_uchar())
+    return self
+
+@reads_type("model::FakeSpotLightsNode")
+class FakeSpotLightsNode(BaseNode):
+  @classmethod
+  def read(cls, stream):
+    self = super(FakeSpotLightsNode, cls).read(stream)
+    self.data = stream.read(101)
     return self
 
