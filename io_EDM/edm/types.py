@@ -613,7 +613,9 @@ class FakeOmniLightsNode(BaseNode):
   @classmethod
   def read(cls, stream):
     self = super(FakeOmniLightsNode, cls).read(stream)
-    self.data = stream.read(72)
+    self.data_start = stream.read_uints(5)
+    count = stream.read_uint()
+    self.data = [stream.read_doubles(6) for _ in range(count)]
     return self
 
 
