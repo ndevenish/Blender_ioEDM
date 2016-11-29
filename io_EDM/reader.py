@@ -25,7 +25,7 @@ def read_file(filename):
   # Convert the materials. These will be used by objects
   # We need to change the directory as the material searcher
   # currently uses the cwd
-  with chdir(os.path.dirname(filename)):
+  with chdir(os.path.dirname(os.path.abspath(filename))):
     for material in edm.node.materials:
       material.blender_material = create_material(material)
 
@@ -150,64 +150,50 @@ def create_connector(connector):
 
   bpy.context.scene.objects.link(ob)
 
+
 def create_object(renderNode):
   """Does most of the work creating a blender object from a renderNode"""
 
-  # Marshal the vertices/faces into sets ready for consumption
-  assert renderNode.material.vertex_format.nposition == 4
-  posIndex = renderNode.material.vertex_format.position_indices
-  vertexPositionData = [vector_to_blender(Vector(x[idx] for idx in posIndex)) for x in renderNode.vertexData]
-  # assert len(renderNode.indexData) % 3 == 0
-  # indexData = [renderNode.indexData[i:i+3] for i in range(0, len(renderNode.indexData), 3)]
-  indexData = renderNode.indexData
+  # We need to reduce the vertex set to match the index set
+  all_index = sorted(list(set(renderNode.indexData)))
+  new_vertices = [renderNode.vertexData[x] for x in all_index]
+  # new_indices = [i for i, _ in enumerate(all_index)]
+  indexMap = {idx: i for i, idx in enumerate(all_index)}
+  new_indices = [indexMap[x] for x in renderNode.indexData]
+  # Make sure we have the right number of indices...
+  assert len(new_indices) % 3 == 0
 
-  try:
-    # Prepare the normals for each vertex
-    if renderNode.material.vertex_format.nnormal == 3:
-      nI = renderNode.material.vertex_format.normal_indices
-      normal_vectors = [Vector([x[ind] for ind in nI]) for x in renderNode.vertexData]
-      normalData = [vector_to_blender(x) for x in normal_vectors]
-    else:
-      normalData = None
-  except:
-    import pdb
-    pdb.set_trace()
-      
+
   bm = bmesh.new()
 
+  # Extract where the indices are
+  posIndex = renderNode.material.vertex_format.position_indices
+  normIndex = renderNode.material.vertex_format.normal_indices
   # Create the BMesh vertices, optionally with normals
-  for i, vtx in enumerate(vertexPositionData):
-    vert = bm.verts.new(vtx)
-    if normalData:
-      vert.normal = normalData[i]
+  for i, vtx in enumerate(new_vertices):
+    pos = vector_to_blender(Vector(vtx[x] for x in posIndex))
+    vert = bm.verts.new(pos)
+    if normIndex:
+      vert.normal = vector_to_blender(Vector(vtx[x] for x in normIndex))
 
   bm.verts.ensure_lookup_table()
 
-  # Only do texture coordinate generation if we have texture coordinates....
-  if renderNode.material.vertex_format.ntexture:
-    # Generate a lookup table of UV data for each face
-    uI = renderNode.material.vertex_format.texture_indices
-    def _getIndexUV(index):
-      try:
-        return tuple(renderNode.vertexData[index][x] for x in uI)
-      except IndexError:
-        import pdb
-        pdb.set_trace()
-    uvData = [tuple(_getIndexUV(index) for index in face) for face in indexData]
-
+  # Prepare for texture information
+  uvIndex = renderNode.material.vertex_format.texture_indices
+  if uvIndex:
     # Ensure a UV layer exists before creating faces
     uv_layer = bm.loops.layers.uv.verify()
     bm.faces.layers.tex.verify()  # currently blender needs both layers.
-  else:
-    uvData = None
-
-  for i, face in enumerate(indexData):
+  
+  # Generate faces, with texture coordinate information
+  for face in [new_indices[i:i+3] for i in range(0, len(new_indices), 3)]:
   # for face, uvs in zip(indexData, uvData):
     try:
       f = bm.faces.new([bm.verts[i] for i in face])
       # Add UV data if we have any
-      if uvData:
-        for loop, uv in zip(f.loops, uvData[i]):
+      if uvIndex:
+        uvData = [[new_vertices[x][y] for y in uvIndex] for x in face]
+        for loop, uv in zip(f.loops, uvData):
           loop[uv_layer].uv = (uv[0], -uv[1])
     except ValueError as e:
       print("Error: {}".format(e))
@@ -220,7 +206,7 @@ def create_object(renderNode):
   ob.data.materials.append(renderNode.material.blender_material)
 
   # Create animation data, if the parent node requires it
-  if isinstance(renderNode.parent, AnimatingNode):
+  if isinstance(renderNode.parent, AnimatingNode) and False:
     ob.animation_data_create()
 
     if isinstance(renderNode.parent, ArgVisibilityNode):
