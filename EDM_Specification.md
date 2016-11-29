@@ -353,11 +353,11 @@ The possible entries in the material map are:
 | Key `string`         | Entry type              | Interpretation            |
 |----------------------|-------------------------|---------------------------|
 | BLENDING             | `uchar`                 | Opacity mode enum         |
-| CULLING              | `uchar`                 | *Unknown*                 |
-| DEPTH_BIAS           | `uint`                  | *Unknown*                 |
+| CULLING              | `uchar`                 | *Unknown* (0 or 1)        |
+| DEPTH_BIAS           | `uint`                  | *Unknown* (0 or 1)        |
 | MATERIAL_NAME        | `string`                | The base edm Material     |
 | NAME                 | `string`                | Material name             |
-| SHADOWS              | `uchar`                 | *Unknown*                 |
+| SHADOWS              | `uchar`                 | *Unknown* (0, 2 or 3)     |
 | TEXTURES             | See Below               |                           |
 | TEXTURE_COORDINATE_CHANNELS | 52 bytes         | *Unknown*                 |
 | UNIFORMS             | `model::PropertiesSet`  | Shader uniform parameters |
@@ -374,7 +374,7 @@ This describes the opacity mode.
 | 1     | Blend                           |
 | 2     | Alpha Test                      |
 | 3     | Sum. Blending                   |
-| 4     | Z Written Blending (Unverified) |
+| 4     | Z Written Blending (Unverified, and unused in any .edm file) |
 
 ### Material Name
 

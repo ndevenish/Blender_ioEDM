@@ -23,6 +23,13 @@ _edm_matTypes = (
   ("mirror_material", "mirror_material", "mirror_material"),
 )
 
+_edm_blendTypes = (
+  ("0", "None", "None"),
+  ("1", "Blend", "Blend"),
+  ("2", "Alpha Test", "Alpha Test"),
+  ("3", "Sum. Blending", "Sum. Blending"),
+  # (4. "Z Written Blending", "Z Written Blending"),
+)
 
 # TBC:
   # ("building","Building", "Building"), 
@@ -50,6 +57,9 @@ def register():
   bpy.types.Material.edm_material = bpy.props.EnumProperty(
       items=_edm_matTypes, default="def_material", name="Base Material",
       description="The internal EDM material to use as a basis")
+  bpy.types.Material.edm_blending = bpy.props.EnumProperty(
+      items=_edm_blendTypes, default="0", name="Opacity mode",
+      description="The method to use for calculating material opacity/alpha blending")
 
 def unregister():
   del bpy.types.Material.edm_material

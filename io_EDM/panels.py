@@ -56,6 +56,7 @@ class EDMMaterialPanel(bpy.types.Panel):
       layout = self.layout
       layout.label(text="EDM Base material:")
       layout.prop(context.object.active_material, "edm_material", text="")
+      layout.prop(context.object.active_material, "edm_blending", text="Opacity")
 
 def register():
   bpy.utils.register_class(EDMDataPanel)
