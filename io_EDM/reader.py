@@ -123,7 +123,8 @@ def create_material(material):
   mat = bpy.data.materials.new(material.name)
   mat.use_shadeless = True
   mat.edm_material = material.base_material
-
+  mat.edm_blending = string(material.props["BLENDING"])
+  
   mtex = mat.texture_slots.add()
   mtex.texture = tex
   mtex.texture_coords = "UV"

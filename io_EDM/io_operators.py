@@ -1,5 +1,5 @@
 import bpy
-from bpy_extras.io_utils import ImportHelper
+from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy.types import Operator, OperatorFileListElement
 from bpy.props import ( StringProperty,
                         BoolProperty,
@@ -13,6 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from .reader import read_file
+from .writer import write_file
 
 class ImportEDM(Operator, ImportHelper):
   bl_idname = "import_mesh.edm"
@@ -47,12 +48,50 @@ class ImportEDM(Operator, ImportHelper):
     read_file(paths[0])
     return {'FINISHED'}
 
+
+class ExportEDM(Operator, ExportHelper):
+    """This appears in the tooltip of the operator and in the generated docs"""
+    bl_idname = "export_mesh.edm"
+    bl_label = "Export EDM"
+    filename_ext = ".edm"
+
+    filter_glob = StringProperty(
+            default="*.edm",
+            options={'HIDDEN'},
+            maxlen=255,  # Max internal buffer length, longer would be clamped.
+            )
+
+    # List of operator properties, the attributes will be assigned
+    # to the class instance from the operator settings before calling.
+    # use_setting = BoolProperty(
+    #         name="Example Boolean",
+    #         description="Example Tooltip",
+    #         default=True,
+    #         )
+
+    # type = EnumProperty(
+    #         name="Example Enum",
+    #         description="Choose between two items",
+    #         items=(('OPT_A', "First Option", "Description one"),
+    #                ('OPT_B', "Second Option", "Description two")),
+    #         default='OPT_A',
+    #         )
+
+    def execute(self, context):
+        write_file(self.filepath)
+        return {'FINISHED'}
+
+
+def menu_export(self, context):
+  self.layout.operator(ExportEDM.bl_idname, text="DCS World (.edm)")
+
 def menu_import(self, context):
-  print("Menu function")
   self.layout.operator(ImportEDM.bl_idname, text="DCS World (.edm)")
 
 def register():
   bpy.types.INFO_MT_file_import.append(menu_import)
+  bpy.types.INFO_MT_file_export.append(menu_export)
 
 def unregister():
+  bpy.types.INFO_MT_file_export.remove(menu_export)
   bpy.types.INFO_MT_file_import.remove(menu_import)
