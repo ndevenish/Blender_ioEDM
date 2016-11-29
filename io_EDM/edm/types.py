@@ -446,6 +446,19 @@ _material_entry_lookup = {
 }
 
 class Material(object):
+  def __init__(self):
+    self.blending = 0
+    self.culling = 0
+    self.depth_bias = 0
+    self.texture_coordinates_channels = None
+    self.material_name = ""
+    self.name = ""
+    self.shadows = 0
+    self.vertex_format = None
+    self.uniforms = {}
+    self.animated_uniforms = {}
+    self.textures = []
+
   @classmethod
   def read(cls, stream):
     self = cls()
@@ -453,11 +466,8 @@ class Material(object):
     for _ in range(stream.read_uint()):
       name = stream.read_string()
       props[name] = _material_entry_lookup[name](stream)
-    self.props = props
-    self.vertex_format = props["VERTEX_FORMAT"]
-    self.name = props["NAME"]
-    self.base_material = props["MATERIAL_NAME"]
-    self.textures = props["TEXTURES"]
+    for k, i in props.items():
+      setattr(self, k.lower(), i)
     return self
 
 @reads_type("model::LodNode")

@@ -107,7 +107,7 @@ def _find_texture_file(name):
 def create_material(material):
   """Create a blender material from an EDM one"""
   # Find the actual file for the texture name
-  if len(material.props["TEXTURES"]) == 0:
+  if len(material.textures) == 0:
     return None
 
   diffuse_texture = next(x for x in material.textures if x.index == 0)
@@ -123,8 +123,8 @@ def create_material(material):
   mat = bpy.data.materials.new(material.name)
   mat.use_shadeless = True
   mat.edm_material = material.base_material
-  mat.edm_blending = string(material.props["BLENDING"])
-  
+  mat.edm_blending = string(material.blending)
+
   mtex = mat.texture_slots.add()
   mtex.texture = tex
   mtex.texture_coords = "UV"
