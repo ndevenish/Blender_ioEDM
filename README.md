@@ -15,9 +15,8 @@ file format well enough to build a simple exporter.
 
 What Works
 ----------
-- Rough parsing of the entire binary file structure
-- Importing of the SU-25t cockpit, without getting everything perfect
-- Geometry import, with normals and UV textures
+- Parsing and reading data for every .edm file included in DCS world
+- Importing of basic geometry with diffuse texturing
 - Simple rotation, translation and visibility animations
 - Simple texture materials, IF the textures are in the same directory
   or a subdirectory called "textures"
@@ -26,13 +25,13 @@ What Works
 What Doesn't Work
 -----------------
 - Exporting
-- Currently only tested with a limited range of EDM files, so e.g. bone-based
-  animation is currently not handled and files using it, and any other
-  unrecognised nodes will not work.
+- Bone-based animations are not handled at all
 - Multiple argument animations per object - decisions on the best way to 
   represent this in Blender need to be made (NLA? Custom Action attributes?)
 - Complex translation of material settings, including specular, bump maps etc
-- Not all the sub-object positions are currently correct
+- Not all the sub-object transformations are completely understood, or the
+  object-splitting process. This means when importing, some objects are
+  incorrectly placed.
 
 Unanswered Questions about the EDM files
 ----------------------------------------
@@ -61,6 +60,12 @@ Developers
 - There is a `read.py` file that can be used to launch blender with an instant
   import, to be used e.g. `blender --python read.py -- edmfile.EDM`. This makes
   the cycle of change/debug/rewrite more manageable
+- Several useful scripts in `utils`. `read_all.py` reads every .edm file in an
+  `all_edms/` subdirectory (useful itself as a verification), removes the raw
+  vertex and index data, and pickles the entire result into `dump.dat`. The 
+  script `read_dump.py` opens this file, defines some useful functions and
+  then opens an interpreter (with the local variable `data`). This allows 
+  inspection of a large subset (or every single .edm file) simultaneously.
 - All of the file->Blender conversion is done in io_EDM.reader, and most of
   the actual functionality is currently in one large function,
   `create_object`
