@@ -206,7 +206,7 @@ def create_object(renderNode):
   ob.data.materials.append(renderNode.material.blender_material)
 
   # Create animation data, if the parent node requires it
-  if isinstance(renderNode.parent, AnimatingNode) and False:
+  if isinstance(renderNode.parent, AnimatingNode):
     ob.animation_data_create()
 
     if isinstance(renderNode.parent, ArgVisibilityNode):
