@@ -21,7 +21,8 @@ import os
 def read_file(filename):
   # Parse the EDM file
   edm = EDMFile(filename)
-
+  edm.postprocess()
+  
   # Convert the materials. These will be used by objects
   # We need to change the directory as the material searcher
   # currently uses the cwd

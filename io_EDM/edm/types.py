@@ -139,9 +139,7 @@ class EDMFile(object):
         objects[name] = reader.read_list(read_named_type)
       return objects
 
-    # Ends with <count> <10> "CONNECTORS"
-    # or                <12> "RENDER_NODES"
-    # So, search keeping last 20 bytes until we find one of the above
+    # Scan ahead byte-by-byte until we find the object dictionary, or EOF
     preObjPos = reader.tell()
     objects = {}
     possible_entries = [b"CONNECTORS", b"RENDER_NODES", b"SHELL_NODES", b"LIGHT_NODES"]
@@ -193,6 +191,14 @@ class EDMFile(object):
     self.shellNodes = objects.get("SHELL_NODES", [])
     self.lightNodes = objects.get("LIGHT_NODES", [])
 
+    # Verify we are at the end of the file without unconsumed data.
+    endPos = reader.tell()
+    if len(reader.read(1)) != 0:
+      print("Warning: Ended parse at {} but still have data remaining".format(endPos))
+
+  def postprocess(self):
+    """Go through, and crosslink and process all data for consumption"""
+
     # Tie each of the connectors to it's parent node
     for conn in self.connectors:
       conn.parent = self.node.nodes[conn.parent]
@@ -201,10 +207,7 @@ class EDMFile(object):
     for node in self.renderNodes:
       node.prepare(self.node)
 
-    # Verify we are at the end of the file without unconsumed data.
-    endPos = reader.tell()
-    if len(reader.read(1)) != 0:
-      print("Warning: Ended parse at {} but still have data remaining".format(endPos))
+
 
 @reads_type("model::BaseNode")
 class BaseNode(object):
@@ -402,7 +405,7 @@ def _read_material_VertexFormat(reader):
   channels = reader.read_uint()
   data = reader.read_uchars(channels)
   # Which channels have data?
-  knownChannels = {0,1,4}
+  knownChannels = {0,1,4, 21}
   dataChannels = {i: x for i, x in enumerate(data) if x != 0 and not i in knownChannels} 
   # assert not dataChannels, "Unknown vertex data channels"
   if dataChannels:
@@ -428,7 +431,7 @@ def _read_animateduniforms(stream):
 
 def _read_texture_coordinates_channels(stream):
   count = stream.read_uint()
-  return stream.read_floats(count)
+  return stream.read_uints(count)
 
 # Lookup table for material reading types
 _material_entry_lookup = {
@@ -666,6 +669,9 @@ class FakeSpotLightsNode(BaseNode):
     self.data = stream.read(101)
     return self
 
+  def prepare(self, context):
+    pass
+
 @reads_type("model::FakeOmniLightsNode")
 class FakeOmniLightsNode(BaseNode):
   @classmethod
@@ -675,5 +681,7 @@ class FakeOmniLightsNode(BaseNode):
     count = stream.read_uint()
     self.data = [stream.read_doubles(6) for _ in range(count)]
     return self
+  def prepare(self, context):
+    pass
 
 
