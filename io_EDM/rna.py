@@ -11,7 +11,19 @@ _edm_matTypes = (
   ("glass_material","Glass", "Glass"), 
   ("self_illum_material","Self-illuminated", "Self-illuminated"), 
   ("transparent_self_illum_material","Transparent Self-illuminated", "Transparent Self-illuminated"), 
-  )
+  ("additive_self_illum_material", "additive_self_illum_material", "additive_self_illum_material"),
+  ("bano_material", "bano_material", "bano_material"),
+  ("building_material", "building_material", "building_material"),
+  ("chrome_material", "chrome_material", "chrome_material"),
+  ("color_material", "color_material", "color_material"),
+  ("fake_omni_lights", "fake_omni_lights", "fake_omni_lights"),
+  ("fake_spot_lights", "fake_spot_lights", "fake_spot_lights"),
+  ("forest_material", "forest_material", "forest_material"),
+  ("lines_material", "lines_material", "lines_material"),
+  ("mirror_material", "mirror_material", "mirror_material"),
+)
+
+
 # TBC:
   # ("building","Building", "Building"), 
   # ("mirror","Mirror", "Mirror"), 
