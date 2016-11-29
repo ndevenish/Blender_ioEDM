@@ -22,7 +22,7 @@ def read_file(filename):
   # Parse the EDM file
   edm = EDMFile(filename)
   edm.postprocess()
-  
+
   # Convert the materials. These will be used by objects
   # We need to change the directory as the material searcher
   # currently uses the cwd
@@ -123,13 +123,16 @@ def create_material(material):
   # Create material
   mat = bpy.data.materials.new(material.name)
   mat.use_shadeless = True
-  mat.edm_material = material.base_material
-  mat.edm_blending = string(material.blending)
+  mat.edm_material = material.material_name
+  mat.edm_blending = str(material.blending)
 
   mtex = mat.texture_slots.add()
   mtex.texture = tex
   mtex.texture_coords = "UV"
   mtex.use_map_color_diffuse = True
+
+  mat.specular_intensity = material.uniforms.get("specFactor", mat.specular_intensity)
+  mat.specular_hardness = material.uniforms.get("specPower", mat.specular_hardness)
 
   return mat
 

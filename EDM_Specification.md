@@ -359,7 +359,7 @@ The possible entries in the material map are:
 | NAME                 | `string`                | Material name             |
 | SHADOWS              | `uchar`                 | *Unknown* (0, 2 or 3)     |
 | TEXTURES             | See Below               |                           |
-| TEXTURE_COORDINATE_CHANNELS | 52 bytes         | *Unknown*                 |
+| TEXTURE_COORDINATE_CHANNELS | `uint count` + `count` ints | *Unknown* (10, 11 or 12 counts) |
 | UNIFORMS             | `model::PropertiesSet`  | Shader uniform parameters |
 | ANIMATED_UNIFORMS    | `model::PropertiesSet`  | Animated shader parameters|
 | VERTEX_FORMAT        | `uint count` + `count` bytes | Layout of vertex data     |
@@ -430,17 +430,37 @@ included in DCS World:
 ### Textures and Texture Coordinate Channels
 
 The `TEXTURES` entry holds a list of actual texture files used in the model
-as a simple `uint`-prefixed list. The actual entries include data which is 
-unknown but has not been observed 
+as a simple `uint`-prefixed list. The full interpretation needs more work to
+be understood. The structure is:
 
     TEXTURES := list<textureDEF>
 
     textureDEF := 
-      int           unknown[2];  # Usually seems to be [0, -1]
+      int           index;
+      int           unknown;     # ALWAYS -1
       string        filename;
-      uchar         unknown2[16] # Some data, but not sure what it corresponds to
-      osg::Matrixf  unknown3;    # Assume is a texture transformation matrix. Also
-                                 # have only observed as identity
+      uint          unknown2[4]  # Some data - ALWAYS [2, 2, 10, 6]
+      osg::Matrixf  unknown3;    # Assume is a texture transformation matrix. 
+                                 # Almost always identity - very rare to not
+
+Index seems to indicate the type of texture; this is derived from observation 
+of the associated filenames - this possibly affects which UV map/set of vertex
+data is used to map the texture:
+
+| Index | Role       | Typical texture name examples                         |
+|-------|------------|-------------------------------------------------------|
+| 0     | Diffuse    | Wide variety, as would be expected                    |
+| 1     | Normals    | Names tend to include `_normal` or `_nm`, or sometimes `_bump` |
+| 2     | Specular   | `_spec`, `_specular` makes this also relatively obvious |
+| 3     | Numerals   | `bf-109k-4_bort_number`, `mi_8_bort_number`, `su-27_numbers` |
+| 4     | Glass Dirt | `tf51d-cpt_glassdirt`, `mig-29_cpt_glassdirt` (only two exist) |
+| 5     | Damage     | `bulle_dam`, `f86f_damage`, `tu22m3_damage_konsol_l`  |
+| 8     | ?          | Lots of `Flame_*`, `BANO`, `_light` - possible emittance? |
+| 9     | ?          | `mi_8_tex_1_ao` (only example in all .edm files)      |
+| 10    | Damage Normals | `mi_8_damage_normal`, `f-86f_glass_damage_nm`     |
+| 11    | ?          | `tu-22m3_glass_color_spec`, `kab_glass_spec_color` (only two) |
+| 12    | ?          | `f-86f_chrom`, `sa342_int_cpit_glass_reflect`, `chromic_blur` (only three) |
+
 
 ### Vertex Format
 Specifies the format of the vertex data; The render nodes store the total

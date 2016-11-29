@@ -43,11 +43,13 @@ Unanswered Questions about the EDM files
 - The meaning of the mysterious data block directly before the
   `CONNECTORS`/`RENDER_NODES` section (after the `RootNode` and `-1` data)
 - What is `model::RNControlNode` (the only index count object not understood)
-- The `model::RenderNode` have a structure mapping vertex data to parent
-  objects - however sometimes this is a paired entry and the purpose of the
-  second value is currently unknown
-- Lots of other details needed on e.g. the first 12 bytes of `BaseNode`, the
-  occasional 
+- The `model::RenderNode` have a structure mapping vertex data to parent data,
+  but there are situations where this is not understood (e.g. single-parent
+  but a value in the second field, meaning of third field for multi-parent
+  objects)
+- The interpretation of the material "TEXTURE_COORDINATES_CHANNELS"
+- Lots of other details needed on the occasional unknown datablock, the data
+  in `RootNode` for instance.
 
 Installation
 ------------

@@ -29,6 +29,11 @@ def all_shellNodes():
     for node in edm.shellNodes:
       yield node
 
+def all_Textures():
+  for mat in all_materials():
+    for tex in mat.textures:
+      yield tex
+
 def print_material_table():
   matData = {}
   for edm in data.values():

@@ -18,18 +18,30 @@ import logging
 logger = logging.getLogger(__name__)
 
 # VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
-Texture = namedtuple("Texture", ["index", "unknownA", "name", "unknownB", "matrix"])
+Texture = namedtuple("Texture", ["index", "name", "matrix"])
 
 class AnimatingNode(ABC):
   """Abstract base class for all nodes that animate the object"""
 
+_vertex_channels = {"position": 0, "normal": 1, "tex0": 4, "bones": 21}
+
 class VertexFormat(object):
   def __init__(self, channelData):
-    # position=int(data[0]), normal=int(data[1]), texture=int(data[4])
+    """Initialise vertex format. takes a byte array, numeric per-channel string, 
+    or a dictionary naming each count."""
     if isinstance(channelData, str):
+      if len(channelData) < 26:
+        channelData = channelData + "0"*(26-len(channelData))
       self.data = bytes(int(x) for x in channelData)
-    else:
+    elif isinstance(channelData, bytes):
       self.data = channelData
+    elif isinstance(channelData, dict):
+      assert all(x in _vertex_channels for x in channelData.keys())
+      data = bytes(26)
+      for name, count in channelData:
+        data[_vertex_channels[name]] = count
+      self.data = data
+
     self.nposition = int(channelData[0])
     self.nnormal = int(channelData[1])
     self.ntexture = int(channelData[4])
@@ -111,13 +123,23 @@ def read_raw_propertiesset(stream):
   return data
 
 class EDMFile(object):
-  def __init__(self, filename):
-    reader = TrackingReader(filename)
-    try:
-      self._read(reader)
-    except:
-      print("ERROR at {}".format(reader.tell()))
-      raise
+  def __init__(self, filename=None):
+    if filename:
+      reader = TrackingReader(filename)
+      try:
+        self._read(reader)
+      except:
+        print("ERROR at {}".format(reader.tell()))
+        raise
+    else:
+      self.version = 8
+      self.indexA = {}
+      self.indexB = {}
+      self.node = None
+      self.connectors = None
+      self.renderNodes = None
+      self.lightNodes = None
+      self.shellNodes = None
 
   def _read(self, reader):
     reader.read_constant(b'EDM')
@@ -211,6 +233,11 @@ class EDMFile(object):
 
 @reads_type("model::BaseNode")
 class BaseNode(object):
+  def __init__(self):
+    self.name = ""
+    self.version = 0
+    self.props = {}
+
   @classmethod
   def read(cls, stream):
     node = cls()
@@ -224,7 +251,11 @@ class BaseNode(object):
 
 @reads_type("model::RootNode")
 class RootNode(BaseNode):
-  unknown_parts = []
+  def __init__(self):
+    super(RootNode, self).__init__()
+    self.name = "Scene Root"
+    self.unknown_parts = []
+
   @classmethod
   def read(cls, stream):
     self = super(RootNode, cls).read(stream)
@@ -415,11 +446,11 @@ def _read_material_VertexFormat(reader):
 
 def _read_material_texture(reader):
   index = reader.read_uint()
-  unknowna = reader.read_int()
+  assert (reader.read_int() == -1)
   name = reader.read_string()
-  unknownb = reader.read(16)
+  assert reader.read_uints(4) == (2,2,10,6)
   matrix = readMatrixf(reader)
-  return Texture(index, unknowna, name, unknownb, matrix)
+  return Texture(index, name, matrix)
 
 def _read_animateduniforms(stream):
   length = stream.read_uint()
@@ -431,7 +462,7 @@ def _read_animateduniforms(stream):
 
 def _read_texture_coordinates_channels(stream):
   count = stream.read_uint()
-  return stream.read_uints(count)
+  return stream.read_ints(count)
 
 # Lookup table for material reading types
 _material_entry_lookup = {
@@ -546,7 +577,18 @@ def _read_parent_data(stream):
 
 @reads_type("model::RenderNode")
 class RenderNode(BaseNode):
-  children = []
+  def __init__(self):
+    super(RenderNode, self).__init__()
+    self.version = 1
+    self.children = []
+    self.unknown_start = 0
+    self.material = None
+    self.parentData = None
+    self.parent = None
+    self.vertexData = []
+    self.unknown_indexPrefix = 5
+    self.indexData = []
+
   @classmethod
   def read(cls, stream):
     self = super(RenderNode, cls).read(stream)
