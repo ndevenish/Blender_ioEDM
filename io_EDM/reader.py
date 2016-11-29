@@ -109,12 +109,10 @@ def create_material(material):
   # Find the actual file for the texture name
   if len(material.props["TEXTURES"]) == 0:
     return None
-  if len(material.props["TEXTURES"]) != 1:
-    import pdb
-    pdb.set_trace()
-    # assert len(material.props["TEXTURES"]) == 1
 
-  name = material.textures[0].name
+  diffuse_texture = next(x for x in material.textures if x.index == 0)
+
+  name = diffuse_texture.name
   filename = _find_texture_file(name)
   tex = bpy.data.textures.new(name, type="IMAGE")
   if filename:
@@ -163,14 +161,18 @@ def create_object(renderNode):
   # indexData = [renderNode.indexData[i:i+3] for i in range(0, len(renderNode.indexData), 3)]
   indexData = renderNode.indexData
 
-  # Prepare the normals for each vertex
-  if renderNode.material.vertex_format.nnormal == 3:
-    nI = renderNode.material.vertex_format.normal_indices
-    normal_vectors = [Vector([x[ind] for ind in nI]) for x in renderNode.vertexData]
-    normalData = [vector_to_blender(x) for x in normal_vectors]
-  else:
-    normalData = None
-    
+  try:
+    # Prepare the normals for each vertex
+    if renderNode.material.vertex_format.nnormal == 3:
+      nI = renderNode.material.vertex_format.normal_indices
+      normal_vectors = [Vector([x[ind] for ind in nI]) for x in renderNode.vertexData]
+      normalData = [vector_to_blender(x) for x in normal_vectors]
+    else:
+      normalData = None
+  except:
+    import pdb
+    pdb.set_trace()
+      
   bm = bmesh.new()
 
   # Create the BMesh vertices, optionally with normals

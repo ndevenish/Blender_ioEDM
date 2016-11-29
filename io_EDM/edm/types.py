@@ -14,8 +14,11 @@ from .mathtypes import Vector, sequence_to_matrix
 
 from abc import ABC
 
+import logging
+logger = logging.getLogger(__name__)
+
 # VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
-Texture = namedtuple("Texture", ["unknownA", "name", "unknownB", "matrix"])
+Texture = namedtuple("Texture", ["index", "unknownA", "name", "unknownB", "matrix"])
 
 class AnimatingNode(ABC):
   """Abstract base class for all nodes that animate the object"""
@@ -37,11 +40,13 @@ class VertexFormat(object):
 
   @property
   def normal_indices(self):
-    return list(range(self.nposition, self.nposition+self.nnormal))
+    start = self.data[0]
+    return list(range(start, start+self.nnormal))
 
   @property
   def texture_indices(self):
-    return list(range(self.nposition+self.nnormal, self.nposition+self.nnormal+self.ntexture))
+    start = sum(self.data[:4])
+    return list(range(start, start+self.ntexture))
 
   def __repr__(self):
     assert all(x < 10 for x in self.data)
@@ -188,13 +193,13 @@ class EDMFile(object):
     self.shellNodes = objects.get("SHELL_NODES", [])
     self.lightNodes = objects.get("LIGHT_NODES", [])
 
-    # Tie each of the renderNodes to the relevant material
-    for node in (x for x in self.renderNodes if hasattr(x, "material")):
-      node.material = self.node.materials[node.material]
-
     # Tie each of the connectors to it's parent node
     for conn in self.connectors:
       conn.parent = self.node.nodes[conn.parent]
+
+    # Finalize all the render nodes (link, split etc)
+    for node in self.renderNodes:
+      node.prepare(self.node)
 
     # Verify we are at the end of the file without unconsumed data.
     endPos = reader.tell()
@@ -406,11 +411,12 @@ def _read_material_VertexFormat(reader):
   return vf
 
 def _read_material_texture(reader):
-  unknowna = reader.read(8)
+  index = reader.read_uint()
+  unknowna = reader.read_int()
   name = reader.read_string()
   unknownb = reader.read(16)
   matrix = readMatrixf(reader)
-  return Texture(unknowna, name, unknownb, matrix)
+  return Texture(index, unknowna, name, unknownb, matrix)
 
 def _read_animateduniforms(stream):
   length = stream.read_uint()
@@ -516,7 +522,7 @@ def _read_parent_data(stream):
     # Read the parent section
   parentCount = stream.read_uint()
   if parentCount == 1:
-    return [stream.read_uint(), stream.read_int()]
+    return [[stream.read_uint(), stream.read_int()]]
   else:
     parentData = []
     for _ in range(parentCount):
@@ -540,20 +546,50 @@ class RenderNode(BaseNode):
     self.vertexData = _read_vertex_data(stream, "__gv_bytes")
     self.unknown_indexPrefix, self.indexData = _read_index_data(stream, classification="__gi_bytes")
 
-    # Group the index data
-    if len(self.indexData) % 3 == 0:
-      self.indexData = [self.indexData[i:i+3] for i in range(0, len(self.indexData), 3)]
-    else:
-      print("Warning: Have non-multiple of 3 index data count. Case not understood.")
-
     return self
+
+  def prepare(self, context):
+    """Prepare data, aliases and content. Context is a RootNode"""
+
+    # Reference the material
+    self.material = context.materials[self.material]
+
+    # Check if the parenting is simple or not handled
+    if len(self.parentData) == 0:
+      self.parent = None
+      return
+    if len(self.parentData) == 1:
+      self.parent = context.nodes[self.parentData[0][0]]
+      if self.parentData[0][1] != -1:
+        logger.warning("Not sure how to split single-parent, indexed rendernodes")
+      return
+
+    # If here, we have parents to split off with
+    # Make sure we cover the full length of the index array
+    assert self.parentData[-1][-2] == len(self.indexData)
+    start = 0
+    self.children = []
+    for i, (parent, idxTo, idxIDK) in enumerate(self.parentData):
+      node = RenderNode()
+      node.version = self.version
+      node.name = "{}_{}".format(self.name, i)
+      node.props = self.props
+      node.material = self.material
+      node.parent = context.nodes[parent]
+      node.indexData = self.indexData[start:idxTo]
+      node.vertexData = self.vertexData
+      start = idxTo
+      self.children.append(node)
+
+    return
+
 
 @reads_type("model::ShellNode")
 class ShellNode(BaseNode):
   @classmethod
   def read(cls, stream):
     self = super(ShellNode, cls).read(stream)
-    self.unknown = stream.read_uint()
+    self.parent = stream.read_uint()
     self.vertexFormat = _read_material_VertexFormat(stream)
 
     # Read the vertex and index data
@@ -579,6 +615,9 @@ class SkinNode(BaseNode):
     self.unknown_indexPrefix, self.indexData = _read_index_data(stream, classification="__gi_bytes")
 
     return self
+
+  def prepare(self, context):
+    self.bones = [context.nodes[x] for x in self.bones]
 
 @reads_type("model::SegmentsNode")
 class SegmentsNode(BaseNode):
