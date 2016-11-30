@@ -2,12 +2,12 @@
 import struct
 from collections import Counter
 
-from mathtypes import matrix_to_sequence
+from .mathtypes import matrix_to_sequence
 
 class BaseWriter(object):
-  def __init__(self, filename):
+  def __init__(self, filename=None, stream=None):
     self.filename = filename
-    self.stream = open(filename, "wb")
+    self.stream = stream or open(filename, "wb")
     self.typeLog = Counter()
 
   def close(self):
@@ -81,4 +81,4 @@ class BaseWriter(object):
     self.write_doubles([quat[1], quat[2], quat[3], quat[0]])
 
   def mark_written(self, name, count=1):
-    self.typeLog(name) += count
+    self.typeLog[name] += count
