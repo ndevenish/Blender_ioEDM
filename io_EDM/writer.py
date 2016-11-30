@@ -5,6 +5,7 @@ import itertools
 import os
 from .edm.types import Material, VertexFormat, Texture, Node, RenderNode, RootNode
 from .edm.mathtypes import Matrix
+from .edm.basewriter import BaseWriter
 
 def write_file(filename, options={}):
 
@@ -47,9 +48,9 @@ def write_file(filename, options={}):
   file.node = root
   file.renderNodes.append(renderNodes)
 
-  with open(filename, 'wb') as f:
-    file.write(f)
-  
+  writer = BaseWriter(filename)
+  file.write(writer)
+
 def create_texture(source):
   # Get the texture name stripped of ALL extensions
   texName = os.path.basename(source.texture.image.filepath)

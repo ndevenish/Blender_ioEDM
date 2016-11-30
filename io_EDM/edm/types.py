@@ -229,6 +229,22 @@ class EDMFile(object):
     for node in self.renderNodes:
       node.prepare(self.node)
 
+  def audit(self):
+    _index = Counter()
+    _index[RootNode.forTypeName] += 1
+    for rn in itertools.chain(self.renderNodes, self.shellNodes, self.lightNodes, self.connectors):
+      _index[rn.forTypeName] += 1
+      _index += rn.audit()
+    return _index
+
+  def write(self, writer):
+    writer.write(b'EDM')
+    writer.write_ushort(8)
+    # Now we need to write the two indexes... this requires an audit
+    _allIndex = self.audit()
+
+    self.indexA = read_string_uint_dict(reader)
+
 
 
 @reads_type("model::BaseNode")
