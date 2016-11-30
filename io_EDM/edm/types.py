@@ -46,6 +46,8 @@ class VertexFormat(object):
       for name, count in channelData.items():
         data[_vertex_channels[name]] = count
       self.data = bytes(data)
+    else:
+      self.data = channelData
 
     self.nposition = int(self.data[0])
     self.nnormal = int(self.data[1])
@@ -68,6 +70,10 @@ class VertexFormat(object):
   def __repr__(self):
     assert all(x < 10 for x in self.data)
     return "VertexFormat('{}')".format("".join(str(x) for x in self.data))
+
+  def write(self, writer):
+    writer.write_uint(len(self.data))
+    writer.write(self.data)
 
 class TrackingReader(BaseReader):
   def __init__(self, *args, **kwargs):
@@ -633,9 +639,24 @@ class Material(object):
       setattr(self, k.lower(), i)
     return self
 
-  def write(self):
-    pass
-  
+  def write(self, writer):
+    #  'TEXTURE_COORDINATES_CHANNELS', 'MATERIAL_NAME', 'NAME', 'SHADOWS', 'TEXTURES', 'UNIFORMS', 'ANIMATED_UNIFORMS'])
+    writer.write_uint(11)
+    writer.write_string("BLENDING")
+    writer.write_uchar(self.blending)
+    writer.write_string("CULLING")
+    writer.write_uchar(self.culling)
+    writer.write_string("DEPTH_BIAS")
+    writer.write_uint(self.depth_bias)
+    if self.vertex_format:
+      writer.write_string("VERTEX_FORMAT")
+      self.vertex_format.write(writer)
+    writer.write("TEXTURE_COORDINATES_CHANNELS")
+
+    writer.close()
+    import pdb
+    pdb.set_trace()
+
   def audit(self):
     c = Counter()
     if self.uniforms:
