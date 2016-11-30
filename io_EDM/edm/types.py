@@ -302,12 +302,27 @@ class EDMFile(object):
     writer.write(b'EDM')
     writer.write_ushort(8)
     write_string_uint_dict(writer, indexA)
-    write_string_uint_dict(writer, indexB)
-    
+    write_string_uint_dict(writer, indexB)    
     writer.write_named_type(self.node)
+    writer.write_int(-1)
 
-    import pdb
-    pdb.set_trace()
+    # This is where the gap is, often. Let's try without
+    objects = {}
+    if self.renderNodes:
+      objects["RENDER_NODES"] = self.renderNodes
+    if self.connectors:
+      objects["CONNECTORS"] = self.connectors
+    if self.shellNodes:
+      objects["SHELL_NODES"] = self.shellNodes
+    if self.lightNodes:
+      objects["LIGHT_NODES"] = self.lightNodes
+    writer.write_uint(len(objects))
+    for key, nodes in objects.items():
+      writer.write_string(key)
+      writer.write_uint(len(nodes))
+      for node in nodes:
+        writer.write_named_type(node)
+
 
 @reads_type("model::BaseNode")
 class BaseNode(object):
