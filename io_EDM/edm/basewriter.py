@@ -71,6 +71,12 @@ class BaseWriter(object):
   def write_vec3d(self, vector):
     self.write_doubles([vector[0], vector[1], vector[2]])
 
+  def write_vecf(self, vector):
+    self.write_floats(vector)
+
+  def write_vecd(self, vector):
+    self.write_doubles(vector)
+
   def write_matrixf(self, matrix):
     self.write_floats(matrix_to_sequence(matrix))
 
@@ -79,6 +85,11 @@ class BaseWriter(object):
 
   def write_quaternion(self, quat):
     self.write_doubles([quat[1], quat[2], quat[3], quat[0]])
+
+  def write_named_type(self, item, typename=None):
+    name = typename or item.forTypeName
+    self.write_string(name)
+    item.write(self)
 
   def mark_written(self, name, count=1):
     self.typeLog[name] += count

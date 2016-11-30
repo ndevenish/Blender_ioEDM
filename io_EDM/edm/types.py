@@ -132,6 +132,25 @@ def read_raw_propertiesset(stream):
       data[prop.name] = prop.value
   return data
 
+def write_propertiesset(writer, props):
+  writer.write_uint(len(props))
+  for key, value in props.items():
+    if typeof(value) == float:
+      writer.write_string("model::Property<float>")
+      writer.write_string(key)
+      writer.write_float(value)
+    elif typeof(value) == int:
+      writer.write_string("model::Property<unsigned int>")
+      writer.write_string(key)
+      writer.write_uint(value)
+    elif typeof(value) == Vector:
+      typeName = "model::Property<osg::Vec{}f>".format(len(value))
+      writer.write_string(typeName)
+      writer.write_string(key)
+      writer.write_vecf(value)
+    else:
+      raise IOError("Don't know how to write property {}/{}".format(value, type(value)))
+
 def audit_properties_set(props):
   c = Counter()
   for entry in props.values():
@@ -279,6 +298,8 @@ class EDMFile(object):
     write_string_uint_dict(writer, indexA)
     write_string_uint_dict(writer, indexB)
     
+    writer.write_named_type(self.node)
+
     import pdb
     pdb.set_trace()
 
@@ -305,6 +326,11 @@ class BaseNode(object):
     if self.props:
       c += audit_properties_set(self.props)
     return c
+
+  def write(self, writer):
+    writer.write_string(self.name)
+    writer.write_uint(self.version)
+    write_propertiesset(self.props)
 
 @reads_type("model::RootNode")
 class RootNode(BaseNode):
@@ -335,6 +361,21 @@ class RootNode(BaseNode):
       c[node.forTypeName] += 1
       c += node.audit()
     return c
+
+  def write(self, writer):
+    super(RootNode, self).write(writer)
+    # Have no idea what this represents. Try zero
+    writer.write(bytes(145))
+    writer.write_uint(len(self.materials))
+    for mat in materials:
+      mat.write(writer)
+    writer.write_uint(0)
+    writer.write_uint(0)
+    # Write nodes list
+    writer.write_uint(len(self.nodes))
+    for node in self.nodes:
+      writer.write_named_type(node)
+
 
 @reads_type("model::Node")
 class Node(BaseNode):
@@ -592,6 +633,9 @@ class Material(object):
       setattr(self, k.lower(), i)
     return self
 
+  def write(self):
+    pass
+  
   def audit(self):
     c = Counter()
     if self.uniforms:

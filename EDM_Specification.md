@@ -300,7 +300,7 @@ nodes and materials used in the model file.
       model::PropertiesSet properties;
       uchar             unknownB[145];
       list<Material>    materials;
-      uchar             unknownC[8];
+      uint              unknownC[2];
       list<named_type>  nodes;
 
 After the name ("Scene Root") and unknown single integer, that we shall assume
@@ -311,17 +311,19 @@ After this is a relatively large section of unknown data, `unknownB`; by inspect
 bytes manually it *appears* to be of a structure including a chunk of at least
 12 doubles:
 
-    uchar   field1;
+    uchar   field1;       # Either 0, 1 or 2
     double  field2[12];   
     uchar   unknown[48];
 
-With the first field having values on order of ~2, and the last section 
+With the first field having values in the set (0, 1, 2), and the last section 
 filled with data that does not appear to have a sensible-looking direct
 numerical value.
 
-After the list of materials, which are of a predictable type, the list of
-nodes appears to be parent transforms for renderable objects - and includes 
-animation data. Types that appear in this list:
+After the list of materials, which are of a predictable type, there is a small
+unknown block - that seems to always consist of a single `uint = 0`, followed
+by another number. After this the list of nodes appears to be parent
+transforms for renderable objects - and includes  animation data. Types that
+appear in this list:
 
 - `model::Node`
 - `model::TransformNode`
@@ -334,7 +336,6 @@ animation data. Types that appear in this list:
 - `model::ArgPositionNode`
 - `model::ArgAnimatedBone`
 - `model::ArgVisibilityNode`
-
 
 ## `Material`
 
