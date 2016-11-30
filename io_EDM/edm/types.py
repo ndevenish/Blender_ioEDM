@@ -157,10 +157,10 @@ class EDMFile(object):
       self.indexA = {}
       self.indexB = {}
       self.node = None
-      self.connectors = None
-      self.renderNodes = None
-      self.lightNodes = None
-      self.shellNodes = None
+      self.connectors = []
+      self.renderNodes = []
+      self.lightNodes = []
+      self.shellNodes = []
 
   def _read(self, reader):
     reader.read_constant(b'EDM')
