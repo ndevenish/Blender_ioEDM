@@ -680,7 +680,7 @@ data, the actual renderable geometry of the edm file:
 
     model::RenderNode :=
       model::BaseNode   base;
-      uint              unknown;
+      uint              unknown;   # Always zero in known files
       uint              materialId;
       PARENTDATA        parentData;
       VERTEXDATA        vertexData;

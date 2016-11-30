@@ -825,6 +825,41 @@ class RenderNode(BaseNode):
 
     return self
 
+  def write(self, writer):
+    super(RenderNode, self).write(writer)
+    writer.write_uint(0)
+    if not isinstance(self.material, int):
+      self.material = self.material.index
+    writer.write_uint(self.material)
+
+    # Rebuild the parentdata
+    writer.write_uint(1)
+    writer.write_uint(self.parent)
+    writer.write_int(-1)
+
+    # Vertex data
+    writer.write_uint(len(self.vertexData))
+    writer.write_uint(len(self.vertexData[0]))
+    flat_data = list(itertools.chain(*self.vertexData))
+    writer.write_floats(flat_data)
+
+    # Index data
+    if len(self.vertexData) < 256:
+      writer.write_uchar(0)
+      iWriter = writer.write_uchars
+    elif len(self.vertexData) < 2**16:
+      writer.write_uchar(1)
+      iWriter = writer.write_ushorts
+    elif len(self.vertexData) < 2**32:
+      writer.write_ucar(2)
+      iWriter = writer.write_uints
+    else:
+      raise IOError("Do not know how to write index arrays with {} members".format(len(self.indexData)))
+
+    writer.write_uint(len(self.indexData))
+    writer.write_uint(5)
+    iWriter(self.indexData)
+
   def audit(self):
     return _render_audit(self)
 
