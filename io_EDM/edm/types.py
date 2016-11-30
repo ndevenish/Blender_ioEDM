@@ -141,15 +141,15 @@ def read_raw_propertiesset(stream):
 def write_propertiesset(writer, props):
   writer.write_uint(len(props))
   for key, value in props.items():
-    if typeof(value) == float:
+    if type(value) == float:
       writer.write_string("model::Property<float>")
       writer.write_string(key)
       writer.write_float(value)
-    elif typeof(value) == int:
+    elif type(value) == int:
       writer.write_string("model::Property<unsigned int>")
       writer.write_string(key)
       writer.write_uint(value)
-    elif typeof(value) == Vector:
+    elif type(value) == Vector:
       typeName = "model::Property<osg::Vec{}f>".format(len(value))
       writer.write_string(typeName)
       writer.write_string(key)
@@ -336,7 +336,7 @@ class BaseNode(object):
   def write(self, writer):
     writer.write_string(self.name)
     writer.write_uint(self.version)
-    write_propertiesset(self.props)
+    write_propertiesset(writer, self.props)
 
 @reads_type("model::RootNode")
 class RootNode(BaseNode):
@@ -373,7 +373,7 @@ class RootNode(BaseNode):
     # Have no idea what this represents. Try zero
     writer.write(bytes(145))
     writer.write_uint(len(self.materials))
-    for mat in materials:
+    for mat in self.materials:
       mat.write(writer)
     writer.write_uint(0)
     writer.write_uint(0)
@@ -640,7 +640,7 @@ class Material(object):
     return self
 
   def write(self, writer):
-    #  'TEXTURE_COORDINATES_CHANNELS', 'MATERIAL_NAME', 'NAME', 'SHADOWS', 'TEXTURES', 'UNIFORMS', 'ANIMATED_UNIFORMS'])
+    #  'TEXTURES', 'UNIFORMS', 'ANIMATED_UNIFORMS'])
     writer.write_uint(11)
     writer.write_string("BLENDING")
     writer.write_uchar(self.blending)
@@ -651,11 +651,28 @@ class Material(object):
     if self.vertex_format:
       writer.write_string("VERTEX_FORMAT")
       self.vertex_format.write(writer)
-    writer.write("TEXTURE_COORDINATES_CHANNELS")
-
-    writer.close()
-    import pdb
-    pdb.set_trace()
+    writer.write_string("TEXTURE_COORDINATES_CHANNELS")
+    tcc = (0, -1, -1, 1, -1, -1, -1, -1, -1, -1, -1, -1)
+    writer.write_uint(len(tcc))
+    writer.write_ints(tcc)
+    writer.write_string("MATERIAL_NAME")
+    writer.write_string(self.material_name)
+    writer.write_string("NAME")
+    writer.write_string(self.name)
+    writer.write_string("SHADOWS")
+    writer.write_uchar(self.shadows)
+    writer.write_string("TEXTURES")
+    for texture in self.textures:
+      writer.write_uint(texture.index)
+      writer.write_int(-1)
+      writer.write_string(texture.name)
+      writer.write_uints([2,2,10,6])
+      writer.write_matrixf(texture.matrix)
+    writer.write_string("UNIFORMS")
+    write_propertiesset(writer, self.uniforms)
+    writer.write_string("ANIMATED_UNIFORMS")
+    assert not self.animated_uniforms
+    write_propertiesset(writer, self.animated_uniforms)
 
   def audit(self):
     c = Counter()

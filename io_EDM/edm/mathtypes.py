@@ -8,6 +8,8 @@ Also included are tools to create from simple lists, and convert between the
 EDM and blender axis interpretations.
 """
 
+import itertools
+
 try:
   from mathutils import Matrix, Vector, Quaternion
 except ImportError:

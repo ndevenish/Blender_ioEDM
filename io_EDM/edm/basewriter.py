@@ -20,37 +20,37 @@ class BaseWriter(object):
     self.stream.write(struct.pack("B", value))
 
   def write_uchars(self, values):
-    self.stream.write(struct.pack("{}B".format(len(value)), *value))
+    self.stream.write(struct.pack("{}B".format(len(values)), *values))
 
   def write_ushort(self, value):
     self.stream.write(struct.pack("<H", value))
 
   def write_ushorts(self, values):
-    self.stream.write(struct.pack("<{}H".format(len(value)), *value))
+    self.stream.write(struct.pack("<{}H".format(len(values)), *values))
 
   def write_uint(self, value):
     self.stream.write(struct.pack("<I", value))
 
   def write_uints(self, values):
-    self.stream.write(struct.pack("<{}I".format(len(value)), *value))
+    self.stream.write(struct.pack("<{}I".format(len(values)), *values))
 
   def write_int(self, value):
     self.stream.write(struct.pack("<i", value))
 
   def write_ints(self, values):
-    self.stream.write(struct.pack("<{}i".format(len(value)), *value))
+    self.stream.write(struct.pack("<{}i".format(len(values)), *values))
 
   def write_float(self, value):
     self.stream.write(struct.pack("<f", value))
 
   def write_floats(self, values):
-    self.stream.write(struct.pack("<{}f".format(len(value)), *value))
+    self.stream.write(struct.pack("<{}f".format(len(values)), *values))
 
   def write_double(self, value):
     self.stream.write(struct.pack("<d", value))
 
   def write_doubles(self, values):
-    self.stream.write(struct.pack("<{}d".format(len(value)), *value))
+    self.stream.write(struct.pack("<{}d".format(len(values)), *values))
 
   def write_string(self, value):
     data = value.encode("windows-1251")

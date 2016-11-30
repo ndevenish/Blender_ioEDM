@@ -53,6 +53,7 @@ def write_file(filename, options={}):
 
   writer = BaseWriter(filename)
   file.write(writer)
+  writer.close()
 
 def create_texture(source):
   # Get the texture name stripped of ALL extensions
@@ -73,7 +74,7 @@ def create_texture(source):
 
 def create_material(source):
   mat = Material()
-  mat.blending = source.edm_blending
+  mat.blending = int(source.edm_blending)
   mat.material_name = source.edm_material
   mat.name = source.name
   mat.uniforms = {
