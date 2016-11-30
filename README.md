@@ -64,6 +64,9 @@ Developers
 - There is a `read.py` file that can be used to launch blender with an instant
   import, to be used e.g. `blender --python read.py -- edmfile.EDM`. This makes
   the cycle of change/debug/rewrite more manageable
+- There is also a `write.py`. Use as 
+  `blender <filename>.blend --python write.py` and the writer will be run on
+  the contents of the loaded blender file.
 - Several useful scripts in `utils`. `read_all.py` reads every .edm file in an
   `all_edms/` subdirectory (useful itself as a verification), removes the raw
   vertex and index data, and pickles the entire result into `dump.dat`. The 
