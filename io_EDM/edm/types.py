@@ -8,6 +8,7 @@ from .typereader import get_type_reader as _tr_get_type_reader
 from .basereader import BaseReader
 
 from collections import namedtuple, OrderedDict, Counter
+import itertools
 import struct
 
 from .mathtypes import Vector, sequence_to_matrix
@@ -25,6 +26,10 @@ class AnimatingNode(ABC):
 
 _vertex_channels = {"position": 0, "normal": 1, "tex0": 4, "bones": 21}
 
+# All possible entries for indexA and indexB
+_all_IndexA = {'model::TransformNode', 'model::FakeOmniLightsNode', 'model::SkinNode', 'model::Connector', 'model::ShellNode', 'model::SegmentsNode', 'model::FakeSpotLightsNode', 'model::BillboardNode', 'model::ArgAnimatedBone', 'model::RootNode', 'model::Node', 'model::ArgAnimationNode', 'model::LightNode', 'model::LodNode', 'model::Bone', 'model::RenderNode', 'model::ArgVisibilityNode'}
+_all_IndexB = {'model::Key<key::ROTATION>', 'model::Property<float>', 'model::ArgAnimationNode::Position', '__pointers', 'model::FakeOmniLight', 'model::Key<key::SCALE>', 'model::AnimatedProperty<osg::Vec3f>', 'model::Key<key::VEC3F>', 'model::Property<osg::Vec2f>', 'model::Property<osg::Vec3f>', 'model::ArgAnimationNode::Rotation', 'model::ArgVisibilityNode::Range', 'model::Key<key::POSITION>', 'model::AnimatedProperty<osg::Vec2f>', 'model::Key<key::FLOAT>', '__ci_bytes', '__gv_bytes', 'model::ArgVisibilityNode::Arg', 'model::AnimatedProperty<float>', 'model::RNControlNode', 'model::SegmentsNode::Segments', '__gi_bytes', '__cv_bytes', 'model::Property<unsigned int>', 'model::Key<key::VEC2F>', 'model::ArgAnimationNode::Scale', 'model::LodNode::Level', 'model::PropertiesSet', 'model::FakeSpotLight'}
+
 class VertexFormat(object):
   def __init__(self, channelData):
     """Initialise vertex format. takes a byte array, numeric per-channel string, 
@@ -37,14 +42,14 @@ class VertexFormat(object):
       self.data = channelData
     elif isinstance(channelData, dict):
       assert all(x in _vertex_channels for x in channelData.keys())
-      data = bytes(26)
-      for name, count in channelData:
+      data = bytearray(26)
+      for name, count in channelData.items():
         data[_vertex_channels[name]] = count
-      self.data = data
+      self.data = bytes(data)
 
-    self.nposition = int(channelData[0])
-    self.nnormal = int(channelData[1])
-    self.ntexture = int(channelData[4])
+    self.nposition = int(self.data[0])
+    self.nnormal = int(self.data[1])
+    self.ntexture = int(self.data[4])
 
   @property
   def position_indices(self):
@@ -101,6 +106,8 @@ def read_string_uint_dict(stream):
     data[key] = value
   return data
 
+def write_string_uint_dict(writer, data):
+  pass
 
 def read_propertyset(stream):
   """Reads a typed list of properties and returns as an ordered dict"""
@@ -121,6 +128,20 @@ def read_raw_propertiesset(stream):
     else:
       data[prop.name] = prop.value
   return data
+
+def audit_properties_set(props):
+  c = Counter()
+  for entry in props.values():
+    if isinstance(entry, Vector):
+      c["model::Property<osg::Vec{}f>".format(len(entry))] += 1
+    elif isinstance(entry, int):
+      c["model::Property<unsigned int>"] += 1
+    elif isinstance(entry, float):
+      c["model::Property<float>"] += 1
+    else:
+      raise IOError("Do not know how to write uniform property {}".format(entry))
+  return c
+
 
 class EDMFile(object):
   def __init__(self, filename=None):
@@ -190,7 +211,15 @@ class EDMFile(object):
         if len(data) > maxLen:
           data = data[-maxLen:]
 
+    # Make sure all objects are identified
+    assert all(x.encode("utf-8") in possible_entries for x in objects.keys())
+    self.connectors = objects.get("CONNECTORS", [])
+    self.renderNodes = objects.get("RENDER_NODES", [])
+    self.shellNodes = objects.get("SHELL_NODES", [])
+    self.lightNodes = objects.get("LIGHT_NODES", [])
+
     # Validate against the index
+    self.selfCount = self.audit()
     rems = Counter(self.indexA)
     rems.subtract(Counter({x: c for (x,c) in reader.typecount.items() if x in self.indexA}))
     for k in [x for x in rems.keys() if rems[x] == 0]:
@@ -205,13 +234,6 @@ class EDMFile(object):
       del remBs[k]
     if remBs:
       print("IndexB items remaining before RENDER_NODES/CONNECTORS: {}".format(remBs))
-
-    # Make sure all objects are identified
-    assert all(x.encode("utf-8") in possible_entries for x in objects.keys())    
-    self.connectors = objects.get("CONNECTORS", [])
-    self.renderNodes = objects.get("RENDER_NODES", [])
-    self.shellNodes = objects.get("SHELL_NODES", [])
-    self.lightNodes = objects.get("LIGHT_NODES", [])
 
     # Verify we are at the end of the file without unconsumed data.
     endPos = reader.tell()
@@ -232,20 +254,31 @@ class EDMFile(object):
   def audit(self):
     _index = Counter()
     _index[RootNode.forTypeName] += 1
+    _index += self.node.audit()
     for rn in itertools.chain(self.renderNodes, self.shellNodes, self.lightNodes, self.connectors):
       _index[rn.forTypeName] += 1
-      _index += rn.audit()
+      try:
+        _index += rn.audit()
+      except:
+        raise RuntimeError("Trouble reading audit from {}".format(type(rn)))
+
     return _index
 
   def write(self, writer):
+    # Generate the file index with an audit
+    _allIndex = self.audit()
+    indexA = {k: v for k, v in _allIndex.items() if k in _all_IndexA}
+    indexB = {k: v for k, v in _allIndex.items() if k in _all_IndexB}
+
+    # Do the writing
     writer.write(b'EDM')
     writer.write_ushort(8)
-    # Now we need to write the two indexes... this requires an audit
-    _allIndex = self.audit()
-
+    write_string_uint_dict(writer, indexA)
+    write_string_uint_dict(writer, indexB)
+    
+    import pdb
+    pdb.set_trace()
     self.indexA = read_string_uint_dict(reader)
-
-
 
 @reads_type("model::BaseNode")
 class BaseNode(object):
@@ -264,6 +297,12 @@ class BaseNode(object):
     node.version = stream.read_uint()
     node.props = read_raw_propertiesset(stream)
     return node
+
+  def audit(self):
+    c = Counter()
+    if self.props:
+      c += audit_properties_set(self.props)
+    return c
 
 @reads_type("model::RootNode")
 class RootNode(BaseNode):
@@ -285,6 +324,15 @@ class RootNode(BaseNode):
     stream.nodes = self.nodes
     print("NodeCount: {}".format(len(self.nodes)))
     return self
+
+  def audit(self):
+    c = super(RootNode, self).audit()
+    for material in self.materials:
+      c += material.audit()
+    for node in self.nodes:
+      c[node.forTypeName] += 1
+      c += node.audit()
+    return c
 
 @reads_type("model::Node")
 class Node(BaseNode):
@@ -331,6 +379,22 @@ class ArgAnimationNode(BaseNode, AnimatingNode):
     data["quat_2"] = readQuaternion(stream)
     data["scale"] = readVec3d(stream)
     return ArgAnimationBase(**data)
+
+  def audit(self):
+    c = super(ArgAnimationNode, self).audit()
+    if not type(self) is ArgAnimationNode:
+      c["model::ArgAnimationNode"] += 1
+    c["model::ArgAnimationNode::Rotation"] = len(self.rotData)
+    c["model::ArgAnimationNode::Position"] = len(self.posData)
+    c["model::ArgAnimationNode::Scale"] = len(self.scaleData)
+
+    rotKeys = sum([len(x[1]) for x in self.rotData])
+    posKeys = sum([len(x[1]) for x in self.posData])
+    scaKeys = sum([len(x[1][0])+len(x[1][1]) for x in self.scaleData])
+    c["model::Key<key::ROTATION>"] = rotKeys
+    c["model::Key<key::POSITION>"] = posKeys
+    c["model::Key<key::SCALE>"] = scaKeys
+    return c
 
 
 @reads_type("model::ArgAnimatedBone")
@@ -448,6 +512,12 @@ class ArgVisibilityNode(BaseNode, AnimatingNode):
     stream.mark_type_read("model::ArgVisibilityNode::Range", count)
     return (arg, data)
 
+  def audit(self):
+    c = super(ArgVisibilityNode, self).audit()
+    c["model::ArgVisibilityNode::Arg"] += len(self.visData)
+    c["model::ArgVisibilityNode::Range"] += sum(len(x[1]) for x in self.visData)
+    return c
+
 def _read_material_VertexFormat(reader):
   channels = reader.read_uint()
   data = reader.read_uchars(channels)
@@ -520,6 +590,25 @@ class Material(object):
       setattr(self, k.lower(), i)
     return self
 
+  def audit(self):
+    c = Counter()
+    if self.uniforms:
+      c["model::PropertiesSet"] = 1
+      c += audit_properties_set(self.uniforms)
+    if self.animated_uniforms:
+      for entry in self.animated_uniforms.values():
+        typeEntry = entry.keys[0].value
+        if isinstance(typeEntry, float):
+          c["model::AnimatedProperty<float>"] += 1
+          c["model::Key<key::FLOAT>"] += len(entry.keys)
+        elif isinstance(typeEntry, Vector):
+          vLen = len(typeEntry)
+          c["model::AnimatedProperty<osg::Vec{}f>".format(vLen)] += 1
+          c["model::Key<key::VEC{}F>".format(vLen)] += len(entry.keys)
+        else:
+          raise IOError("Have not encountered writing animated property of type {}/{}".format(entry, type(entry)))          
+    return c
+
 @reads_type("model::LodNode")
 class LodNode(BaseNode):
   @classmethod
@@ -529,6 +618,10 @@ class LodNode(BaseNode):
     self.level = [stream.read_floats(4) for x in range(count)]
     stream.mark_type_read("model::LodNode::Level", count)
     return self
+  def audit(self):
+    c = super(LodNode, self).audit()
+    c["model::LodNode::Level"] += len(self.level)
+    return c
 
 @reads_type("model::Connector")
 class Connector(BaseNode):
@@ -591,6 +684,20 @@ def _read_parent_data(stream):
       parentData.append((node, ranges[0], ranges[1]))
     return parentData
 
+def _render_audit(self, verts="__gv_bytes", inds="__gi_bytes"):
+  c = Counter()
+  c[verts] += 4 * len(self.vertexData) * len(self.vertexData[0])
+  # c["__gi_bytes"] += 
+  if len(self.vertexData) < 256:
+    c[inds] += len(self.indexData)
+  elif len(self.vertexData) < 2**16:
+    c[inds] += len(self.indexData) * 2
+  elif len(self.vertexData) < 2**32:
+    c[inds] += len(self.indexData) * 4
+  else:
+    raise IOError("Do not know how to write index arrays with {} members".format(len(self.indexData)))
+  return c
+
 @reads_type("model::RenderNode")
 class RenderNode(BaseNode):
   def __init__(self):
@@ -618,6 +725,9 @@ class RenderNode(BaseNode):
     self.unknown_indexPrefix, self.indexData = _read_index_data(stream, classification="__gi_bytes")
 
     return self
+
+  def audit(self):
+    return _render_audit(self)
 
   def prepare(self, context):
     """Prepare data, aliases and content. Context is a RootNode"""
@@ -654,7 +764,6 @@ class RenderNode(BaseNode):
 
     return
 
-
 @reads_type("model::ShellNode")
 class ShellNode(BaseNode):
   @classmethod
@@ -668,7 +777,10 @@ class ShellNode(BaseNode):
     self.unknown_indexPrefix, self.indexData = _read_index_data(stream, classification="__ci_bytes")
 
     return self
-
+  
+  def audit(self):
+    return _render_audit(self, verts="__cv_bytes", inds="__ci_bytes")
+  
 @reads_type("model::SkinNode")
 class SkinNode(BaseNode):
   @classmethod
@@ -690,6 +802,9 @@ class SkinNode(BaseNode):
   def prepare(self, context):
     self.bones = [context.nodes[x] for x in self.bones]
 
+  def audit(self):
+    return _render_audit(self)
+  
 @reads_type("model::SegmentsNode")
 class SegmentsNode(BaseNode):
   @classmethod
@@ -700,6 +815,11 @@ class SegmentsNode(BaseNode):
     self.data = [stream.read_floats(6) for x in range(count)]
     stream.mark_type_read("model::SegmentsNode::Segments", count)
     return self
+
+  def audit(self):
+    c = super(SegmentsNode, self).audit()
+    c["model::SegmentsNode::Segments"] += len(self.data)
+    return c
 
 @reads_type("model::BillboardNode")
 class BillboardNode(BaseNode):
