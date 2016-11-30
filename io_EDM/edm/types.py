@@ -677,6 +677,7 @@ class Material(object):
     writer.write_string("SHADOWS")
     writer.write_uchar(self.shadows)
     writer.write_string("TEXTURES")
+    writer.write_uint(len(self.textures))
     for texture in self.textures:
       writer.write_uint(texture.index)
       writer.write_int(-1)
