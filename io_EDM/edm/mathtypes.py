@@ -34,6 +34,10 @@ def MatrixScale(vector):
 def sequence_to_matrix(seq):
   return Matrix([seq[:4], seq[4:8], seq[8:12], seq[12:16]]).transposed()
 
+def matrix_to_sequence(mat):
+  xp = mat.transposed()
+  return tuple(itertools.chain(xp[0], xp[1], xp[2], xp[3]))
+
 def sequence_to_quaternion(seq):
   return Quaternion((seq[3], seq[0], seq[1], seq[2]))
 
