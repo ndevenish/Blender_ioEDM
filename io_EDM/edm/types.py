@@ -107,7 +107,10 @@ def read_string_uint_dict(stream):
   return data
 
 def write_string_uint_dict(writer, data):
-  pass
+  writer.write_uint(len(data))
+  for key, value in data.items():
+    writer.write_string(key)
+    writer.write_uint(value)
 
 def read_propertyset(stream):
   """Reads a typed list of properties and returns as an ordered dict"""
@@ -278,7 +281,6 @@ class EDMFile(object):
     
     import pdb
     pdb.set_trace()
-    self.indexA = read_string_uint_dict(reader)
 
 @reads_type("model::BaseNode")
 class BaseNode(object):
