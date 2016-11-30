@@ -6,12 +6,13 @@ blender addon to allow importing/exporting of `.EDM` model files, as used in
 the flight simulator DCS world. It has been engineered by careful studying of
 the binary file format, intuition, research and much guesswork.
 
-In its current state, it allows limited importing whilst the fine details of
-the file structure are worked out. Much of the data is reasonably easy to
-interpret, but translating the concepts to Blender is still a WIP. Also, there
-may be advanced modelling features used in DCS world modules that the author
-does not own, but a universal importer is less a goal than understanding the
-file format well enough to build a simple exporter.
+In its current state, it allows basic importing functionality whilst the fine
+details of the file structure are worked out, and even more basic exporting.
+Much of the data is reasonably easy to interpret, but translating the concepts
+to Blender is still a WIP. Also, there may be advanced modelling features used
+in DCS world modules that the author does not own, but a universal importer is
+less a goal than understanding the file format well enough to build a simple
+exporter.
 
 What Works
 ----------
@@ -21,10 +22,11 @@ What Works
 - Simple texture materials, IF the textures are in the same directory
   or a subdirectory called "textures"
 - Connectors, and UI integration to mark empties as such
+- Exporting extremely simple meshes
 
 What Doesn't Work
 -----------------
-- Exporting
+- Exporting anything complicated - e.g. with animations, multiple textures
 - Bone-based animations are not handled at all
 - Multiple argument animations per object - decisions on the best way to 
   represent this in Blender need to be made (NLA? Custom Action attributes?)
@@ -49,7 +51,7 @@ Unanswered Questions about the EDM files
   objects)
 - The interpretation of the material "TEXTURE_COORDINATES_CHANNELS"
 - Lots of other details needed on the occasional unknown datablock, the data
-  in `RootNode` for instance.
+  in `RootNode` for instance seems rather large but remains opaque.
 
 Installation
 ------------
