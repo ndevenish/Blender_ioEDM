@@ -52,5 +52,5 @@ def matrix_to_edm(matrix):
 def vector_to_blender(v):
   return Vector([v[0], -v[2], v[1]])
 
-def vector_to_edm(vector):
+def vector_to_edm(v):
   return Vector([v[0], v[2], -v[1]])

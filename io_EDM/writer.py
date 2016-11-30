@@ -4,7 +4,7 @@ import bpy
 import itertools
 import os
 from .edm.types import Material, VertexFormat, Texture, Node, RenderNode, RootNode, EDMFile
-from .edm.mathtypes import Matrix
+from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm
 from .edm.basewriter import BaseWriter
 
 def write_file(filename, options={}):
@@ -120,7 +120,10 @@ def create_rendernode(source, material):
     newFaceIndex = [len(newVertices)+x for x in range(len(face.vertices))]
     # Build the new vertex data
     for i, vtxIndex in enumerate(face.vertices):
-      newVertices.append(tuple(itertools.chain(mesh.vertices[vtxIndex].co, [0], mesh.vertices[vtxIndex].normal, uvFace.uv[i])))
+      position = vector_to_edm(mesh.vertices[vtxIndex].co)
+      normal = vector_to_edm(mesh.vertices[vtxIndex].normal)
+      uv = [uvFace.uv[i][0], -uvFace.uv[i][1]]
+      newVertices.append(tuple(itertools.chain(position, [0], normal, uv)))
 
     # We either have triangles or quads. Split into triangles, based on the
     # vertex index subindex in face.vertices
