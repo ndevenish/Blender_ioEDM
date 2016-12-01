@@ -44,11 +44,11 @@ def write_file(filename, options={}):
   # Parents:      √
   # Let's build the root node
   root = RootNode()
-  root.nodes = nodes
   root.materials = materials
   # And finally the wrapper
   file = EDMFile()
-  file.node = root
+  file.root = root
+  file.nodes = nodes
   file.renderNodes = renderNodes
 
   writer = BaseWriter(filename)

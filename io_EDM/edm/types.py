@@ -184,7 +184,8 @@ class EDMFile(object):
       self.version = 8
       self.indexA = {}
       self.indexB = {}
-      self.node = None
+      self.root = None
+      self.nodes = []
       self.connectors = []
       self.renderNodes = []
       self.lightNodes = []
@@ -197,50 +198,29 @@ class EDMFile(object):
     # Read the two indexes
     self.indexA = read_string_uint_dict(reader)
     self.indexB = read_string_uint_dict(reader)
-    self.node = read_named_type(reader)
-    assert reader.read_int() == -1
+    self.root = read_named_type(reader)
 
-    # Read the object list once we find it
-    def read_object_list(reader, count, name):
-      """Reads an object list having already read the first name and count"""
+    self.nodes = reader.read_list(read_named_type)
+    print("NodeCount: {}".format(len(self.nodes)))
+
+    # Read the node parenting data
+    for (node, parent) in zip(self.nodes, reader.read_ints(len(self.nodes))):
+      if parent == -1:
+        continue
+      if parent > len(self.nodes):
+        raise IOError("Invalid node parent data")
+      node.parent = self.nodes[parent]
+
+    def _read_object_dictionary(stream):
+      count = stream.read_uint()
       objects = {}
-      for i in range(count):
-        if i > 0:
-          name = reader.read_string()
-        objects[name] = reader.read_list(read_named_type)
+      for _ in range(count):
+        name = stream.read_string()
+        objects[name] = stream.read_list(read_named_type)
       return objects
 
-    # Scan ahead byte-by-byte until we find the object dictionary, or EOF
-    preObjPos = reader.tell()
-    objects = {}
-    possible_entries = [b"CONNECTORS", b"RENDER_NODES", b"SHELL_NODES", b"LIGHT_NODES"]
-    possible_entries = sorted(possible_entries, key=lambda x: len(x))
-    
-    data = reader.read(min(len(x) for x in possible_entries)+8)
-    maxLen = max(len(x) for x in possible_entries)+8
-    unfound = True
-    while unfound:
-      for entry in possible_entries:
-        if data[-len(entry):] == entry:
-          objPos = reader.tell()-8-len(entry)
-          self.gap_data = (objPos-preObjPos, objPos)
-          print("Found object list at {}, gap size = {}".format(objPos, objPos-preObjPos))
-          objCount = struct.unpack("<I", data[-len(entry)-8:-len(entry)-4])[0]
-          # print("objects: {}".format(objCount))
-          unfound = False
-          objects = read_object_list(reader, objCount, entry.decode("utf-8"))
-          break
-      if unfound:
-        newData = reader.read(1)
-        if len(newData) == 0:
-          print("Found EOF without finding object list")
-          break
-        data = data + newData
-        if len(data) > maxLen:
-          data = data[-maxLen:]
-
-    # Make sure all objects are identified
-    assert all(x.encode("utf-8") in possible_entries for x in objects.keys())
+    # Read the renderable objects
+    objects = _read_object_dictionary(reader)
     self.connectors = objects.get("CONNECTORS", [])
     self.renderNodes = objects.get("RENDER_NODES", [])
     self.shellNodes = objects.get("SHELL_NODES", [])
@@ -273,16 +253,19 @@ class EDMFile(object):
 
     # Tie each of the connectors to it's parent node
     for conn in self.connectors:
-      conn.parent = self.node.nodes[conn.parent]
+      conn.parent = self.nodes[conn.parent]
 
     # Finalize all the render nodes (link, split etc)
     for node in self.renderNodes:
-      node.prepare(self.node)
+      node.prepare(nodes=self.nodes, materials=self.root.materials)
 
   def audit(self):
     _index = Counter()
     _index[RootNode.forTypeName] += 1
-    _index += self.node.audit()
+    _index += self.root.audit()
+    for node in self.nodes:
+      _index[node.forTypeName] += 1
+      _index += node.audit()
     for rn in itertools.chain(self.renderNodes, self.shellNodes, self.lightNodes, self.connectors):
       _index[rn.forTypeName] += 1
       try:
@@ -302,11 +285,22 @@ class EDMFile(object):
     writer.write(b'EDM')
     writer.write_ushort(8)
     write_string_uint_dict(writer, indexA)
-    write_string_uint_dict(writer, indexB)    
-    writer.write_named_type(self.node)
-    writer.write_int(-1)
+    write_string_uint_dict(writer, indexB)
 
-    # This is where the gap is, often. Let's try without
+    # Write the Root node
+    writer.write_named_type(self.root)
+    
+    # Write nodes list
+    writer.write_uint(len(self.nodes))
+    for node in self.nodes:
+      writer.write_named_type(node)
+    # Write the parent data for the nodes
+    writer.write_int(-1)
+    # No parent chain data for the simple cases
+    for _ in range(len(self.nodes)-1):
+      writer.write_uint(0)
+
+    # Now do the render objects dictionary
     objects = {}
     if self.renderNodes:
       objects["RENDER_NODES"] = self.renderNodes
@@ -365,23 +359,16 @@ class RootNode(BaseNode):
   def read(cls, stream):
     self = super(RootNode, cls).read(stream)
     self.unknownA = stream.read_uchar()
-    self.unknownB = [readVec3d(stream) for _ in range(3)]
-    self.unknownC = stream.read(48)
+    self.unknownB = [readVec3d(stream) for _ in range(6)]
     self.materials = stream.read_list(Material.read)
     stream.materials = self.materials
     self.unknownD = stream.read_uints(2)
-    self.nodes = stream.read_list(read_named_type)
-    stream.nodes = self.nodes
-    print("NodeCount: {}".format(len(self.nodes)))
     return self
 
   def audit(self):
     c = super(RootNode, self).audit()
     for material in self.materials:
       c += material.audit()
-    for node in self.nodes:
-      c[node.forTypeName] += 1
-      c += node.audit()
     return c
 
   def write(self, writer):
@@ -393,10 +380,6 @@ class RootNode(BaseNode):
       mat.write(writer)
     writer.write_uint(0)
     writer.write_uint(0)
-    # Write nodes list
-    writer.write_uint(len(self.nodes))
-    for node in self.nodes:
-      writer.write_named_type(node)
 
 
 @reads_type("model::Node")
@@ -865,18 +848,18 @@ class RenderNode(BaseNode):
   def audit(self):
     return _render_audit(self)
 
-  def prepare(self, context):
+  def prepare(self, nodes, materials):
     """Prepare data, aliases and content. Context is a RootNode"""
 
     # Reference the material
-    self.material = context.materials[self.material]
+    self.material = materials[self.material]
 
     # Check if the parenting is simple or not handled
     if len(self.parentData) == 0:
       self.parent = None
       return
     if len(self.parentData) == 1:
-      self.parent = context.nodes[self.parentData[0][0]]
+      self.parent = nodes[self.parentData[0][0]]
       if self.parentData[0][1] != -1:
         logger.warning("Not sure how to split single-parent, indexed rendernodes")
       return
@@ -892,7 +875,7 @@ class RenderNode(BaseNode):
       node.name = "{}_{}".format(self.name, i)
       node.props = self.props
       node.material = self.material
-      node.parent = context.nodes[parent]
+      node.parent = nodes[parent]
       node.indexData = self.indexData[start:idxTo]
       node.vertexData = self.vertexData
       start = idxTo

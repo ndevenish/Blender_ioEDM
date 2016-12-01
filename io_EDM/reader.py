@@ -27,7 +27,7 @@ def read_file(filename):
   # We need to change the directory as the material searcher
   # currently uses the cwd
   with chdir(os.path.dirname(os.path.abspath(filename))):
-    for material in edm.node.materials:
+    for material in edm.root.materials:
       material.blender_material = create_material(material)
 
   # Convert all the connectors!

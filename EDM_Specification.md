@@ -186,12 +186,13 @@ We now know enough to parse the EDM file, following type definitions. Let's look
 
     EDMFile :=
       const b'EDM'
-      ushort              version;    # Assumed - 8 in test files
+      ushort              version;    # 8 in all current EDM files
       map<string, uint>   indexA;
       map<string, uint>   indexB;
-      named_type          rootNode;   # Practically, model::RootNode
-      const int = -1;                 # Always observed thusfar
-      unknown_type        unknown;    # See below
+      named_type          rootNode;   # Always model::RootNode
+      uint                nodeCount;
+      named_type          nodes[nodeCount];
+      uint                nodeParents[nodeCount];
       map<string,list<named_type>>   renderItems;
 
 followed by an EOF. Let's start by looking at the two string-uint indexes.
@@ -249,20 +250,37 @@ important for writing new EDM files.
 
 ### The Root Node
 
-The next entry is a `named_type` '`rootNode`'. This has always been observed
-to be an instance of `model::RootNode`, and is described below.
+The next entry is a `named_type` - but is always a named instance of 
+`model::RootNode`.
 
-### Unknown data block
+### Transformation Nodes
 
-Before the object list is an unknown data block. This is the only area of the
-EDM file that remains a complete mystery - there does not even appear to be
-any kind of size indicator, and it only ever appears to be preceeded by an 
-integer value of `-1`. 
+There is then a list of named transformation and animation nodes, always
+starting with an empty `model::Node`. The types of node that appear in this
+list are:
 
-The only method of parsing that is currently known is to scan the bytestream
-for the start of the render items section - a `uint` followed by a  `string`
-("CONNECTORS", "RENDER_NODES", "SHELL_NODES" or "LIGHT_NODES") and
-backtracking the appropriate amount.
+- `model::Node`
+- `model::TransformNode`
+- `model::Bone`
+- `model::LodNode`
+- `model::BillboardNode`
+- `model::ArgAnimationNode`
+- `model::ArgScaleNode`
+- `model::ArgRotationNode`
+- `model::ArgPositionNode`
+- `model::ArgAnimatedBone`
+- `model::ArgVisibilityNode`
+
+Following this list is a rather opaque block of data - on the surface it 
+appears to be a `-1` followed by a large block of mostly zeros, with only
+occasional data. This block is simply an array of transformation node
+references - each `uint` holds the transformation node index of the parent
+in it's transformation chain, with `-1` indicating that the node has no
+parent - the reason most of the data is zero is that mostly there is no 
+need for a complex chain of parent transformation. 
+
+This tree of parenting allows for complex animations and skeletal structures
+that allow multiple animations to be applied to each render item.
 
 ### Render Items
 
@@ -291,47 +309,32 @@ in reading, the root node.
 
 ## `model::RootNode`
 
-The `RootNode` object holds information about all of the transformation
-nodes and materials used in the model file.
+The `RootNode` object holds information about all of the materials in the
+scene, and a chunk of vector data that is not well understood.
 
     model::RootNode :=
       string            name;
       uint              version;      # Asssumed
       model::PropertiesSet properties;
       uchar             unknownA;     # Either 0, 1 or 2
-      osg::Vec3d        unknownB[4];
-      uchar             unknownC[48];
+      osg::Vec3d        unknownB[6];
       list<Material>    materials;
-      uint              unknownD[2];
-      list<named_type>  nodes;
+      uint              unknownC[2];
 
-After the name ("Scene Root") and unknown single integer, that we shall assume
-is class version; comes a properties set - whose only observed contents at
-time of writing is `{"__VERSION__": 2}` - a value which appears to be important
+The object begins like all other `Node`-derived objects, with the name, class
+version and properties dictionary. Although the properties are often empty
+for `Node`-derived objects, in the `RootNode` this always has the contents
+`{"__VERSION__": 2}` - a value which appears to be important
 when writing (it changes the layout of the unknown areas of the class?)
 
-After this is a relatively large section of unknown data, `unknownA/B/C`; The 
-grouping of the data appears to be known - but the purpose of the values are
-not known. The data inside `unknownC` does not appear to be in a 'sensible'
-range to make them obviously integers or floats.
+After this is a relatively large section of unknown data, `unknownA/B`; They
+clearly represent a `char` and array of vectors, but the meaning of these
+remain unclear.
 
-After the list of materials, which are of a predictable type, there is a small
+The list of materials contains the bulk of the contents of the class - in 
+an easy-to-read list format. After these, there is a small
 unknown block - that seems to always consist of a single `uint = 0`, followed
-by another number. After this the list of nodes appears to be parent
-transforms for renderable objects - and includes  animation data. Types that
-appear in this list:
-
-- `model::Node`
-- `model::TransformNode`
-- `model::Bone`
-- `model::LodNode`
-- `model::BillboardNode`
-- `model::ArgAnimationNode`
-- `model::ArgScaleNode`
-- `model::ArgRotationNode`
-- `model::ArgPositionNode`
-- `model::ArgAnimatedBone`
-- `model::ArgVisibilityNode`
+by another number.
 
 ## `Material`
 
