@@ -11,12 +11,12 @@ with open("dump.dat", "rb") as f:
 
 def all_materials():
   for edm in data.values():
-    for mat in edm.node.materials:
+    for mat in edm.root.materials:
       yield mat
 
 def all_nodes():
   for edm in data.values():
-    for node in edm.node.nodes:
+    for node in edm.nodes:
       yield node
 
 def all_renderNodes():
