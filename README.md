@@ -37,13 +37,8 @@ What Doesn't Work
 
 Unanswered Questions about the EDM files
 ----------------------------------------
-- How are the transformations for e.g. the SU-25t foot pedals applied - the 
-  transformation data attached to the root render node does not seem sufficient
-  for proper positioning
 - Exactly how are the animation transformations applied, and the purpose of
   the 'second quaternion' in the `ArgAnimationNode` common base data
-- The meaning of the mysterious data block directly before the
-  `CONNECTORS`/`RENDER_NODES` section (after the `RootNode` and `-1` data)
 - What is `model::RNControlNode` (the only index count object not understood)
 - The `model::RenderNode` have a structure mapping vertex data to parent data,
   but there are situations where this is not understood (e.g. single-parent
