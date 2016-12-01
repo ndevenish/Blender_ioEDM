@@ -114,7 +114,7 @@ def read_string_uint_dict(stream):
 
 def write_string_uint_dict(writer, data):
   writer.write_uint(len(data))
-  keys = ordered(data.keys())
+  keys = sorted(data.keys())
   for key in keys:
     writer.write_string(key)
     writer.write_uint(data[key])
