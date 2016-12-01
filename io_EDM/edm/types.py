@@ -358,17 +358,18 @@ class RootNode(BaseNode):
   def __init__(self):
     super(RootNode, self).__init__()
     self.name = "Scene Root"
+    self.props["__VERSION__"] = 2
     self.unknown_parts = []
 
   @classmethod
   def read(cls, stream):
     self = super(RootNode, cls).read(stream)
-    self.unknown_parts.append(stream.read_uchar())
-    self.unknown_parts.append(stream.read_doubles(12))
-    self.unknown_parts.append(stream.read(48))
+    self.unknownA = stream.read_uchar()
+    self.unknownB = [readVec3d(stream) for _ in range(3)]
+    self.unknownC = stream.read(48)
     self.materials = stream.read_list(Material.read)
     stream.materials = self.materials
-    self.unknown_parts.append(stream.read(8))
+    self.unknownD = stream.read_uints(2)
     self.nodes = stream.read_list(read_named_type)
     stream.nodes = self.nodes
     print("NodeCount: {}".format(len(self.nodes)))
@@ -385,7 +386,7 @@ class RootNode(BaseNode):
 
   def write(self, writer):
     super(RootNode, self).write(writer)
-    # Have no idea what this represents. Try zero
+    # Have no idea what this represents. Try zeros.
     writer.write(bytes(145))
     writer.write_uint(len(self.materials))
     for mat in self.materials:

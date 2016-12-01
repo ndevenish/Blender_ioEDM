@@ -296,28 +296,24 @@ nodes and materials used in the model file.
 
     model::RootNode :=
       string            name;
-      uint              version;      # Asssumed      
+      uint              version;      # Asssumed
       model::PropertiesSet properties;
-      uchar             unknownB[145];
+      uchar             unknownA;     # Either 0, 1 or 2
+      osg::Vec3d        unknownB[4];
+      uchar             unknownC[48];
       list<Material>    materials;
-      uint              unknownC[2];
+      uint              unknownD[2];
       list<named_type>  nodes;
 
 After the name ("Scene Root") and unknown single integer, that we shall assume
 is class version; comes a properties set - whose only observed contents at
-time of writing is `{"__VERSION__": 2}`.
+time of writing is `{"__VERSION__": 2}` - a value which appears to be important
+when writing (it changes the layout of the unknown areas of the class?)
 
-After this is a relatively large section of unknown data, `unknownB`; by inspecting the 
-bytes manually it *appears* to be of a structure including a chunk of at least
-12 doubles:
-
-    uchar   field1;       # Either 0, 1 or 2
-    double  field2[12];   
-    uchar   unknown[48];
-
-With the first field having values in the set (0, 1, 2), and the last section 
-filled with data that does not appear to have a sensible-looking direct
-numerical value.
+After this is a relatively large section of unknown data, `unknownA/B/C`; The 
+grouping of the data appears to be known - but the purpose of the values are
+not known. The data inside `unknownC` does not appear to be in a 'sensible'
+range to make them obviously integers or floats.
 
 After the list of materials, which are of a predictable type, there is a small
 unknown block - that seems to always consist of a single `uint = 0`, followed
@@ -690,7 +686,7 @@ The `materialId` is the index of the material to be applied to this data -
 the index in the `RootNode.materials` list. The `VERTEXDATA` and `INDEXDATA`
 types are shared with the `model::ShellNode` and `model::SkinNode` types.
 
-Let's start with the parent data, which is slightly unusual - the exact layout
+Let's start with the par§ent data, which is slightly unusual - the exact layout
 depends on the value of the first count entry:
 
     PARENTDATA :=
