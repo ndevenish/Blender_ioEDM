@@ -461,6 +461,18 @@ data is used to map the texture:
 | 11    | ?          | `tu-22m3_glass_color_spec`, `kab_glass_spec_color` (only two) |
 | 12    | ?          | `f-86f_chrom`, `sa342_int_cpit_glass_reflect`, `chromic_blur` (only three) |
 
+The `TEXTURE_COORDINATE_CHANNELS` field is defined as:
+
+    TEXTURE_COORDINATE_CHANNELS :=
+      uint count;
+      uint channels[count];
+
+And remains a mystery for now. There is usually 10, 11 or 12 channels, and
+most of the channels are filled with `-1` (e.g. `0xFFFFFFFF`). Best guess is
+that it is some kind of mask - an error in writing resulted in one of the
+channels being written with value `1`, which led to the model viewer error
+`Empty Channel`. Writing zero for the first channel (by guesswork and
+inspection of other .edm files) seems to work for the simple one-texture case.
 
 ### Vertex Format
 Specifies the format of the vertex data; The render nodes store the total

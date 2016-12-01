@@ -653,7 +653,7 @@ class Material(object):
       writer.write_string("VERTEX_FORMAT")
       self.vertex_format.write(writer)
     writer.write_string("TEXTURE_COORDINATES_CHANNELS")
-    tcc = (0, -1, -1, 1, -1, -1, -1, -1, -1, -1, -1, -1)
+    tcc = (0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
     writer.write_uint(len(tcc))
     writer.write_ints(tcc)
     writer.write_string("MATERIAL_NAME")
