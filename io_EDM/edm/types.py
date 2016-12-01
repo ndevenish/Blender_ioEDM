@@ -114,9 +114,10 @@ def read_string_uint_dict(stream):
 
 def write_string_uint_dict(writer, data):
   writer.write_uint(len(data))
-  for key, value in data.items():
+  keys = ordered(data.keys())
+  for key in keys:
     writer.write_string(key)
-    writer.write_uint(value)
+    writer.write_uint(data[key])
 
 def read_propertyset(stream):
   """Reads a typed list of properties and returns as an ordered dict"""
@@ -636,6 +637,7 @@ class Material(object):
       props[name] = _material_entry_lookup[name](stream)
     for k, i in props.items():
       setattr(self, k.lower(), i)
+    self.props = props
     return self
 
   def write(self, writer):
