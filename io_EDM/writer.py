@@ -4,7 +4,7 @@ import bpy
 import itertools
 import os
 from .edm.types import Material, VertexFormat, Texture, Node, RenderNode, RootNode, EDMFile
-from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm
+from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm, Vector
 from .edm.basewriter import BaseWriter
 
 def write_file(filename, options={}):
@@ -80,7 +80,11 @@ def create_material(source):
   mat.name = source.name
   mat.uniforms = {
     "specFactor": source.specular_intensity,
-    "specPower": source.specular_hardness
+    "specPower": float(source.specular_hardness), # Important this is a float
+    "diffuseValue": 1.0,
+    "diffuseShift": Vector((0,0)),
+    "reflectionBlurring": 0.2,
+    "reflectionValue": 1.0,
   }
   mat.vertex_format = VertexFormat({
     "position": 4,
