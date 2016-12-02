@@ -125,14 +125,23 @@ def create_material(material):
   mat.use_shadeless = True
   mat.edm_material = material.material_name
   mat.edm_blending = str(material.blending)
+  mat.use_cast_shadows_only = material.shadows.cast_only
+  mat.use_shadows = material.shadows.receive
+  mat.use_cast_shadows = material.shadows.cast
+  # Read uniform values
+  mat.diffuse_intensity = material.uniforms.get("diffuseValue")
+  mat.specular_intensity = material.uniforms.get("specFactor", mat.specular_intensity)
+  mat.specular_hardness = material.uniforms.get("specPower", mat.specular_hardness)
+  reflection = material.uniforms["reflectionValue", 0.0]
+  if reflection > 0:
+    mat.raytrace_mirror.use = True
+    mat.raytrace_mirror.reflect_factor = reflection
+    mat.raytrace_mirror.gloss_factor = 1 - material.uniforms.get("reflectionBlurring")
 
   mtex = mat.texture_slots.add()
   mtex.texture = tex
   mtex.texture_coords = "UV"
   mtex.use_map_color_diffuse = True
-
-  mat.specular_intensity = material.uniforms.get("specFactor", mat.specular_intensity)
-  mat.specular_hardness = material.uniforms.get("specPower", mat.specular_hardness)
 
   return mat
 

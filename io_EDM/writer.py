@@ -79,24 +79,31 @@ def create_material(source):
   mat.material_name = source.edm_material
   mat.name = source.name
   mat.uniforms = {
-    "specFactor": source.specular_intensity,
     "specPower": float(source.specular_hardness), # Important this is a float
-    "diffuseValue": 1.0,
-    "diffuseShift": Vector((0,0)),
-    "reflectionBlurring": 0.2,
-    "reflectionValue": 1.0,
+    "specFactor": source.specular_intensity,
+    "diffuseValue": source.diffuse_intensity,
+    "reflectionValue": 0.0, # Always in uniforms, so keep here for compatibility
   }
+  # No ide what this corresponds to yet:
+  # "diffuseShift": Vector((0,0)),
+  if source.raytrace_mirror.use:
+    mat.uniforms["reflectionValue"] = source.raytrace_mirror.reflect_factor
+    mat.uniforms["reflectionBlurring"] = 1.0-source.raytrace_mirror.gloss_factor
+  mat.shadows.recieve = source.use_shadows
+  mat.shadows.cast = source.use_cast_shadows
+  mat.shadows.cast_only = source.use_cast_shadows_only
+
   mat.vertex_format = VertexFormat({
     "position": 4,
     "normal": 3,
     "tex0": 2
     })
+  
   mat.texture_coordinates_channels = [0] + [-1]*11
   # Find the textures for each of the layers
   # Find diffuse - this will sometimes also include a translucency map
   try:
     diffuseTex = [x for x in source.texture_slots if x is not None and x.use_map_color_diffuse]
-
   except:
     import pdb
     pdb.set_trace()

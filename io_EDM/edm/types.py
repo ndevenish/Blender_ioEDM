@@ -607,12 +607,40 @@ _material_entry_lookup = {
   "TEXTURE_COORDINATES_CHANNELS": _read_texture_coordinates_channels,
   "MATERIAL_NAME": lambda x: x.read_string(),
   "NAME": lambda x: x.read_string(),
-  "SHADOWS": lambda x: x.read_uchar(),
+  "SHADOWS": lambda x: ShadowSettings(x.read_uchar()),
   "VERTEX_FORMAT": _read_material_VertexFormat,
   "UNIFORMS": read_propertyset,
   "ANIMATED_UNIFORMS": _read_animateduniforms,
   "TEXTURES": lambda x: x.read_list(_read_material_texture)
 }
+
+class ShadowSettings(object):
+  def __init__(self, value=None, **kwargs):
+    if value is not None:
+      assert value <= 7, "Only understand first three shadow flags"
+      self.cast = bool(value & 1)
+      self.receive = bool(value & 2)
+      self.cast_only = bool(value & 4)
+    else:
+      self.cast = kwargs.get("cast", False)
+      self.receive = kwargs.get("receive", False)
+      self.cast_only = kwargs.get("cast_only", False)
+
+  @property
+  def value(self):
+    return (1 if self.cast else 0) + \
+           (2 if self.recieve else 0) + \
+           (4 if self.cast_only else 0)
+
+  def __repr__(self):
+    args = []
+    if self.cast:
+      args.append("cast=True")
+    if self.receive:
+      args.append("recieve=True")
+    if self.cast_only:
+      args.append("cast_only=True")
+    return "ShadowSettings(" + ", ".join(args) + ")"
 
 class Material(object):
   def __init__(self):
@@ -622,7 +650,7 @@ class Material(object):
     self.texture_coordinates_channels = None
     self.material_name = ""
     self.name = ""
-    self.shadows = 0
+    self.shadows = ShadowSettings()
     self.vertex_format = None
     self.uniforms = {}
     self.animated_uniforms = {}
@@ -661,7 +689,7 @@ class Material(object):
     writer.write_string("NAME")
     writer.write_string(self.name.replace(".", "_"))
     writer.write_string("SHADOWS")
-    writer.write_uchar(self.shadows)
+    writer.write_uchar(self.shadows.value)
     writer.write_string("TEXTURES")
     writer.write_uint(len(self.textures))
     for texture in self.textures:
