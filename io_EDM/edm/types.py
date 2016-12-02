@@ -659,7 +659,7 @@ class Material(object):
     writer.write_string("MATERIAL_NAME")
     writer.write_string(self.material_name)
     writer.write_string("NAME")
-    writer.write_string(self.name)
+    writer.write_string(self.name.replace(".", "_"))
     writer.write_string("SHADOWS")
     writer.write_uchar(self.shadows)
     writer.write_string("TEXTURES")
