@@ -642,11 +642,11 @@ class Material(object):
 
   def write(self, writer):
     #  'TEXTURES', 'UNIFORMS', 'ANIMATED_UNIFORMS'])
-    writer.write_uint(11)
+    writer.write_uint(10)
     writer.write_string("BLENDING")
     writer.write_uchar(self.blending)
-    writer.write_string("CULLING")
-    writer.write_uchar(self.culling)
+    # writer.write_string("CULLING")
+    # writer.write_uchar(self.culling)
     writer.write_string("DEPTH_BIAS")
     writer.write_uint(self.depth_bias)
     if self.vertex_format:
