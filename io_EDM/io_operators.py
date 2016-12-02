@@ -61,13 +61,9 @@ class ExportEDM(Operator, ExportHelper):
             maxlen=255,  # Max internal buffer length, longer would be clamped.
             )
 
-    # List of operator properties, the attributes will be assigned
-    # to the class instance from the operator settings before calling.
-    # use_setting = BoolProperty(
-    #         name="Example Boolean",
-    #         description="Example Tooltip",
-    #         default=True,
-    #         )
+    apply_modifiers = BoolProperty(name="Apply Modifiers",
+      description="Should object modifiers be applied before export?",
+      default=True)
 
     # type = EnumProperty(
     #         name="Example Enum",
@@ -78,7 +74,7 @@ class ExportEDM(Operator, ExportHelper):
     #         )
 
     def execute(self, context):
-        write_file(self.filepath)
+        write_file(self.filepath, options={"apply_modifiers": self.apply_modifiers})
         return {'FINISHED'}
 
 

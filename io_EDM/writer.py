@@ -11,6 +11,7 @@ def write_file(filename, options={}):
 
   # Start by: Assembling the materials
   # Go through every object in the scene and grab it's first material
+  # Only allow meshes for now
   all_MeshObj = [x for x in bpy.context.scene.objects if x.type == "MESH"]
 
   # This will make sure that we only create materials that are used
@@ -26,7 +27,7 @@ def write_file(filename, options={}):
   renderNodes = []
   for obj in [x for x in all_MeshObj]:
     material = materialMap[obj.material_slots[0].material.name]
-    node = create_rendernode(obj, material)
+    node = create_rendernode(obj, material, options)
     renderNodes.append(node)
 
   # Build the nodelist from the renderNode parents
@@ -103,11 +104,15 @@ def create_material(source):
 
   return mat
 
-def create_rendernode(source, material):
-  assert source.type == "MESH"
+def create_rendernode(source, material, options={}):
+  # Always remesh, because we will want to apply transformations
+  mesh = source.to_mesh(bpy.context.scene,
+    apply_modifiers=options.get("apply_modifiers", False),
+    settings="RENDER", calc_tessface=True)
 
-  mesh = source.data
-  mesh.calc_tessface()
+  # Apply the local transform. IF there are no parents, then this should
+  # be identical to the world transform anyway
+  mesh.transform(source.matrix_local)
 
   # Should be more complicated for multiple layers, but will do for now
   uv_tex = mesh.tessface_uv_textures.active.data
@@ -142,4 +147,7 @@ def create_rendernode(source, material):
   node.material = material
   node.vertexData = newVertices
   node.indexData = newIndexValues
+
+  # Cleanup
+  bpy.data.meshes.remove(mesh)
   return node
