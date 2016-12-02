@@ -728,13 +728,20 @@ relate to sections of the vertex data in the node.
 However, the vertex data itself has four entries for it's 'position' field -
 and the fourth entry definitely refers to the index in this
 `PARENTDATA.parents` array. Thus, having range information here would appear
-to be redundant - it is possibly used to allow multiple animations to be
-applied to the same set of vertex data (with a single parent, for example, it
-would be impossible to animate both position and visibility).
+to be redundant.
 
 This layout is required because, for efficiency reasons; many separate objects
 with identical materials are often merged into a single `RenderNode`, and the
 associated data used for separation.
+
+This structure also appears to be related to the index count of
+`model::RNControlNode`. In particular: there appears to be one `RNControlNode`
+in the index for each *additional* parent data entry - that is, the sum of
+`model::RNControlNode` = `PARENTDATA.count - 1` for every `model::RenderNode` 
+in the .edm file.
+
+This link was derived by observing numeric correlation and testing the
+hypothesis on every existing .edm file. It appears to be correct.
 
 Let's move away from this unhappy state of affairs and examine the vertex
 data:

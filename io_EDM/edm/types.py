@@ -760,6 +760,8 @@ def _read_vertex_data(stream, classification=None):
 def _read_parent_data(stream):
     # Read the parent section
   parentCount = stream.read_uint()
+  stream.mark_type_read("model::RNControlNode", parentCount-1)
+
   if parentCount == 1:
     return [[stream.read_uint(), stream.read_int()]]
   else:
@@ -848,7 +850,11 @@ class RenderNode(BaseNode):
     iWriter(self.indexData)
 
   def audit(self):
-    return _render_audit(self)
+    c = _render_audit(self)
+    # We may, or may not, have any extra parent data at the moment.
+    if self.parentData and len(self.parentData) > 1:
+      c["model::RNControlNode"] += len(self.parentData)-1
+    return c
 
   def prepare(self, nodes, materials):
     """Prepare data, aliases and content. Context is a RootNode"""
