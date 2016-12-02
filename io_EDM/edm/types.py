@@ -667,7 +667,7 @@ class Material(object):
     for texture in self.textures:
       writer.write_uint(texture.index)
       writer.write_int(-1)
-      writer.write_string(texture.name)
+      writer.write_string(texture.name.lower())
       writer.write_uints([2,2,10,6])
       writer.write_matrixf(texture.matrix)
     writer.write_string("UNIFORMS")
