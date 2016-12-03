@@ -200,9 +200,8 @@ def create_arganimation_actions(node):
     leftRotation = matQuat * q1
     rightRotation = RX
     # At the moment, we don't understand the position transform
-    leftPosition = Matrix()
-    rightPosition = Matrix()
-
+    leftPosition = matrix_to_blender(mat) * aabT
+    rightPosition = aabS
 
     # Build the f-curves for the action
     for pos in posData:
