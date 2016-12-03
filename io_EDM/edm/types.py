@@ -446,6 +446,12 @@ class ArgAnimationNode(BaseNode, AnimatingNode):
     c["model::Key<key::SCALE>"] = scaKeys
     return c
 
+  def get_all_args(self):
+    "Return a list of all arguments that this object represents"
+    all_args = set()
+    for dataset in [self.posData, self.rotData, self.scaleData]:
+      all_args = all_args | set(x[0] for x in dataset)
+    return all_args
 
 @reads_type("model::ArgAnimatedBone")
 class ArgAnimatedBone(ArgAnimationNode):

@@ -80,6 +80,160 @@ def create_visibility_actions(visNode):
         key.interpolation = 'CONSTANT'
   return actions
 
+def add_position_fcurves(action, keys, transform_left, transform_right):
+  "Adds position fcurve data to an animation action"
+  frameScale = 100. / max(abs(x.frame) for x in keys)
+  # Create an fcurve for every component  
+  curves = []
+  for i in range(3):
+    curve = action.fcurves.new(data_path="location", index=i)
+    curves.append(curve)
+
+  # Loop over every keyframe in this animation
+  for framedata in keys:
+    frame = int(frameScale*framedata.frame)
+    
+    # Calculate the rotation transformation
+    newPosMat = transform_left * Matrix.Translation(framedata.value) * transform_right
+    newPos = newPosMat.decompose()[0]
+
+    for curve, component in zip(curves, newPos):
+      curve.keyframe_points.add()
+      curve.keyframe_points[-1] = (frame, component)
+      curve.keyframe_points[-1].interpolation = 'LINEAR'
+
+def add_rotation_fcurves(action, keys, transform_left, transform_right):
+  "Adds rotation fcurve action to an animation action"
+  frameScale = 100. / max(abs(x.frame) for x in keys)
+  
+  # Create an fcurve for every component  
+  curves = []
+  for i in range(4):
+    curve = action.fcurves.new(data_path="rotation_quaternion", index=i)
+    curves.append(curve)
+
+  # Loop over every keyframe in this animation
+  for framedata in keys:
+    frame = int(frameScale*framedata.frame)
+    
+    # Calculate the rotation transformation
+    newRot = transform_left * framedata.value * transform_right
+
+    for curve, component in zip(curves, newRot):
+      curve.keyframe_points.add()
+      curve.keyframe_points[-1] = (frame, component)
+      curve.keyframe_points[-1].interpolation = 'LINEAR'
+
+def create_arganimation_actions(node):
+  "Creates a set of actions to represent an ArgAnimationNode"
+  actions = []
+
+  # Calculate the base transform data for the node
+
+  # Rotation quaternion for rotating -90 degrees around the X
+  # axis. It seems animation data is not transformed into the
+  # DCS world space automatically, and so we need to 'undo' the
+  # transformation that was initially applied to the vertices when
+  # reading into blender.
+  RX = Quaternion((0.707, -0.707, 0, 0))
+  RXm = RX.to_matrix().to_4x4()
+
+  # Work out the transformation chain for this object
+  aabS = MatrixScale(node.base.scale)
+  aabT = Matrix.Translation(node.base.position)
+  q1  = node.base.quat_1
+  q2  = node.base.quat_2
+  q1m = q1.to_matrix().to_4x4()
+  q2m = q2.to_matrix().to_4x4()
+  mat = node.base.matrix
+
+  # Calculate the transform matrix quaternion part for pure rotations
+  matQuat = matrix_to_blender(mat).decompose()[1]
+
+  # With:
+  #   aabT = Matrix.Translation(argNode.base.position)
+  #   aabS = argNode.base.scale as a Scale Matrix
+  #   q1m  = argNode.base.quat_1 as a Matrix (e.g. fixQuat1)
+  #   q2m  = argNode.base.quat_2 as a Matrix (e.g. fixQuat2)
+  #   mat  = argNode.base.matrix
+  #   m2b  = matrix_to_blender e.g. swapping Z -> -Y
+
+  # Initial tests had supposed that the transformation was:
+  #    baseTransform = aabT * q1m * q2m * aabS * mat
+  # However the correct partial transform for e.g. kpp_baraban_0 is the following
+  #    C.object.location = (m2b(mat)*aabT*q1m).decompose()[0]
+  # For which case where q2m, aabS are identity. Need more verification from
+  # other items. Still confused as to why axis swapping doesn't always work?  
+  #
+  # For stick_base_1 the scale-expanded:
+  #     loc, scale <<= m2b(mat) * aabT * q1m * aabS
+  # works, however rotation is off by 90 degrees in y
+  # 
+  # For Cylinder55_13 with RXm as a rotation -90 degrees in X,
+  # and Ar as the rotation from animation:
+  # 
+  #   l, r, s <<= m2b(mat) * aabT * q1m * Ar * aabS * RXm
+  #
+  # Wondering if animation vertex data is unshifted in coordinate
+  # space, and so the correction when importing needs to be
+  # uncorrected when applying rotations
+
+  # Save the 'null' transform onto the node, because we will need to
+  # apply it to any object using this node's animation. This is independant
+  # of any argument-based animation
+  # baseTransform = aabT * q1m * q2m * aabS * mat
+  node.zero_transform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
+  # ob.location, ob.rotation_quaternion, ob.scale = baseTransform.decompose()
+
+  # Split a single node into separate actions based on the argument
+  for arg in node.get_all_args():
+    # Filter the animation data for this node to just this action
+    posData = [x for x in node.posData if x[0] == arg]
+    rotData = [x for x in node.rotData if x[0] == arg]
+    scaleData = [x for x in node.scaleData if x[0] == arg]
+    # Create the action
+    action = bpy.data.actions.new("AnimationArg{}".format(arg))
+    actions.append(action)
+    action.argument = arg
+    
+    # Calculate the pre and post-animation-value transforms
+    leftRotation = matQuat * q1
+    rightRotation = RX
+    # At the moment, we don't understand the position transform
+    prePosition = Matrix()
+    postPosition = Matrix()
+
+
+    # Build the f-curves for the action
+    for pos in posData:
+      add_position_fcurves(action, posData, leftPosition, rightPosition)
+    for rot in rotData:
+      add_rotation_fcurves(action, rotData, leftRotation, rightRotation)
+  # Return these new actions
+  return actions
+
+
+def create_actions_for_node(node):
+  """Accepts a node and creates actions to apply their animations"""
+  
+  # Don't do this twice
+  if hasattr(node, "actions") and node.actions:
+    actions = node.actions
+  else:
+    if isinstance(node, ArgVisibilityNode):
+      actions = create_visibility_actions(node)
+    if isinstance(node, ArgAnimationNode):
+      actions = create_arganimation_actions(node)
+    # Save these actions on the node
+    node.actions = actions
+
+  # For now, only use the first action until we are doing NLA stuff
+  if len(actions) > 1:
+    print("WARNING: More than one action generated by node, but not yet implemented")
+  return actions[0]
+
+
+
 def _find_texture_file(name):
   """
   Searches for a texture file given a basename without extension.
@@ -219,125 +373,17 @@ def create_object(renderNode):
   ob = bpy.data.objects.new(renderNode.name, mesh)
   ob.data.materials.append(renderNode.material.blender_material)
 
-  # Create animation data, if the parent node requires it
+  # Handle application of any direct animations
+  ob.rotation_mode = "QUATERNION"
   if isinstance(renderNode.parent, AnimatingNode):
     ob.animation_data_create()
-
-    if isinstance(renderNode.parent, ArgVisibilityNode):
-      argNode = renderNode.parent
-      actions = create_visibility_actions(argNode)
-      # For now, only use the first action until we are doing NLA stuff
-      if len(actions) > 1:
-        print("WARNING: More than one action generated by node, but not yet implemented")
-      ob.animation_data.action = actions[0]
-
-    if isinstance(renderNode.parent, ArgAnimationNode):
-      # Construct the basis transformation for the other animation
-      # implementations
-
-      # Start putting in animation data
-      ob.rotation_mode = 'QUATERNION'
-
-      argNode = renderNode.parent
-      # print ("""from collections import namedtuple\nArgAnimationBase = namedtuple("ArgAnimationBase", ["unknown", "matrix", "position", "quat_1", "quat_2", "scale"])""")
-      print(renderNode.name)
-      print("aab = " + repr(argNode.base))
-      print("posData = " + repr(argNode.posData))
-      print("rotData = " + repr(argNode.rotData))
-
-      # Rotation quaternion for rotating -90 degrees around the X
-      # axis. It seems animation data is not transformed into the
-      # DCS world space automatically, and so we need to 'undo' the
-      # transformation that was initially applied to the vertices when
-      # reading into blender.
-      RX = Quaternion((0.707, -0.707, 0, 0))
-      RXm = RX.to_matrix().to_4x4()
-
-      # Work out the transformation chain for this object
-      aabS = MatrixScale(argNode.base.scale)
-      aabT = Matrix.Translation(argNode.base.position)
-      q1 = argNode.base.quat_1
-      q2 = argNode.base.quat_2
-      q1m = q1.to_matrix().to_4x4()
-      q2m = q2.to_matrix().to_4x4()
-      mat = argNode.base.matrix
-
-      # Calculate the transform matrix quaternion part for pure rotations
-      matQuat = matrix_to_blender(mat).decompose()[1]
-
-      # With:
-      #   aabT = Matrix.Translation(argNode.base.position)
-      #   aabS = argNode.base.scale as a Scale Matrix
-      #   q1m  = argNode.base.quat_1 as a Matrix (e.g. fixQuat1)
-      #   q2m  = argNode.base.quat_2 as a Matrix (e.g. fixQuat2)
-      #   mat  = argNode.base.matrix
-      #   m2b  = matrix_to_blender e.g. swapping Z -> -Y
-
-      # Initial tests had supposed that the transformation was:
-      #    baseTransform = aabT * q1m * q2m * aabS * mat
-      # However the correct partial transform for e.g. kpp_baraban_0 is the following
-      #    C.object.location = (m2b(mat)*aabT*q1m).decompose()[0]
-      # For which case where q2m, aabS are identity. Need more verification from
-      # other items. Still confused as to why axis swapping doesn't always work?  
-      #
-      # For stick_base_1 the scale-expanded:
-      #     loc, scale <<= m2b(mat) * aabT * q1m * aabS
-      # works, however rotation is off by 90 degrees in y
-      # 
-      # For Cylinder55_13 with RXm as a rotation -90 degrees in X,
-      # and Ar as the rotation from animation:
-      # 
-      #   l, r, s <<= m2b(mat) * aabT * q1m * Ar * aabS * RXm
-      #
-      # Wondering if animation vertex data is unshifted in coordinate
-      # space, and so the correction when importing needs to be
-      # uncorrected when applying rotations
-
-      # baseTransform = aabT * q1m * q2m * aabS * mat
-      baseTransform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
-
-      ob.location, ob.rotation_quaternion, ob.scale = baseTransform.decompose()
-
-      # Now do the specific instance calculations
-      if isinstance(argNode, ArgRotationNode):
-        for arg, rotData in argNode.rotData:
-          # Calculate the frame range
-          maxFrame = max(abs(x.frame) for x in rotData)
-          frameScale = 100 / maxFrame
-          # Create an action for this rotation
-          actionName = "{}Action{}".format(renderNode.name, arg)
-          action = bpy.data.actions.new(actionName)
-          action.use_fake_user = True
-          action.argument = arg
-          ob.animation_data.action = action
-
-          for key in rotData:
-            keyRot = key.value
-            # rot = argNode.base.quat_1 * key.value * argNode.base.quat_2 * argNode.base.matrix.decompose()[1]
-            # Apply the rotation purely in quaternions, to conserve sign
-            ob.rotation_quaternion = matQuat * q1 * keyRot * RX
-            ob.keyframe_insert(data_path="rotation_quaternion", frame=int(key.frame*frameScale))
-
-          # Go through and set everything to linear interpolation
-          for fcurve in ob.animation_data.action.fcurves:
-            for kf in fcurve.keyframe_points:
-              kf.interpolation = 'LINEAR'
-
-      if isinstance(argNode, ArgPositionNode):
-        for arg, posData in argNode.posData:
-          # Calculate the frame range
-          maxFrame = max(abs(x.frame) for x in posData)
-          frameScale = 100 / maxFrame
-          # Create an action for this translation
-          actionName = "{}Action{}".format(renderNode.name, arg)
-          action = bpy.data.actions.new(actionName)
-          action.use_fake_user = True
-          action.argument = arg
-          ob.animation_data.action = action
-
-        # for key in posData:
-        #   import pdb
-        #   pdb.set_trace()
+    # Get or create actions
+    actions = create_actions_for_node(renderNode.parent)
+    # This will go away eventually, but for now should be tested in sub function
+    assert len(actions) == 1
+    # Set the basis position
+    ob.location, ob.rotation_quaternion, ob.scale = renderNode.parent.zero_transform.decompose()
+    ob.animation_data.action = actions[0]
 
   # import pdb
   # pdb.set_trace()
