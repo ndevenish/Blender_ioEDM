@@ -835,6 +835,9 @@ class RenderNode(BaseNode):
     self.unknown_indexPrefix = 5
     self.indexData = []
 
+  def __repr__(self):
+    return "<RenderNode \"{}\">".format(self.name)
+  
   @classmethod
   def read(cls, stream):
     self = super(RenderNode, cls).read(stream)

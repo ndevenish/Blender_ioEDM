@@ -11,7 +11,8 @@ from .utils import chdir
 from .edm import EDMFile
 from .edm.mathtypes import *
 from .edm.types import (AnimatingNode, ArgAnimationNode,
-  ArgRotationNode, ArgPositionNode, ArgVisibilityNode)
+  ArgRotationNode, ArgPositionNode, ArgVisibilityNode, Node, TransformNode,
+  RenderNode)
 
 import re
 import glob
@@ -35,15 +36,18 @@ def read_file(filename):
     for material in edm.root.materials:
       material.blender_material = create_material(material)
 
-  # Convert all the connectors!
-  for connector in edm.connectors:
-    obj = create_connector(connector)  
-
   # Prepare the animation/transformation nodes
   for node in edm.nodes:
     node.children = []
     node.objects = []
     node.actions = get_actions_for_node(node)
+
+  # Convert all the connectors!
+  for connector in edm.connectors:
+    obj = create_connector(connector)
+    # Add this to the bulk collection of elements to apply
+    connector.parent.objects.append(obj)
+
   # Build a tree of nodes/children so we can iterate top-down
   roots = []
   for node in edm.nodes:
@@ -373,21 +377,15 @@ def create_material(material):
 
 def create_connector(connector):
   """Create an empty object representing a connector"""
-  xform = connector.parent.matrix
-  # Swap into blender coordinates
-  mat = Matrix([xform[0], -xform[2], xform[1], xform[3]])
-  loc, rot, sca = mat.decompose()
 
   # Create a new empty object with a cube representation
   ob = bpy.data.objects.new(connector.name, None)
   ob.empty_draw_type = "CUBE"
   ob.empty_draw_size = 0.01
-  ob.location = loc
-  ob.rotation_quaternion = rot
-  ob.scale = sca
   ob.is_connector = True
-
   bpy.context.scene.objects.link(ob)
+  apply_transform_or_animation_node(connector.parent, ob)
+  return ob
 
 def apply_transform_or_animation_node(node, obj):
   if isinstance(node, AnimatingNode):
@@ -402,12 +400,24 @@ def apply_transform_or_animation_node(node, obj):
       obj.location, obj.rotation_quaternion, obj.scale = node.zero_transform.decompose()
     if actions:
       obj.animation_data.action = actions[0]
+  elif isinstance(node, Node):
+    pass
+  elif isinstance(node, TransformNode):
+    loc, rot, sca = matrix_to_blender(node.matrix).decompose()
+    obj.rotation_mode = "QUATERNION"
+    obj.location = loc
+    obj.rotation_quaternion = rot
+    obj.scale = sca
   else:
     print("WARNING: {} not applied".format(node))
 
 
 def create_object(renderNode):
   """Does most of the work creating a blender object from a renderNode"""
+
+  if not isinstance(renderNode, RenderNode):
+    print("WARNING: Do not understand creating types {} yet".format(type(renderNode)))
+    return
 
   # We need to reduce the vertex set to match the index set
   all_index = sorted(list(set(renderNode.indexData)))
