@@ -283,11 +283,11 @@ def create_material(material):
   mat.use_shadows = material.shadows.receive
   mat.use_cast_shadows = material.shadows.cast
   # Read uniform values
-  mat.diffuse_intensity = material.uniforms.get("diffuseValue")
+  mat.diffuse_intensity = material.uniforms.get("diffuseValue", 1.0)
   mat.specular_intensity = material.uniforms.get("specFactor", mat.specular_intensity)
   mat.specular_hardness = material.uniforms.get("specPower", mat.specular_hardness)
-  reflection = material.uniforms["reflectionValue", 0.0]
-  if reflection > 0:
+  reflection = material.uniforms.get("reflectionValue", 0.0)
+  if reflection > 0.0:
     mat.raytrace_mirror.use = True
     mat.raytrace_mirror.reflect_factor = reflection
     mat.raytrace_mirror.gloss_factor = 1 - material.uniforms.get("reflectionBlurring")
