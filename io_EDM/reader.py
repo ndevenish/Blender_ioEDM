@@ -18,10 +18,15 @@ import glob
 import fnmatch
 import os
 
+FRAME_SCALE = 100
+
 def read_file(filename):
   # Parse the EDM file
   edm = EDMFile(filename)
   edm.postprocess()
+
+  # Must have negative frames
+  bpy.context.user_preferences.edit.use_negative_frames = True
 
   # Convert the materials. These will be used by objects
   # We need to change the directory as the material searcher
@@ -34,34 +39,81 @@ def read_file(filename):
   for connector in edm.connectors:
     obj = create_connector(connector)  
 
-  # And, on each node, keep a list of instances in order to build the parent
-  # chain later - some may need placeholder empties
+  # Prepare the animation/transformation nodes
   for node in edm.nodes:
-    node.instances = []
+    node.children = []
+    node.objects = []
+    node.actions = get_actions_for_node(node)
+  # Build a tree of nodes/children so we can iterate top-down
+  roots = []
+  for node in edm.nodes:
+    if node.parent:
+      node.parent.children.append(node)
+    else:
+      roots.append(node)
+  # Should only ever have one root node, and this should be a model::Node.
+  # If this is ever not the case, we'll have to merge them, but just protect
+  # against this case for now.
+  assert len(roots) == 1, "More than one root node in transform graph"
 
-  # Go through all render nodes, and children
+  # Go through all render nodes, create the objects, and add to it's transform parent
   for node in edm.renderNodes:
-
-    # If a node has children, put them all inside a group
+    # If this renderNode hasn't been split, treat it as a single-child list
+    sub_nodes = node.children or [node]
     if node.children:
       group = bpy.data.groups.new(node.name)
 
-      for child in node.children:
-        obj = create_object(child)
+    for child in sub_nodes:
+      obj = create_object(child)
+      child.parent.objects.append(obj)
+      if group:
         group.objects.link(obj)
-        child.parent.instances.append(obj)
 
-      # parent = bpy.data.objects.new(node.name, None)
-      # bpy.context.scene.objects.link(child)
-    else:
-      obj = create_object(node)
-      child.parent.instances.append(obj)
-      # bpy.context.scene.objects.link(obj)
 
-  # Loop through every node and build the parent chain
-  # If possible, use an existing object as a parent, otherwise
-  # create an empty to act as a surrogate.
+  # If ROOT node:
+  #   - No surrogate
+  # Otherwise:
+  #   - If any objects, largest is the surrogate
+  #   - If no objects, surrogate empty is created, and added to objects
+  #   - every object's parent is set to the parent node's surrogate
+  #   - Every child transform is applied
+  def _process_transform_node(node, depth=0):
+    if not node.parent:
+      # This is a root node. All children are directly embedded in the world
+      # and so need no further processing
+      node.surrogate = None
+      print("ROOT: {}".format(node))
+      for child in node.children:
+        _process_transform_node(child, depth+1)
+      return
+    print("  "*depth, "{}".format(node))
+    # Check we need anything
+    if not node.objects and not node.children:
+      print("WARNING: Found transform node with no dependent objects or children")
+    # Any node may have a surrogate - this is an object that acts as a parent
+    # for any child node's objects. Only need a surrogate if there are children
+    if node.children:
+      if node.objects:
+        # Use an object if we have any
+        surrogate = sorted(node.objects, key=lambda x: x.dimensions[0]*x.dimensions[1]*x.dimensions[2])[-1]
+      else:
+        # Create one
+        surrogate = bpy.data.objects.new("Surr_{}".format(type(node).__name__), None)
+        bpy.context.scene.objects.link(surrogate)
+        apply_transform_or_animation_node(node, surrogate)
+        node.objects.append(surrogate)
+      node.surrogate = surrogate
+    # Associate any objects with the parent's surrogate
+    for obj in node.objects:
+      obj.parent = node.parent.surrogate
+      print("  "*depth, obj.name)
 
+    # Now process any children
+    for child in node.children:
+      _process_transform_node(child, depth+1)
+
+  # Process all parenting for this tree
+  _process_transform_node(roots[0])  
 
   # Update the scene
   bpy.context.scene.update()
@@ -80,17 +132,17 @@ def create_visibility_actions(visNode):
     # Probably need an extra keyframe to specify start visibility
     if ranges[0][0] >= -0.995:
       curve.keyframe_points.add()
-      curve.keyframe_points[0].co = (-100, 1.0)
+      curve.keyframe_points[0].co = (-FRAME_SCALE, 1.0)
       curve.keyframe_points[0].interpolation = 'CONSTANT'
     # Create the keyframe data
     for (start, end) in ranges:
-      frameStart = int(start*100)
-      frameEnd = 100 if end > 1.0 else int(end*100)
+      frameStart = int(start*FRAME_SCALE)
+      frameEnd = FRAME_SCALE if end > 1.0 else int(end*FRAME_SCALE)
       curve.keyframe_points.add()
       key = curve.keyframe_points[-1]
       key.co = (frameStart, 0.0)
       key.interpolation = 'CONSTANT'
-      if frameEnd < 100:
+      if frameEnd < FRAME_SCALE:
         curve.keyframe_points.add()
         key = curve.keyframe_points[-1]
         key.co = (frameEnd, 1.0)
@@ -99,7 +151,7 @@ def create_visibility_actions(visNode):
 
 def add_position_fcurves(action, keys, transform_left, transform_right):
   "Adds position fcurve data to an animation action"
-  frameScale = 100. / max(abs(x.frame) for x in keys)
+  frameScale = float(FRAME_SCALE) / max(abs(x.frame) for x in keys)
   # Create an fcurve for every component  
   curves = []
   for i in range(3):
@@ -121,7 +173,7 @@ def add_position_fcurves(action, keys, transform_left, transform_right):
 
 def add_rotation_fcurves(action, keys, transform_left, transform_right):
   "Adds rotation fcurve action to an animation action"
-  frameScale = 100. / max(abs(x.frame) for x in keys)
+  frameScale = float(FRAME_SCALE) / max(abs(x.frame) for x in keys)
   
   # Create an fcurve for every component  
   curves = []
@@ -229,13 +281,14 @@ def create_arganimation_actions(node):
   return actions
 
 
-def create_actions_for_node(node):
-  """Accepts a node and creates actions to apply their animations"""
+def get_actions_for_node(node):
+  """Accepts a node and gets or creates actions to apply their animations"""
   
   # Don't do this twice
   if hasattr(node, "actions") and node.actions:
     actions = node.actions
   else:
+    actions = []
     if isinstance(node, ArgVisibilityNode):
       actions = create_visibility_actions(node)
     if isinstance(node, ArgAnimationNode):
@@ -336,6 +389,22 @@ def create_connector(connector):
 
   bpy.context.scene.objects.link(ob)
 
+def apply_transform_or_animation_node(node, obj):
+  if isinstance(node, AnimatingNode):
+    obj.animation_data_create()
+    # Get or create actions
+    actions = get_actions_for_node(node)
+    # This will go away eventually, but for now should be tested in sub function
+    assert len(actions) <= 1
+    # Set the base transform, if we have one
+    if hasattr(node, "zero_transform"):
+      # Set the basis position
+      obj.location, obj.rotation_quaternion, obj.scale = node.zero_transform.decompose()
+    if actions:
+      obj.animation_data.action = actions[0]
+  else:
+    print("WARNING: {} not applied".format(node))
+
 
 def create_object(renderNode):
   """Does most of the work creating a blender object from a renderNode"""
@@ -393,19 +462,8 @@ def create_object(renderNode):
 
   # Handle application of any direct animations
   ob.rotation_mode = "QUATERNION"
-  if isinstance(renderNode.parent, AnimatingNode):
-    ob.animation_data_create()
-    # Get or create actions
-    actions = create_actions_for_node(renderNode.parent)
-    # This will go away eventually, but for now should be tested in sub function
-    assert len(actions) <= 1
-    # Set the base transform, if we have one
-    if hasattr(renderNode.parent, "zero_transform"):
-      # Set the basis position
-      ob.location, ob.rotation_quaternion, ob.scale = renderNode.parent.zero_transform.decompose()
-    if actions:
-      ob.animation_data.action = actions[0]
-
+  # Aply the parent to this object
+  apply_transform_or_animation_node(renderNode.parent, ob)
 
   # import pdb
   # pdb.set_trace()
