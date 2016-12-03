@@ -34,17 +34,34 @@ def read_file(filename):
   for connector in edm.connectors:
     obj = create_connector(connector)  
 
+  # And, on each node, keep a list of instances in order to build the parent
+  # chain later - some may need placeholder empties
+  for node in edm.nodes:
+    node.instances = []
+
   # Go through all render nodes, and children
   for node in edm.renderNodes:
-    # If a node has children, parent an empty to them all
+
+    # If a node has children, put them all inside a group
     if node.children:
-      parent = bpy.data.objects.new(node.name, None)
-      bpy.context.scene.objects.link(parent)
+      group = bpy.data.groups.new(node.name)
+
       for child in node.children:
         obj = create_object(child)
-        obj.parent = parent
+        group.objects.link(obj)
+        child.parent.instances.append(obj)
+
+      # parent = bpy.data.objects.new(node.name, None)
+      # bpy.context.scene.objects.link(child)
     else:
       obj = create_object(node)
+      child.parent.instances.append(obj)
+      # bpy.context.scene.objects.link(obj)
+
+  # Loop through every node and build the parent chain
+  # If possible, use an existing object as a parent, otherwise
+  # create an empty to act as a surrogate.
+
 
   # Update the scene
   bpy.context.scene.update()
