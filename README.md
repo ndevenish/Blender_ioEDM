@@ -4,7 +4,8 @@ EDM model files - Blender Import/(Export) Addon
 This is a **HIGHLY EXPERIMENTAL**, totally **UNOFFICIAL** attempt to build a
 blender addon to allow importing/exporting of `.EDM` model files, as used in
 the flight simulator DCS world. It has been engineered by careful studying of
-the binary file format, intuition, research and much guesswork.
+the binary file format, intuition, research, much guesswork, and many, many
+crashes of the model viewer.
 
 In its current state, it allows basic importing functionality whilst the fine
 details of the file structure are worked out, and even more basic exporting.
