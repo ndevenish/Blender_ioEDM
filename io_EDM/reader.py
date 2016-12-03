@@ -62,10 +62,16 @@ def read_file(filename):
 
   # Go through all render nodes, create the objects, and add to it's transform parent
   for node in edm.renderNodes:
+    # Skip non-rendernodes for now
+    if not isinstance(node, RenderNode):
+      continue
     # If this renderNode hasn't been split, treat it as a single-child list
-    sub_nodes = node.children or [node]
     if node.children:
+      sub_nodes = node.children
       group = bpy.data.groups.new(node.name)
+    else:
+      sub_nodes = [node]
+      group = None
 
     for child in sub_nodes:
       obj = create_object(child)
@@ -155,7 +161,8 @@ def create_visibility_actions(visNode):
 
 def add_position_fcurves(action, keys, transform_left, transform_right):
   "Adds position fcurve data to an animation action"
-  frameScale = float(FRAME_SCALE) / max(abs(x.frame) for x in keys)
+  maxFrame = max(abs(x.frame) for x in keys) or 1.0
+  frameScale = float(FRAME_SCALE) / maxFrame
   # Create an fcurve for every component  
   curves = []
   for i in range(3):
@@ -177,7 +184,8 @@ def add_position_fcurves(action, keys, transform_left, transform_right):
 
 def add_rotation_fcurves(action, keys, transform_left, transform_right):
   "Adds rotation fcurve action to an animation action"
-  frameScale = float(FRAME_SCALE) / max(abs(x.frame) for x in keys)
+  maxFrame = max(abs(x.frame) for x in keys) or 1.0
+  frameScale = float(FRAME_SCALE) / maxFrame
   
   # Create an fcurve for every component  
   curves = []

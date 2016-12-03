@@ -837,7 +837,7 @@ class RenderNode(BaseNode):
 
   def __repr__(self):
     return "<RenderNode \"{}\">".format(self.name)
-  
+
   @classmethod
   def read(cls, stream):
     self = super(RenderNode, cls).read(stream)
@@ -964,8 +964,8 @@ class SkinNode(BaseNode):
 
     return self
 
-  def prepare(self, context):
-    self.bones = [context.nodes[x] for x in self.bones]
+  def prepare(self, nodes, materials):
+    self.bones = [nodes[x] for x in self.bones]
 
   def audit(self):
     return _render_audit(self)
@@ -1012,7 +1012,7 @@ class FakeSpotLightsNode(BaseNode):
     self.data = stream.read(101)
     return self
 
-  def prepare(self, context):
+  def prepare(self, nodes, materials):
     pass
 
 @reads_type("model::FakeOmniLightsNode")
@@ -1024,7 +1024,7 @@ class FakeOmniLightsNode(BaseNode):
     count = stream.read_uint()
     self.data = [stream.read_doubles(6) for _ in range(count)]
     return self
-  def prepare(self, context):
+  def prepare(self, nodes, materials):
     pass
 
 
