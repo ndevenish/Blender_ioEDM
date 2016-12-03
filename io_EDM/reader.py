@@ -373,7 +373,7 @@ def create_material(material):
   if reflection > 0.0:
     mat.raytrace_mirror.use = True
     mat.raytrace_mirror.reflect_factor = reflection
-    mat.raytrace_mirror.gloss_factor = 1 - material.uniforms.get("reflectionBlurring")
+    mat.raytrace_mirror.gloss_factor = 1 - material.uniforms.get("reflectionBlurring", 0.0)
 
   mtex = mat.texture_slots.add()
   mtex.texture = tex
