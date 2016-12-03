@@ -317,7 +317,9 @@ scene, and a chunk of vector data that is not well understood.
       uint              version;      # Asssumed
       model::PropertiesSet properties;
       uchar             unknownA;     # Either 0, 1 or 2
-      osg::Vec3d        unknownB[6];
+      osg::Vec3d        boundingBoxMin;
+      osg::Vec3d        boundingBoxMax;
+      osg::Vec3d        unknownB[4];
       list<Material>    materials;
       uint              unknownC[2];
 
@@ -327,9 +329,13 @@ for `Node`-derived objects, in the `RootNode` this always has the contents
 `{"__VERSION__": 2}` - a value which appears to be important
 when writing (it changes the layout of the unknown areas of the class?)
 
-After this is a relatively large section of unknown data, `unknownA/B`; They
-clearly represent a `char` and array of vectors, but the meaning of these
-remain unclear.
+After a single char which is not understood, We then have two `Vector3d`
+objects. These define the bounding box of the model - the first being the
+lower corner of the box, the second the upper corner. In the model viewer, 
+this defines the range that the axes are displayed (e.g. the X axis is shown
+from `boundingBoxMin.x` to `boundingBoxMax.x`.
+
+After this is another chunk of unknown double data, `unknownB`.
 
 The list of materials contains the bulk of the contents of the class - in 
 an easy-to-read list format. After these, there is a small
