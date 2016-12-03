@@ -207,6 +207,7 @@ class EDMFile(object):
     # Read the node parenting data
     for (node, parent) in zip(self.nodes, reader.read_ints(len(self.nodes))):
       if parent == -1:
+        node.parent = None
         continue
       if parent > len(self.nodes):
         raise IOError("Invalid node parent data")
