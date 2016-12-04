@@ -16,10 +16,15 @@ class EDMDataPanel(bpy.types.Panel):
 
   @classmethod
   def poll(cls, context):
-    return context.object.type == 'EMPTY'  
+    return context.object.type == 'EMPTY' or context.object.type == "MESH"
 
   def draw(self, context):
-    self.layout.prop(context.object, "is_connector")
+    if context.object.type == "EMPTY":
+      self.layout.prop(context.object.edm, "is_connector")
+    elif context.object.type == "MESH":
+      self.layout.prop(context.object.edm, "is_renderable")
+      self.layout.prop(context.object.edm, "is_collision_shell")
+      self.layout.prop(context.object.edm, "damage_argument")
 
 class DopeActionProperties(bpy.types.Panel):
   """Creates a Panel in the Object properties window"""

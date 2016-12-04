@@ -31,28 +31,29 @@ _edm_blendTypes = (
   # (4. "Z Written Blending", "Z Written Blending"),
 )
 
-# TBC:
-  # ("building","Building", "Building"), 
-  # ("mirror","Mirror", "Mirror"), 
-  # ("phosphor","Phosphor", "Phosphor"), 
-  # ("aluminium","Aluminium", "Aluminium"), 
-  # ("billboard","Billboard", "Billboard"), 
-  # ("chrome","Chrome", "Chrome"), 
-  # ("lines_material","lines_material", "lines_material"), 
-  # ("fake_omni_lights", "Fake Omni-lights", "Fake Omni-lights"), 
-  # ("building_fake_omni_lights", "Building Fake Omni-lights", "Building Fake Omni-lights"), 
-  # ("fake_spot_lights", "Fake Spotlights", "Fake Spotlights"), 
-  # ("bano", "bano", "bano"), 
-  # ("old_tree", "old_tree", "old_tree"), 
-  # ("fake_als_lights","Fake ALS Lights", "Fake ALS Lights"), 
-  # ("color", "Color", "Color"))
 
-def register():
-  # Is an empty object a connector?
-  bpy.types.Object.is_connector = bpy.props.BoolProperty(
+class EDMObjectSettings(bpy.types.PropertyGroup):
+  # Only for empty objects: Is this a connector
+  is_connector = bpy.props.BoolProperty(
       default=False, 
       name="Is Connector?", 
       description="Is this empty a connector object?")
+  is_renderable = bpy.props.BoolProperty(
+      default=True, 
+      name="Renderable", 
+      description="Can this object's mesh be rendered")
+  is_collision_shell = bpy.props.BoolProperty(
+      default=False, 
+      name="Collision Shell", 
+      description="Is this mesh used for collision calculations?")
+  damage_argument = bpy.props.IntProperty(
+      default=-1, 
+      name="Damage Argument", 
+      description="The damage argument affecting this object")
+
+def register():
+  bpy.utils.register_class(EDMObjectSettings)
+  bpy.types.Object.edm = bpy.props.PointerProperty(type=EDMObjectSettings)
   bpy.types.Action.argument = bpy.props.IntProperty(name="Argument", default=0, min=0)
   bpy.types.Material.edm_material = bpy.props.EnumProperty(
       items=_edm_matTypes, default="def_material", name="Base Material",
@@ -63,5 +64,7 @@ def register():
 
 def unregister():
   del bpy.types.Material.edm_material
-  del bpy.types.Object.is_connector
   del bpy.types.Action.argument
+  del bpy.types.Object.edm
+  bpy.utils.unregister_class(EDMObjectSettings)
+

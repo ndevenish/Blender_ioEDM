@@ -389,7 +389,7 @@ def create_connector(connector):
   ob = bpy.data.objects.new(connector.name, None)
   ob.empty_draw_type = "CUBE"
   ob.empty_draw_size = 0.01
-  ob.is_connector = True
+  ob.edm.is_connector = True
   bpy.context.scene.objects.link(ob)
   apply_transform_or_animation_node(connector.parent, ob)
   return ob
