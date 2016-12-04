@@ -322,8 +322,8 @@ class EDMFile(object):
 
 @reads_type("model::BaseNode")
 class BaseNode(object):
-  def __init__(self):
-    self.name = ""
+  def __init__(self, name=None):
+    self.name = name or ""
     self.version = 0
     self.props = {}
 
@@ -421,10 +421,22 @@ class Bone(BaseNode):
     self.data = [readMatrixd(reader), readMatrixd(reader)]
     return self
 
-ArgAnimationBase = namedtuple("ArgAnimationBase", ["matrix", "position", "quat_1", "quat_2", "scale"])
+class ArgAnimationBase(object):
+  def __init__(self, matrix=None, position=None, quat_1=None, quat_2=None, scale=None):
+    self.matrix = matrix or Matrix()
+    self.position = position or Vector()
+    self.quat_1 = quat_1 or Quaternion((1,0,0,0))
+    self.quat_2 = quat_2 or Quaternion((1,0,0,0))
+    self.scale = scale or Vector((1,1,1))
 
 @reads_type("model::ArgAnimationNode")
 class ArgAnimationNode(BaseNode, AnimatingNode):
+  def __init__(self):
+    self.base = ArgAnimationBase()
+    self.posData = []
+    self.rotData = []
+    self.scaleData = []
+
   @classmethod
   def read(cls, stream):
     self = super(ArgAnimationNode, cls).read(stream)
@@ -545,6 +557,9 @@ class RotationKey(object):
 
 @reads_type("model::Key<key::POSITION>")
 class PositionKey(object):
+  def __init__(self, frame, value):
+    self.frame = frame
+    self.value = value
   @classmethod
   def read(cls, stream):
     self = cls()
@@ -837,8 +852,8 @@ def _render_audit(self, verts="__gv_bytes", inds="__gi_bytes"):
 
 @reads_type("model::RenderNode")
 class RenderNode(BaseNode):
-  def __init__(self):
-    super(RenderNode, self).__init__()
+  def __init__(self, name=None):
+    super(RenderNode, self).__init__(name)
     self.version = 1
     self.children = []
     self.unknown_start = 0
