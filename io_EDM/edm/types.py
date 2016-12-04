@@ -385,9 +385,12 @@ class RootNode(BaseNode):
     # Try those
     writer.write_vecd(self.boundingBoxMin)
     writer.write_vecd(self.boundingBoxMax)
-    writer.write_vecd(Vector((3.4028234663852886e+38, 3.4028234663852886e+38, 3.4028234663852886e+38)))
-    writer.write_vecd(-Vector((3.4028234663852886e+38, 3.4028234663852886e+38, 3.4028234663852886e+38)))
-    # -Vector((3.4028234663852886e+38, 3.4028234663852886e+38, 3.4028234663852886e+38)
+    # Most seem to have this exact set of data; 3.4e38 * 3, -3.4e38*3
+    for _ in range(3):
+      writer.write(b'\x00\x00\x00\xe0\xff\xff\xefG')
+    for _ in range(3):
+      writer.write(b'\x00\x00\x00\xe0\xff\xff\xef\xc7')
+
     writer.write_uint(len(self.materials))
     for mat in self.materials:
       mat.write(writer)
