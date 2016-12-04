@@ -51,6 +51,10 @@ class EDMObjectSettings(bpy.types.PropertyGroup):
       name="Damage Argument", 
       description="The damage argument affecting this object")
 
+def updateSceneArgument(self, context):
+  print(self, context)
+  print("Updating scene argument")
+
 def register():
   bpy.utils.register_class(EDMObjectSettings)
   bpy.types.Object.edm = bpy.props.PointerProperty(type=EDMObjectSettings)
@@ -62,7 +66,12 @@ def register():
       items=_edm_blendTypes, default="0", name="Opacity mode",
       description="The method to use for calculating material opacity/alpha blending")
 
+  bpy.types.Scene.active_edm_argument = bpy.props.IntProperty(name="Active Argument", default=-1, min=-1, update=updateSceneArgument)
+
+
 def unregister():
+  del bpy.types.Scene.active_edm_argument
+  del bpy.types.Material.edm_blending
   del bpy.types.Material.edm_material
   del bpy.types.Action.argument
   del bpy.types.Object.edm
