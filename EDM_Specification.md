@@ -467,6 +467,10 @@ data is used to map the texture:
 | 11    | ?          | `tu-22m3_glass_color_spec`, `kab_glass_spec_color` (only two) |
 | 12    | ?          | `f-86f_chrom`, `sa342_int_cpit_glass_reflect`, `chromic_blur` (only three) |
 
+(Note: [A forum post claims](https://forums.eagle.ru/showpost.php?p=2831144&postcount=977) 
+3=Decal, 4=Dirt, 5=Damage, 6=Puddles, 7=Snow, 8=Self-Illumination, 9=Ambient Occlusion.
+Also seems to imply exact definitions are dependent on accompanying lua files)
+
 The `TEXTURE_COORDINATE_CHANNELS` field is defined as:
 
     TEXTURE_COORDINATE_CHANNELS :=
