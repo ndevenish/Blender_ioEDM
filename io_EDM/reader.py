@@ -128,7 +128,6 @@ def read_file(filename):
   # Update the scene
   bpy.context.scene.update()
 
-
 def create_visibility_actions(visNode):
   """Creates visibility actions from an ArgVisibilityNode"""
   actions = []

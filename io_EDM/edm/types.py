@@ -361,7 +361,9 @@ class RootNode(BaseNode):
   def read(cls, stream):
     self = super(RootNode, cls).read(stream)
     self.unknownA = stream.read_uchar()
-    self.unknownB = [readVec3d(stream) for _ in range(6)]
+    self.boundingBoxMin = readVec3d()
+    self.boundingBoxMax = readVec3d()
+    self.unknownB = [readVec3d(stream) for _ in range(4)]
     self.materials = stream.read_list(Material.read)
     stream.materials = self.materials
     self.unknownD = stream.read_uints(2)
@@ -375,8 +377,17 @@ class RootNode(BaseNode):
 
   def write(self, writer):
     super(RootNode, self).write(writer)
-    # Have no idea what this represents. Try zeros.
-    writer.write(bytes(145))
+
+    writer.write_uchar(0)
+    writer.write_vecd(self.boundingBoxMin)
+    writer.write_vecd(self.boundingBoxMax)
+    # Don't fully understand this bit; seems to sometimes be min, max again then high, low.
+    # Try those
+    writer.write_vecd(self.boundingBoxMin)
+    writer.write_vecd(self.boundingBoxMax)
+    writer.write_vecd(Vector((3.4028234663852886e+38, 3.4028234663852886e+38, 3.4028234663852886e+38)))
+    writer.write_vecd(-Vector((3.4028234663852886e+38, 3.4028234663852886e+38, 3.4028234663852886e+38)))
+    # -Vector((3.4028234663852886e+38, 3.4028234663852886e+38, 3.4028234663852886e+38)
     writer.write_uint(len(self.materials))
     for mat in self.materials:
       mat.write(writer)

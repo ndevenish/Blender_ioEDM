@@ -46,6 +46,10 @@ def write_file(filename, options={}):
   # Let's build the root node
   root = RootNode()
   root.materials = materials
+  bboxmin, bboxmax = calculate_world_bounds()
+  root.boundingBoxMin = vector_to_edm(bboxmin)
+  root.boundingBoxMax = vector_to_edm(bboxmax)
+  
   # And finally the wrapper
   file = EDMFile()
   file.root = root
@@ -55,6 +59,19 @@ def write_file(filename, options={}):
   writer = BaseWriter(filename)
   file.write(writer)
   writer.close()
+
+
+def calculate_world_bounds():
+  mins = [1e38, 1e38, 1e38]
+  maxs = [-1e38, -1e38, -1e38]
+  for obj in bpy.context.scene.objects:
+    if obj.type in ["CAMERA"]:
+      continue
+    points = [obj.matrix_world * Vector(x) for x in obj.bound_box]
+    for index in range(3):
+      mins[index] = min([point[index] for point in points] + [mins[index]])
+      maxs[index] = max([point[index] for point in points] + [maxs[index]])
+  return Vector(mins), Vector(maxs)
 
 def create_texture(source):
   # Get the texture name stripped of ALL extensions
