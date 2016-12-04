@@ -10,12 +10,12 @@ from .edm.basewriter import BaseWriter
 def write_file(filename, options={}):
 
   # Start by: Assembling the materials
-  # Go through every object in the scene and grab it's first material
-  # Only allow meshes for now
-  all_MeshObj = [x for x in bpy.context.scene.objects if x.type == "MESH"]
+  # Get a list of all mesh objects to be exported as renderables
+  renderables = [x for x in bpy.context.scene.objects if x.type == "MESH" and x.edm.is_renderable]
+  # all_MeshObj = [x for x in bpy.context.scene.objects if x.type == "MESH"]
 
-  # This will make sure that we only create materials that are used
-  all_Materials = [obj.material_slots[0].material for obj in all_MeshObj]
+  # Create an EDM Material object for every renderable
+  all_Materials = [obj.material_slots[0].material for obj in renderables]
   materialMap = {m.name: create_material(m) for m in all_Materials}
   materials = []
   for i, bMat in enumerate(all_Materials):
@@ -25,7 +25,7 @@ def write_file(filename, options={}):
 
   # Now, build each RenderNode object
   renderNodes = []
-  for obj in [x for x in all_MeshObj]:
+  for obj in [x for x in renderables]:
     material = materialMap[obj.material_slots[0].material.name]
     node = create_rendernode(obj, material, options)
     renderNodes.append(node)
@@ -46,10 +46,10 @@ def write_file(filename, options={}):
   # Let's build the root node
   root = RootNode()
   root.materials = materials
-  bboxmin, bboxmax = calculate_world_bounds()
-  root.boundingBoxMin = vector_to_edm(bboxmin)
-  root.boundingBoxMax = vector_to_edm(bboxmax)
-  
+  bboxmin, bboxmax = calculate_edm_world_bounds(renderables)
+  root.boundingBoxMin = bboxmin
+  root.boundingBoxMax = bboxmax
+
   # And finally the wrapper
   file = EDMFile()
   file.root = root
@@ -60,14 +60,12 @@ def write_file(filename, options={}):
   file.write(writer)
   writer.close()
 
-
-def calculate_world_bounds():
+def calculate_edm_world_bounds(objects):
+  """Calculates, in EDM-space, the bounding box of all objects"""
   mins = [1e38, 1e38, 1e38]
   maxs = [-1e38, -1e38, -1e38]
-  for obj in bpy.context.scene.objects:
-    if obj.type in ["CAMERA"]:
-      continue
-    points = [obj.matrix_world * Vector(x) for x in obj.bound_box]
+  for obj in objects:
+    points = [vector_to_edm(obj.matrix_world * Vector(x)) for x in obj.bound_box]
     for index in range(3):
       mins[index] = min([point[index] for point in points] + [mins[index]])
       maxs[index] = max([point[index] for point in points] + [maxs[index]])
