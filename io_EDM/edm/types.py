@@ -11,7 +11,7 @@ from collections import namedtuple, OrderedDict, Counter
 import itertools
 import struct
 
-from .mathtypes import Vector, sequence_to_matrix
+from .mathtypes import Vector, sequence_to_matrix, Matrix, Quaternion
 
 from abc import ABC
 

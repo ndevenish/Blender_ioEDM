@@ -12,9 +12,6 @@ def write_file(filename, options={}):
   # Get a list of all mesh objects to be exported as renderables
   renderables = [x for x in bpy.context.scene.objects if x.type == "MESH" and x.edm.is_renderable]
   materials, materialMap = _create_material_map(renderables)  
-  
-  import pdb
-  pdb.set_trace()
 
   # Now, build each RenderNode object, with it's parents
   renderNodes = []
@@ -75,26 +72,33 @@ def build_parent_nodes(obj):
   must then be parented onto whatever parent nodes the objects parents
   posess. If no nodes are returned, then the object should have it's
   local transformation applied."""
-  
+
   # Collect all actions for this object
   if not obj.animation_data:
     return []
   actions = set()
-  if obj.animation_data.action:
+  if obj.animation_data.action and obj.animation_data.action.argument != -1:
     actions.add(obj.animation_data.action)
   for track in obj.animation_data.nla_tracks:
     for strip in track.strips:
-      actions.add(strip.action)
+      if strip.action.argument != -1:
+        actions.add(strip.action)
   # Verify each action handles a separate argument, otherwise - who knows -
   # if this becomes a problem we may need to merge actions (ouch)
   arguments = set()
   for action in actions:
     if action.argument in arguments:
       raise RuntimeError("More than one action on an object share arguments. Not sure how to deal with this")
-    arguments.add(action)
+    arguments.add(action.argument)
+  if not actions:
+    return []
   # No multiple animations for now - get simple right first
   assert len(actions) <= 1, "Do not support multiple actions on object export at this time"
-  action = actions[0]
+  action = next(iter(actions))
+
+    
+  import pdb
+  pdb.set_trace()
   
   nodes = []
 
@@ -104,7 +108,7 @@ def build_parent_nodes(obj):
   AAN_KNOWN = {"location", "rotation_quaternion", "scale"}
 
   data_categories = set(x.data_path for x in action.fcurves)
-  if not data_categories > ALL_KNOWN:
+  if not data_categories <= ALL_KNOWN:
     print("WARNING: Action has animated keys ({}) that ioEDM can not translate yet!".format(data_categories-ALL_KNOWN))
   # do we need to make an ArgAnimationNode?
   if data_categories & {"location", "rotation_quaternion", "scale"}:
@@ -116,12 +120,14 @@ def build_parent_nodes(obj):
 
 def create_arganimation_node(object, actions):
   # For now, let's assume single-action
+  import pdb
+  pdb.set_trace()
   node = ArgAnimationNode()
   assert len(actions) == 1
   for action in actions:
     curves = set(x.data_path for x in action.fcurves)
-    rotCurves = [x for x in curves if x.data_path == "rotation_quaternion"]
-    posCurves = [x for x in curves if x.data_path == "location"]
+    rotCurves = [x for x in action.fcurves if x.data_path == "rotation_quaternion"]
+    posCurves = [x for x in action.fcurves if x.data_path == "location"]
     argument = action.argument
 
     # Firstly, we need to decompose the current transform so that the 

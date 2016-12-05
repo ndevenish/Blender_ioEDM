@@ -58,7 +58,7 @@ def updateSceneArgument(self, context):
 def register():
   bpy.utils.register_class(EDMObjectSettings)
   bpy.types.Object.edm = bpy.props.PointerProperty(type=EDMObjectSettings)
-  bpy.types.Action.argument = bpy.props.IntProperty(name="Argument", default=0, min=0)
+  bpy.types.Action.argument = bpy.props.IntProperty(name="Argument", default=-1, min=-1)
   bpy.types.Material.edm_material = bpy.props.EnumProperty(
       items=_edm_matTypes, default="def_material", name="Base Material",
       description="The internal EDM material to use as a basis")
