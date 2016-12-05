@@ -96,10 +96,6 @@ def build_parent_nodes(obj):
   assert len(actions) <= 1, "Do not support multiple actions on object export at this time"
   action = next(iter(actions))
 
-    
-  import pdb
-  pdb.set_trace()
-  
   nodes = []
 
   # All keyframe types we know how to handle
@@ -120,8 +116,6 @@ def build_parent_nodes(obj):
 
 def create_arganimation_node(object, actions):
   # For now, let's assume single-action
-  import pdb
-  pdb.set_trace()
   node = ArgAnimationNode()
   assert len(actions) == 1
   for action in actions:

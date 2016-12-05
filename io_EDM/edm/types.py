@@ -361,8 +361,8 @@ class RootNode(BaseNode):
   def read(cls, stream):
     self = super(RootNode, cls).read(stream)
     self.unknownA = stream.read_uchar()
-    self.boundingBoxMin = readVec3d()
-    self.boundingBoxMax = readVec3d()
+    self.boundingBoxMin = readVec3d(stream)
+    self.boundingBoxMax = readVec3d(stream)
     self.unknownB = [readVec3d(stream) for _ in range(4)]
     self.materials = stream.read_list(Material.read)
     stream.materials = self.materials
@@ -428,10 +428,26 @@ class ArgAnimationBase(object):
     self.quat_1 = quat_1 or Quaternion((1,0,0,0))
     self.quat_2 = quat_2 or Quaternion((1,0,0,0))
     self.scale = scale or Vector((1,1,1))
+  @classmethod
+  def read(cls, stream):
+    self = cls()
+    self.matrix = readMatrixd(stream)
+    self.position = readVec3d(stream)
+    self.quat_1 = readQuaternion(stream)
+    self.quat_2 = readQuaternion(stream)
+    self.scale = readVec3d(stream)
+    return self
+  def write(self, stream):
+    stream.write_matrixd(self.matrix)
+    stream.write_vec3d(self.position)
+    stream.write_quaternion(self.quat_1)
+    stream.write_quaternion(self.quat_2)
+    stream.write_vec3d(self.scale)
 
 @reads_type("model::ArgAnimationNode")
 class ArgAnimationNode(BaseNode, AnimatingNode):
   def __init__(self):
+    super(ArgAnimationNode, self).__init__()
     self.base = ArgAnimationBase()
     self.posData = []
     self.rotData = []
@@ -440,21 +456,29 @@ class ArgAnimationNode(BaseNode, AnimatingNode):
   @classmethod
   def read(cls, stream):
     self = super(ArgAnimationNode, cls).read(stream)
-    self.base = self._read_base_data(stream)
+    self.base = ArgAnimationBase.read(stream)
     self.posData = stream.read_list(ArgPositionNode._read_AANPositionArg)
     self.rotData = stream.read_list(ArgRotationNode._read_AANRotationArg)
     self.scaleData = stream.read_list(ArgScaleNode._read_AANScaleArg)
     return self
 
-  def _read_base_data(self, stream):
-    # base_data = stream.read(248)
-    data = {}
-    data["matrix"] = readMatrixd(stream)
-    data["position"] = readVec3d(stream)
-    data["quat_1"] = readQuaternion(stream)
-    data["quat_2"] = readQuaternion(stream)
-    data["scale"] = readVec3d(stream)
-    return ArgAnimationBase(**data)
+  def write(self, stream):
+    super(ArgAnimationNode, self).write(stream)
+    self.base.write(stream)
+    # Write the positional animation data
+    stream.write_uint(len(self.posData))
+    for arg, keyframes in self.posData:
+      stream.write_uint(arg)
+      stream.write_uint(len(keyframes))
+      for frame in keyframes:
+        stream.write_double(frame.frame)
+        stream.write_vec3d(frame.value)
+
+    stream.write_uint(len(self.rotData))
+    assert not self.rotData, "Not implemented"
+    stream.write_uint(len(self.scaleData))
+    assert not self.scaleData, "Not implemented"
+
 
   def audit(self):
     c = super(ArgAnimationNode, self).audit()
@@ -557,7 +581,7 @@ class RotationKey(object):
 
 @reads_type("model::Key<key::POSITION>")
 class PositionKey(object):
-  def __init__(self, frame, value):
+  def __init__(self, frame=None, value=None):
     self.frame = frame
     self.value = value
   @classmethod
