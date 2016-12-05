@@ -4,7 +4,7 @@ import bpy
 import itertools
 import os
 from .edm.types import *
-from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm, Vector
+from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm, Vector, MatrixScale
 from .edm.basewriter import BaseWriter
 
 def write_file(filename, options={}):
@@ -124,10 +124,19 @@ def create_arganimation_node(object, actions):
     posCurves = [x for x in action.fcurves if x.data_path == "location"]
     argument = action.argument
 
-    # Firstly, we need to decompose the current transform so that the 
-    # animation arguments are all applied corrently
-
-    # Build the 
+    
+    # Build the base transforms.
+    # The base matrix needs to include final scale, because the other scale
+    # is applied before transformation
+    node.base.matrix = matrix_to_edm(Matrix())
+    node.base.position = get_fcurve_position(posCurves, 0.0, object.location)
+    node.base.scale = object.scale
+    # Get the base rotation... however we can. Although we need only directly
+    # support quaternion animation, it's convenient to allow non-quat base
+    if not object.rotation_mode == "QUATERNION":
+      node.base.quat_1 = object.matrix_local.decompose()[1]
+    else:
+      node.base.quat_1 = object.rotation_quaternion
 
     if "location" in curves:
       # Build up a set of keys
@@ -136,7 +145,7 @@ def create_arganimation_node(object, actions):
       scale = 1.0 / (max(abs(x) for x in get_all_keyframe_times(posCurves)) or 100.0)
       # Build up the key data for everything
       for time in get_all_keyframe_times(posCurves):
-        position = get_fcurve_position(posCurves, time)
+        position = get_fcurve_position(posCurves, time) - node.base.position
         key = PositionKey(frame=time*scale, value=position)
         posKeys.append(key)
       node.posData.append((argument, posKeys))
@@ -166,12 +175,12 @@ def get_fcurve_quaternion(fcurves, frame):
   channels = [[x for x in all_quat if x.array_index == index][0] for index in range(4)]
   return Quaternion([channels[i].evaluate(frame) for i in range(4)])
 
-def get_fcurve_position(fcurves, frame):
+def get_fcurve_position(fcurves, frame, basis=None):
   """Retrieve an evaluated fcurve for position"""
   all_quat = [x for x in fcurves if x.data_path == "location"]
   channelL = [[x for x in all_quat if x.array_index == index] for index in range(3)]
   # Get an array of lookups to get the channel value, or zero
-  channels = [(x[0].evaluate if x else lambda x: 0) for i, x in enumerate(channelL)]
+  channels = [(x[0].evaluate if x else lambda x: basis[i] if bases else 0) for i, x in enumerate(channelL)]
   return Vector([channels[i](frame) for i in range(3)])
 
 def calculate_edm_world_bounds(objects):
@@ -246,7 +255,6 @@ def create_material(source):
 
 def create_mesh_data(source, material, options={}):
   """Takes an object and converts it to a mesh suitable for writing"""
-
   # Always remesh, because we will want to apply transformations
   mesh = source.to_mesh(bpy.context.scene,
     apply_modifiers=options.get("apply_modifiers", False),
@@ -315,7 +323,7 @@ class RenderNodeWriter(RenderNode):
     opt["apply_transform"] = self.parent == None or isinstance(self.parent, ArgVisibilityNode)
     # ArgAnimationNode-based parents don't have axis-shifted data
     opt["convert_axis"] = not isinstance(self.parent, ArgAnimationNode)
-    self.vertexData, self.indexData = create_mesh_data(self.source, self.material, options)
+    self.vertexData, self.indexData = create_mesh_data(self.source, self.material, opt)
 
   def convert_references_to_index(self):
     """Convert all stored references into their index equivalent"""
