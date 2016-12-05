@@ -296,11 +296,18 @@ class EDMFile(object):
     writer.write_uint(len(self.nodes))
     for node in self.nodes:
       writer.write_named_type(node)
+
+    # For each node, set it's index
+    for i, node in enumerate(self.nodes):
+      node.index = i
     # Write the parent data for the nodes
     writer.write_int(-1)
-    # No parent chain data for the simple cases
-    for _ in range(len(self.nodes)-1):
-      writer.write_uint(0)
+    # Everything without a parent has 0 as it's parent
+    for node in self.nodes[1:]:
+      if node.parent:
+        writer.write_uint(node.parent.index)
+      else:
+        writer.write_uint(0)
 
     # Now do the render objects dictionary
     objects = {}
@@ -446,6 +453,7 @@ class ArgAnimationBase(object):
 
 @reads_type("model::ArgAnimationNode")
 class ArgAnimationNode(BaseNode, AnimatingNode):
+  parent = None
   def __init__(self, *args, **kwargs):
     super(ArgAnimationNode, self).__init__(*args, **kwargs)
     self.base = ArgAnimationBase()
