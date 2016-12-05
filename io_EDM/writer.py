@@ -132,9 +132,12 @@ def create_arganimation_node(object, actions):
     if "location" in curves:
       # Build up a set of keys
       posKeys = []
+      # What we should scale to - take the maximum keyframe value as '1.0'
+      scale = 1.0 / (max(abs(x) for x in get_all_keyframe_times(posCurves)) or 100.0)
+      # Build up the key data for everything
       for time in get_all_keyframe_times(posCurves):
         position = get_fcurve_position(posCurves, time)
-        key = PositionKey(frame=time, value=position)
+        key = PositionKey(frame=time*scale, value=position)
         posKeys.append(key)
       node.posData.append((argument, posKeys))
     if "rotation_quaternion" in curves:
@@ -242,6 +245,8 @@ def create_material(source):
   return mat
 
 def create_mesh_data(source, material, options={}):
+  """Takes an object and converts it to a mesh suitable for writing"""
+
   # Always remesh, because we will want to apply transformations
   mesh = source.to_mesh(bpy.context.scene,
     apply_modifiers=options.get("apply_modifiers", False),
