@@ -11,6 +11,7 @@ def write_file(filename, options={}):
 
   # Get a list of all mesh objects to be exported as renderables
   renderables = [x for x in bpy.context.scene.objects if x.type == "MESH" and x.edm.is_renderable]
+  print("Writing {} objects as renderables".format(len(renderables)))
   materials, materialMap = _create_material_map(renderables)  
 
   # Now, build each RenderNode object, with it's parents
@@ -108,7 +109,7 @@ def build_parent_nodes(obj):
     print("WARNING: Action has animated keys ({}) that ioEDM can not translate yet!".format(data_categories-ALL_KNOWN))
   # do we need to make an ArgAnimationNode?
   if data_categories & {"location", "rotation_quaternion", "scale"}:
-    print("Creating ArgAnimationNode")
+    print("Creating ArgAnimationNode for {}".format(obj.name))
     nodes.append(create_arganimation_node(obj, [action]))
   return nodes
 
@@ -116,7 +117,7 @@ def build_parent_nodes(obj):
 
 def create_arganimation_node(object, actions):
   # For now, let's assume single-action
-  node = ArgAnimationNode()
+  node = ArgAnimationNode(name=object.name)
   assert len(actions) == 1
   for action in actions:
     curves = set(x.data_path for x in action.fcurves)
@@ -124,7 +125,6 @@ def create_arganimation_node(object, actions):
     posCurves = [x for x in action.fcurves if x.data_path == "location"]
     argument = action.argument
 
-    
     # Build the base transforms.
     # The base matrix needs to include final scale, because the other scale
     # is applied before transformation
@@ -137,20 +137,27 @@ def create_arganimation_node(object, actions):
       node.base.quat_1 = object.matrix_local.decompose()[1]
     else:
       node.base.quat_1 = object.rotation_quaternion
+    inverse_base_rotation = node.base.quat_1.inverted()
 
+    # What we should scale to - take the maximum keyframe value as '1.0'
+    scale = 1.0 / (max(abs(x) for x in get_all_keyframe_times(posCurves + rotCurves)) or 100.0)
+    
     if "location" in curves:
       # Build up a set of keys
       posKeys = []
-      # What we should scale to - take the maximum keyframe value as '1.0'
-      scale = 1.0 / (max(abs(x) for x in get_all_keyframe_times(posCurves)) or 100.0)
       # Build up the key data for everything
       for time in get_all_keyframe_times(posCurves):
-        position = get_fcurve_position(posCurves, time) - node.base.position
+        position = get_fcurve_position(posCurves, time, node.base.position) - node.base.position
         key = PositionKey(frame=time*scale, value=position)
         posKeys.append(key)
       node.posData.append((argument, posKeys))
     if "rotation_quaternion" in curves:
-      raise NotImplementedError()
+      rotKeys = []
+      for time in get_all_keyframe_times(rotCurves):
+        rotation = get_fcurve_quaternion(rotCurves, time)  * inverse_base_rotation
+        key = RotationKey(frame=time*scale, value=rotation)
+        rotKeys.append(key)
+      node.rotData.append((argument, rotKeys))
     if "scale" in curves:
       raise NotImplementedError("Curves not totally understood yet")
 
@@ -180,8 +187,15 @@ def get_fcurve_position(fcurves, frame, basis=None):
   all_quat = [x for x in fcurves if x.data_path == "location"]
   channelL = [[x for x in all_quat if x.array_index == index] for index in range(3)]
   # Get an array of lookups to get the channel value, or zero
-  channels = [(x[0].evaluate if x else lambda x: basis[i] if bases else 0) for i, x in enumerate(channelL)]
-  return Vector([channels[i](frame) for i in range(3)])
+  channels = []
+  for index in range(3):
+    if channelL[index]:
+      channels.append(channelL[index][0].evaluate(frame))
+    elif basis:
+      channels.append(basis[index])
+    else:
+      channels.append(0)
+  return Vector(channels)
 
 def calculate_edm_world_bounds(objects):
   """Calculates, in EDM-space, the bounding box of all objects"""

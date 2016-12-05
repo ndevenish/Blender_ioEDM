@@ -55,6 +55,14 @@ Simply add `io_EDM` as a Blender addon in the usual way (e.g. adding to your
 Preferences->Files->Addon path and enabling). This should not be necessary
 if debugging with `read.py`.
 
+FAQ
+===
+### Help! My animations aren't exporting!
+- Animations with an argument value of `-1` are not exported. Check that you
+  have assigned an argument in the action editor
+- Scale animations are currently not understood
+- Only simple position/rotation keyframe animations are currently implemented
+
 Developers
 ==========
 - There is a `read.py` file that can be used to launch blender with an instant

@@ -358,6 +358,7 @@ def create_material(material):
 
   # Create material
   mat = bpy.data.materials.new(material.name)
+  mat.specular_shader = "PHONG"
   # mat.use_shadeless = True
   mat.edm_material = material.material_name
   mat.edm_blending = str(material.blending)

@@ -446,8 +446,8 @@ class ArgAnimationBase(object):
 
 @reads_type("model::ArgAnimationNode")
 class ArgAnimationNode(BaseNode, AnimatingNode):
-  def __init__(self):
-    super(ArgAnimationNode, self).__init__()
+  def __init__(self, *args, **kwargs):
+    super(ArgAnimationNode, self).__init__(*args, **kwargs)
     self.base = ArgAnimationBase()
     self.posData = []
     self.rotData = []
@@ -475,7 +475,13 @@ class ArgAnimationNode(BaseNode, AnimatingNode):
         stream.write_vec3d(frame.value)
 
     stream.write_uint(len(self.rotData))
-    assert not self.rotData, "Not implemented"
+    for arg, keyframes in self.rotData:
+      stream.write_uint(arg)
+      stream.write_uint(len(keyframes))
+      for frame in keyframes:
+        stream.write_double(frame.frame)
+        stream.write_quaternion(frame.value)
+
     stream.write_uint(len(self.scaleData))
     assert not self.scaleData, "Not implemented"
 
@@ -569,6 +575,9 @@ class ArgScaleNode(ArgAnimationNode):
 
 @reads_type("model::Key<key::ROTATION>")
 class RotationKey(object):
+  def __init__(self, frame=None, value=None):
+    self.frame = frame
+    self.value = value
   @classmethod
   def read(cls, stream):
     self = cls()
