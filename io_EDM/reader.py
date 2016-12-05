@@ -28,7 +28,10 @@ def read_file(filename):
 
   # Must have negative frames
   bpy.context.user_preferences.edit.use_negative_frames = True
-
+  bpy.context.scene.use_preview_range = True
+  bpy.context.scene.frame_preview_start = -100
+  bpy.context.scene.frame_preview_end = 100
+  
   # Convert the materials. These will be used by objects
   # We need to change the directory as the material searcher
   # currently uses the cwd
