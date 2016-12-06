@@ -330,12 +330,12 @@ def _find_texture_file(name):
   files = glob.glob(name+".*")
   if not files:
     matcher = re.compile(fnmatch.translate(name+".*"), re.IGNORECASE)
-    files = [x for x in glob.glob(".*") if matcher.match(x)]
+    files = [x for x in glob.glob("*.*") if matcher.match(x)]
     if not files:
       files = glob.glob("textures/"+name+".*")
       if not files:
         matcher = re.compile(fnmatch.translate("textures/"+name+".*"), re.IGNORECASE)
-        files = [x for x in glob.glob("textures/.*") if matcher.match(x)]
+        files = [x for x in glob.glob("textures/*.*") if matcher.match(x)]
         if not files:
           print("Warning: Could not find texture named {}".format(name))
           return None
