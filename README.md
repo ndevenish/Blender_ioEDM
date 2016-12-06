@@ -7,34 +7,34 @@ the flight simulator DCS world. It has been engineered by careful studying of
 the binary file format, intuition, research, much guesswork, and many, many
 crashes of the model viewer.
 
-In its current state, it allows basic importing functionality whilst the fine
-details of the file structure are worked out, and even more basic exporting.
-Much of the data is reasonably easy to interpret, but translating the concepts
-to Blender is still a WIP. Also, there may be advanced modelling features used
-in DCS world modules that the author does not own, but a universal importer is
-less a goal than understanding the file format well enough to build a simple
+In its current state, it allows simple importing functionality whilst the fine
+details of the file structure are worked out, and basic exporting. Much of the
+data is reasonably easy to interpret, but translating the concepts to Blender
+is still a WIP. Also, there may be advanced modelling features used in DCS
+world modules that the author does not own, but a universal importer is less a
+goal than understanding the file format well enough to build a simple
 exporter.
 
 What Works
 ----------
-- Parsing and reading data for every .edm file included in DCS world
-- Basic importing of geometry with diffuse texture layers
+
+- Parsing and reading raw data for every .edm file included in DCS world (this
+  is reading only, not importing into blender)
+- Basic importing of geometry with diffuse texture layers - textures are
+  assumed to be in the same folder or a subfolder named 'textures'
 - Importing simple rotation, translation and visibility animations
-- Simple texture materials, IF the textures are in the same directory
-  or a subdirectory called "textures"
 - Connectors, and UI integration to mark empties as such
 - Exporting basic meshes with simple animations and single diffuse textures
 
 What Doesn't Work
 -----------------
-- Exporting anything in a hierarchy doesn't work
+- Exporting anything in a hierarchy is WIP and really fails badly
 - Scale animation, and non-quaternion rotation animation isn't exported
 - Bone-based animations are not handled at all
 - Multiple argument animations per object - decisions on the best way to 
   represent this in Blender need to be made (NLA? Custom Action attributes?)
 - Complex translation of material layers, including specular, bump maps etc
-- Appears to be minor issues with placement of *some* items in e.g. SU-25T
-  cockpit
+- Not all geometry ends up properly placed when importing
 
 Unanswered Questions about the EDM files
 ----------------------------------------
@@ -50,17 +50,10 @@ Unanswered Questions about the EDM files
 
 Installation
 ------------
-Simply add `io_EDM` as a Blender addon in the usual way (e.g. adding to your 
-Preferences->Files->Addon path and enabling). This should not be necessary
-if debugging with `read.py`.
 
-FAQ
-===
-### Help! My animations aren't exporting!
-- Animations with an argument value of `-1` are not exported. Check that you
-  have assigned an argument in the action editor
-- Scale animations are currently not understood
-- Only simple position/rotation keyframe animations are currently implemented
+Simply add `io_EDM` as a Blender addon in the usual way (e.g. adding to an
+'addons' subdirectory of your  Preferences->Files->Script path and enabling).
+This should not be necessary if debugging with `read.py`.
 
 Developers
 ==========
@@ -88,11 +81,17 @@ Developers
 - A summary of the knowledge gained about the `.EDM` file format can be found
   in the `EDM_Specification.md` file also located in this repository.
 
+FAQ (WIP)
+=========
+### Help! My animations aren't exporting!
+- Animations with an argument value of `-1` are not exported. Check that you
+  have assigned an argument in the action editor
+- Scale animations are currently not understood
+- Only simple position/rotation keyframe animations are currently implemented
+
 EDM Modelling tool concepts in Blender
 ======================================
-Blender obviously differs from 3DS, and so not everything can be implemented
-in exactly the same way. Here is a quick summary of the differences - some of
-which are only partially implemented.
+Here is a rough list of how concepts are mapped from 3DS to blender.
 
 |                    | 3DS Max             |   Blender                             |
 |--------------------|---------------------|---------------------------------------|
