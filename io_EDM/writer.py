@@ -260,8 +260,6 @@ def build_parent_nodes(obj):
       if strip.action.argument != -1:
         actions.add(strip.action)
 
-  import pdb
-  pdb.set_trace()
   # Verify each action handles a separate argument, otherwise - who knows -
   # if this becomes a problem we may need to merge actions (ouch)
   arguments = set()
@@ -510,8 +508,7 @@ def create_material(source):
   try:
     diffuseTex = [x for x in source.texture_slots if x is not None and x.use_map_color_diffuse]
   except:
-    import pdb
-    pdb.set_trace()
+    print("ERROR: Can not find diffuse texture")
   # normalTex = [x for x in source.texture_slots if x.use_map_normal]
   # specularTex = [x for x in source.texture_slots if x.use_map_specular]
 
