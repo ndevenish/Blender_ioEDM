@@ -4,7 +4,7 @@ import bpy
 import itertools
 import os
 from .edm.types import *
-from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm, Vector, MatrixScale
+from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm, Vector, MatrixScale, matrix_to_blender
 from .edm.basewriter import BaseWriter
 
 def _get_all_parents(objects):
@@ -334,15 +334,18 @@ def create_arganimation_node(object, actions):
     # Build the base transforms.
     # The base matrix needs to include final scale, because the other scale
     # is applied before transformation
-    base_transform = object.matrix_local
-    locPos, locRot, locScale = base_transform.decompose()
+    # base_transform = object.matrix_local
+    # locPos, locRot, locScale = base_transform.decompose()
     node.base.matrix = matrix_to_edm(Matrix())
-    node.base.position = locPos #get_fcurve_position(posCurves, 0.0, locPos)
-    node.base.scale = locScale
-    node.base.quat_1 = locRot
+    node.base.position = object.location #locPos #get_fcurve_position(posCurves, 0.0, locPos)
+    node.base.scale = object.scale
+    node.base.quat_1 = object.rotation_quaternion 
 
     inverse_base_rotation = node.base.quat_1.inverted()
   # node.zero_transform = (I) * aabT * q1m * aabS * RXm
+    
+    # For validation
+    matQuat = matrix_to_blender(node.base.matrix).decompose()[1]
 
 # node.zero_transform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
     # file = R-X * inv(aabS) * inv(q1m) * inv(aabT) * inv(matrix_to_blender(mat)) * blMtransform
@@ -375,27 +378,51 @@ def create_arganimation_node(object, actions):
     # 
 # node.zero_transform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
     
+    # import pdb
+    # pdb.set_trace()
+      # print("At time {}".format(time))
+    #         leftRotation = matQuat * q1
+    # rightRotation = RX
+
+    # print("Zeroth transform")
+    zero_transform = matrix_to_blender(node.base.matrix) \
+          * Matrix.Translation(node.base.position) \
+          * node.base.quat_1.to_matrix().to_4x4() \
+          * MatrixScale(node.base.scale) \
+          * RXm
+    print("Expected zeroth")
+    print("   Location: {}\n   Rotation: {}\n   Scale: {}".format(*zero_transform.decompose()))
+    # This appears to match. What doesn't match is when rotations are applied
+
+
     # What we should scale to - take the maximum keyframe value as '1.0'
     scale = 1.0 / (max(abs(x) for x in get_all_keyframe_times(posCurves + rotCurves)) or 100.0)
     
-    # if "location" in curves:
-    #   # Build up a set of keys
-    #   posKeys = []
-    #   # Build up the key data for everything
-    #   for time in get_all_keyframe_times(posCurves):
-    #     position = vector_to_blender(get_fcurve_position(posCurves, time, node.base.position) - node.base.position)
-    #     key = PositionKey(frame=time*scale, value=position)
-    #     posKeys.append(key)
-    #   node.posData.append((argument, posKeys))
-    # if "rotation_quaternion" in curves:
-    #   rotKeys = []
-    #   for time in get_all_keyframe_times(rotCurves):
-    #     rotation = get_fcurve_quaternion(rotCurves, time) * inverse_base_rotation
-    #     key = RotationKey(frame=time*scale, value=rotation)
-    #     rotKeys.append(key)
-    #   node.rotData.append((argument, rotKeys))
-    # if "scale" in curves:
-    #   raise NotImplementedError("Curves not totally understood yet")
+    if "location" in curves:
+      # Build up a set of keys
+      posKeys = []
+      # Build up the key data for everything
+      for time in get_all_keyframe_times(posCurves):
+        position = vector_to_blender(get_fcurve_position(posCurves, time, node.base.position) - node.base.position)
+        key = PositionKey(frame=time*scale, value=position)
+        posKeys.append(key)
+      node.posData.append((argument, posKeys))
+    if "rotation_quaternion" in curves:
+      rotKeys = []
+      for time in get_all_keyframe_times(rotCurves):
+        actual = get_fcurve_quaternion(rotCurves, time)
+        rotation = actual * inverse_base_rotation
+        key = RotationKey(frame=time*scale, value=rotation)
+        rotKeys.append(key)
+
+# leftRotation = matQuat * q1
+#     rightRotation = RX
+        predict = matQuat * node.base.quat_1 * RANIM * RX
+        print("  Quat at time {:6.0}: {}".format(time, predict))
+        print("               Desired {}".format(actual))
+      node.rotData.append((argument, rotKeys))
+    if "scale" in curves:
+      raise NotImplementedError("Curves not totally understood yet")
 
   # Now we've processed everything
   return node
