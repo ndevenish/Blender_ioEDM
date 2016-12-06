@@ -17,9 +17,10 @@ def _main(args):
   try:
     myArgumentIndex = next(i for i, v in enumerate(sys.argv) if v == "--")
     args = args[myArgumentIndex+1:]
+    filepath = args[0]
   except StopIteration:
-    pass
-  filepath = args[0] if args else "test.edm"
+    filepath = "test.edm"
+  
   # Call the import operator
   bpy.ops.export_mesh.edm(filepath=filepath)
 

@@ -136,9 +136,6 @@ def write_file(filename, options={}):
     node.render = RenderNodeWriter(node.blender)
     node.render.material = materialMap[node.blender.material_slots[0].material.name]
 
-    # materials, materialMap = _create_material_map(renderables)  
-  
-    # if node.parent isinstance(self.parent, ArgVisibilityNode)
     if node.transform and not all(isinstance(x, ArgVisibilityNode) for x in node.transform):
       node.apply_transform = False
     else:
@@ -254,7 +251,7 @@ def build_parent_nodes(obj):
 
   # Collect all actions for this object
   if not obj.animation_data:
-    return [create_empty_animation(obj)]
+    return [create_animation_base(obj)]
   actions = set()
   if obj.animation_data.action and obj.animation_data.action.argument != -1:
     actions.add(obj.animation_data.action)
@@ -262,6 +259,9 @@ def build_parent_nodes(obj):
     for strip in track.strips:
       if strip.action.argument != -1:
         actions.add(strip.action)
+
+  import pdb
+  pdb.set_trace()
   # Verify each action handles a separate argument, otherwise - who knows -
   # if this becomes a problem we may need to merge actions (ouch)
   arguments = set()
@@ -269,8 +269,10 @@ def build_parent_nodes(obj):
     if action.argument in arguments:
       raise RuntimeError("More than one action on an object share arguments. Not sure how to deal with this")
     arguments.add(action.argument)
+
   if not actions:
-    return []
+    return [create_animation_base(obj)]
+
   # No multiple animations for now - get simple right first
   assert len(actions) <= 1, "Do not support multiple actions on object export at this time"
   action = next(iter(actions))
@@ -291,15 +293,75 @@ def build_parent_nodes(obj):
     nodes.append(create_arganimation_node(obj, [action]))
   return nodes
 
-def create_empty_animation(object):
+def create_animation_base(object):
   node = ArgAnimationNodeBuilder(name=object.name)
 
+  # This swaps blender space to EDM-space - rotate +ve around x 90 degrees
+  RPX = Quaternion((0.707, 0.707, 0, 0))
+  # This swaps edm-space to blender space - rotate -ve around x 90 degrees
+  RX = Quaternion((0.707, -0.707, 0, 0))
+  RXm = RX.to_matrix().to_4x4()
+
   # Build the base transforms.
-  # The base matrix needs to include final scale, because the other scale
-  # is applied before transformation
   node.base.matrix = matrix_to_edm(Matrix())
-  node.base.position = object.matrix_local.decompose()[0]
-  node.base.scale = object.matrix_local.decompose()[2]
+  node.base.position = object.location
+  node.base.scale = object.scale
+  node.base.quat_1 = object.rotation_quaternion 
+
+  inverse_base_rotation = node.base.quat_1.inverted()
+  
+  # For validation
+  matQuat = matrix_to_blender(node.base.matrix).decompose()[1]
+  invMatQuat = matQuat.inverted()
+
+  print("  Saved Basis data")
+  print("     Position:", node.base.position)
+  print("     Rotation:", node.base.quat_1)
+  print("     Scale:   ", node.base.scale)
+  print("     Matrix:\n" + repr(node.base.matrix))
+  
+  # ON THE OTHER SIDE
+  # vector_to_blender - z = y, y = -z - positive rotation around X == RPX
+  # actual data transformed is RPX * file
+  # Base transform is reasonably standard;
+  #
+  #          ________________Direct values from node
+  #         |     |      |
+  # mat * aabT * q1m * aabS * [RX * RPX] * file
+  # mat *   T  *  R  *  S         *        file
+  # 
+  # e.g. all transforms are applied in file-space
+
+# node.zero_transform = aabT * q1m * aabS * RXm
+
+ # Calculate the pre and post-animation-value transforms
+  # leftRotation = matQuat * q1
+  # rightRotation = RX
+  # At the moment, we don't understand the position transform
+  # leftPosition = matrix_to_blender(mat) * aabT
+  # rightPosition = aabS
+
+  # bPos = M * T * ANIMT * q1 * RANIM * S
+  # bPos = aabT * ANIM * aabS * file
+  # bRot * q1 * ANIM = file
+  # 
+# node.zero_transform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
+  
+  # import pdb
+  # pdb.set_trace()
+    # print("At time {}".format(time))
+  #         leftRotation = matQuat * q1
+  # rightRotation = RX
+
+  # print("Zeroth transform")
+  zero_transform = matrix_to_blender(node.base.matrix) \
+        * Matrix.Translation(node.base.position) \
+        * node.base.quat_1.to_matrix().to_4x4() \
+        * MatrixScale(node.base.scale) \
+        * RXm
+  print("   Expected zeroth")
+  print("     Location: {}\n     Rotation: {}\n     Scale: {}".format(*zero_transform.decompose()))
+  # This appears to match. What doesn't match is when rotations are applied
 
   # Get the base rotation... however we can. Although we need only directly
   # support quaternion animation, it's convenient to allow non-quat base
@@ -312,88 +374,14 @@ def create_empty_animation(object):
 
 def create_arganimation_node(object, actions):
   # For now, let's assume single-action
-  node = ArgAnimationNodeBuilder(name=object.name)
+  node = create_animation_base(object)
+
   assert len(actions) == 1
   for action in actions:
     curves = set(x.data_path for x in action.fcurves)
     rotCurves = [x for x in action.fcurves if x.data_path == "rotation_quaternion"]
     posCurves = [x for x in action.fcurves if x.data_path == "location"]
     argument = action.argument
-
-    # This swaps blender space to EDM-space - rotate +ve around x 90 degrees
-    RPX = Quaternion((0.707, 0.707, 0, 0))
-    # This swaps edm-space to blender space - rotate -ve around x 90 degrees
-    RX = Quaternion((0.707, -0.707, 0, 0))
-
-
-    #zero pos = node.zero_transform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
-  
-    # We use this in the animation chain on the other end
-
-    RXm = RX.to_matrix().to_4x4()
-    # Build the base transforms.
-    # The base matrix needs to include final scale, because the other scale
-    # is applied before transformation
-    # base_transform = object.matrix_local
-    # locPos, locRot, locScale = base_transform.decompose()
-    node.base.matrix = matrix_to_edm(Matrix())
-    node.base.position = object.location #locPos #get_fcurve_position(posCurves, 0.0, locPos)
-    node.base.scale = object.scale
-    node.base.quat_1 = object.rotation_quaternion 
-
-    inverse_base_rotation = node.base.quat_1.inverted()
-  # node.zero_transform = (I) * aabT * q1m * aabS * RXm
-    
-    # For validation
-    matQuat = matrix_to_blender(node.base.matrix).decompose()[1]
-
-# node.zero_transform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
-    # file = R-X * inv(aabS) * inv(q1m) * inv(aabT) * inv(matrix_to_blender(mat)) * blMtransform
-
-
-    # ON THE OTHER SIDE
-    # vector_to_blender - z = y, y = -z - positive rotation around X == RPX
-    # actual data transformed is RPX * file
-    # Base transform is reasonably standard;
-    #
-    #          ________________Direct values from node
-    #         |     |      |
-    # mat * aabT * q1m * aabS * [RX * RPX] * file
-    # mat *   T  *  R  *  S         *        file
-    # 
-    # e.g. all transforms are applied in file-space
-
-# node.zero_transform = aabT * q1m * aabS * RXm
-
-   # Calculate the pre and post-animation-value transforms
-    # leftRotation = matQuat * q1
-    # rightRotation = RX
-    # At the moment, we don't understand the position transform
-    # leftPosition = matrix_to_blender(mat) * aabT
-    # rightPosition = aabS
-
-    # bPos = M * T * ANIMT * q1 * RANIM * S
-    # bPos = aabT * ANIM * aabS * file
-    # bRot * q1 * ANIM = file
-    # 
-# node.zero_transform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
-    
-    # import pdb
-    # pdb.set_trace()
-      # print("At time {}".format(time))
-    #         leftRotation = matQuat * q1
-    # rightRotation = RX
-
-    # print("Zeroth transform")
-    zero_transform = matrix_to_blender(node.base.matrix) \
-          * Matrix.Translation(node.base.position) \
-          * node.base.quat_1.to_matrix().to_4x4() \
-          * MatrixScale(node.base.scale) \
-          * RXm
-    print("Expected zeroth")
-    print("   Location: {}\n   Rotation: {}\n   Scale: {}".format(*zero_transform.decompose()))
-    # This appears to match. What doesn't match is when rotations are applied
-
 
     # What we should scale to - take the maximum keyframe value as '1.0'
     scale = 1.0 / (max(abs(x) for x in get_all_keyframe_times(posCurves + rotCurves)) or 100.0)
@@ -411,15 +399,17 @@ def create_arganimation_node(object, actions):
       rotKeys = []
       for time in get_all_keyframe_times(rotCurves):
         actual = get_fcurve_quaternion(rotCurves, time)
-        rotation = actual * inverse_base_rotation
+        rotation = inverse_base_rotation * invMatQuat * actual
         key = RotationKey(frame=time*scale, value=rotation)
         rotKeys.append(key)
 
 # leftRotation = matQuat * q1
 #     rightRotation = RX
-        predict = matQuat * node.base.quat_1 * RANIM * RX
-        print("  Quat at time {:6.0}: {}".format(time, predict))
-        print("               Desired {}".format(actual))
+        # Extra RX because the vertex data on reading has had an extra
+        # RPX rotation applied
+        predict = matQuat * node.base.quat_1 * rotation * RPX 
+        print("   Quat at time {:6}: {}".format(time, predict))
+        print("                Desired {}".format(actual))
       node.rotData.append((argument, rotKeys))
     if "scale" in curves:
       raise NotImplementedError("Curves not totally understood yet")
@@ -537,14 +527,22 @@ def create_mesh_data(source, material, options={}):
     apply_modifiers=options.get("apply_modifiers", False),
     settings="RENDER", calc_tessface=True)
 
+  print("Enmeshing ", source.name)
   # Apply the local transform. IF there are no parents, then this should
   # be identical to the world transform anyway
   if options.get("apply_transform", True):
     mesh.transform(source.matrix_local)
+    print("  Applying local transform")
+  else:
+    print("  Skipping transform application")
 
   # Should be more complicated for multiple layers, but will do for now
   uv_tex = mesh.tessface_uv_textures.active.data
 
+  if options.get("convert_axis", True):
+    print("  Converting axis")
+  else:
+    print("  NOT Converting axis")
   newVertices = []
   newIndexValues = []
   # Loop over every face, and the UV data for that face
