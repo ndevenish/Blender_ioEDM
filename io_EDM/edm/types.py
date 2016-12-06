@@ -297,9 +297,10 @@ class EDMFile(object):
     for node in self.nodes:
       writer.write_named_type(node)
 
-    # For each node, set it's index
+    # For each parent node, set it's index
     for i, node in enumerate(self.nodes):
       node.index = i
+    
     # Write the parent data for the nodes
     writer.write_int(-1)
     # Everything without a parent has 0 as it's parent
@@ -411,6 +412,8 @@ class Node(BaseNode):
   def read(cls, stream):
     # stream.mark_type_read("model::Node")
     return super(Node, cls).read(stream)
+  def __repr__(self):
+    return "<Node>"
 
 @reads_type("model::TransformNode")
 class TransformNode(BaseNode):
@@ -453,13 +456,18 @@ class ArgAnimationBase(object):
 
 @reads_type("model::ArgAnimationNode")
 class ArgAnimationNode(BaseNode, AnimatingNode):
-  parent = None
   def __init__(self, *args, **kwargs):
     super(ArgAnimationNode, self).__init__(*args, **kwargs)
     self.base = ArgAnimationBase()
     self.posData = []
     self.rotData = []
     self.scaleData = []
+    self.parent = None
+
+  def __repr__(self):
+    return "<ArgAnimationNode {:}{:}{:}{}>".format(
+      len(self.posData), len(self.rotData), len(self.scaleData),
+      " "+self.name if self.name else "")
 
   @classmethod
   def read(cls, stream):
@@ -931,7 +939,7 @@ class RenderNode(BaseNode):
 
     # Rebuild the parentdata
     writer.write_uint(1)
-    writer.write_uint(self.parent)
+    writer.write_uint(self.parent.index)
     writer.write_int(-1)
 
     # Vertex data

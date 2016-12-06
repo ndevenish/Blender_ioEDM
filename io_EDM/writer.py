@@ -7,34 +7,212 @@ from .edm.types import *
 from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm, Vector, MatrixScale
 from .edm.basewriter import BaseWriter
 
+def _get_all_parents(objects):
+  """Gets all direct ancestors of all objects"""
+  objs = set()
+  if not hasattr(objects, "__iter__"):
+    objects = [objects]
+  for item in objects:
+    objs.add(item)
+    if item.parent:
+      objs.update(_get_all_parents(item.parent))
+  return objs
+
+def _get_root_object(obj):
+  """Given an object, returns the root node"""
+  obj = obj
+  while obj.parent:
+    obj = obj.parent
+  return obj
+
+class TransformNode(object):
+  "Holds a triple of blender object, render node and transform"
+  blender = None
+  render = None
+  transform = None
+
+  @property
+  def name(self):
+    return self.blender.name
+
+  def __init__(self, blender):
+    self.blender = blender
+    self.parent = None
+    self.children = []
+
+class RootTransformNode(object):
+  def __init__(self):
+    self.transform = [Node()]
+    self.blender = None
+    self.children = []
+    self.parent = None
+    self.render = None
+  @property
+  def name(self):
+    return "<ROOT>"
+
+class TransformGraphBuilder(object):
+  """Constructs and allows walking a graph of object references"""
+
+  def __init__(self, blender_objects):
+    "Read all objects and build a node tree that leads to them"
+    self.nodes = []
+
+    all_nodes = _get_all_parents(blender_objects)
+    roots = set(_get_root_object(x) for x in blender_objects)
+
+    def _create_node(base, prefix=""):
+      node = TransformNode(base)
+      self.nodes.append(node)
+      for child in base.children:
+        if child in all_nodes:
+          childNode = _create_node(child, prefix+"  ")
+          childNode.parent = node
+          node.children.append(childNode)
+      return node
+    
+    self.root = RootTransformNode()
+    self.root.children = [_create_node(x) for x in roots]
+    for child in self.root.children:
+      child.parent = self.root
+
+  def print_tree(self):
+
+    def _printNode(node, prefix=None, last=True):
+      if prefix is None:
+        firstPre = ""
+        prefix = ""
+      else:
+        firstPre = prefix + (" `-" if last else " |-")
+        prefix = prefix + ("   " if last else " | ")
+      print(firstPre + node.name.ljust(30-len(firstPre)) + " Render: " + str(node.render).ljust(30) + " Trans: " + str(node.transform))
+      for child in node.children:
+        _printNode(child, prefix, child is node.children[-1])
+
+    _printNode(self.root)
+
+  def walk_tree(self, walker, include_root=False):
+    """Accepts a function, and calls it for every node in the tree.
+    The parent is guaranteed to be initialised before the child"""
+    def _walk_node(node):
+      walker(node)
+      for child in node.children:
+        _walk_node(child)
+    if include_root:
+      _walk_node(self.root)
+    else:
+      for root in self.root.children:
+        _walk_node(root)
+
 def write_file(filename, options={}):
 
-  # Get a list of all mesh objects to be exported as renderables
-  renderables = [x for x in bpy.context.scene.objects if x.type == "MESH" and x.edm.is_renderable]
+  # Get a set of all mesh objects to be exported as renderables
+  renderables = {x for x in bpy.context.scene.objects if x.type == "MESH" and x.edm.is_renderable}
   print("Writing {} objects as renderables".format(len(renderables)))
+  # Generate the materials for every renderable
   materials, materialMap = _create_material_map(renderables)  
+  
+  # What we must map from, blender-side to edm-side:
+  #
+  #                                  [Transform for: BlenderParent]
+  #                                          |         |
+  #   [BlenderParent]-->--[Mesh for: BlenderParent]    |
+  #          |                                         |
+  #          |                       [Transform for: StartNode]
+  #          |                               |
+  #     [StartNode]---->--[Mesh for: StartNode]
 
-  # Now, build each RenderNode object, with it's parents
+
+  graph = TransformGraphBuilder(renderables)
+
+  # Build transform nodes for everything in the tree.
+  def _create_transform(node):
+    print("  Calculating parent for", node.name)
+    node.transform = build_parent_nodes(node.blender)
+  graph.walk_tree(_create_transform)
+
+  # Create the basic rendernode structures
+  def _create_renderNode(node):
+    node.render = RenderNodeWriter(node.blender)
+    node.render.material = materialMap[node.blender.material_slots[0].material.name]
+
+    # materials, materialMap = _create_material_map(renderables)  
+  
+    # if node.parent isinstance(self.parent, ArgVisibilityNode)
+    if node.transform and not all(isinstance(x, ArgVisibilityNode) for x in node.transform):
+      node.apply_transform = False
+    else:
+      node.apply_transform = True
+
+  graph.walk_tree(_create_renderNode)
+
+  
+  print("{} objects in transform tree:".format(len(graph.nodes)))
+  graph.print_tree()  
+
+
+  # Now, join up any gaps
+  # For any transform node whose parent node has a transform
+  #     - Set the transform.parent to parent.transform
+  # For any transform node whose parent node has NO transform
+  #     - Calculate the transform of all local matrices up to the next 
+  #       node with a transform, and post-apply to the transform node
+  #       (this will require recalculation on animation nodes)
+  #     - Then parent the node to that transform
+  # For any node with no transform:
+  #     - Calculate the chain of local matrices to apply when enmeshing
+  def _process_parents(node):
+    if node.transform and node.parent.transform:
+      node.transform[0].parent = node.parent.transform[-1]
+    else:
+      # All other options involve calculating a transformation chain
+      transform = Matrix()
+      currentNode = node.parent
+      while not currentNode.transform:
+        print("  Walking to parent {}".format(currentNode))
+        transform = currentNode.blender.matrix_local * transform
+        currentNode = currentNode.parent
+      # Now: currentNode is the node with the transform we want
+      #      transform   is the matrix to get to that space
+
+      # Two cases: Either we have a transform and no parent,
+      # or no transform and a parent transform somewhere above us
+      if node.transform:
+        node.transform[0].apply_transform(transform)
+        node.transform[0].parent = currentNode.transform[-1]
+      else:
+        node.render.additional_transform = transform
+        node.transform = [currentNode.transform[-1]]
+        node.apply_transform = True
+    # We can now safely assign the nodes parent
+    node.render.parent = node.transform[-1]
+
+  graph.walk_tree(_process_parents)
+
+  print("Graph after parent calculations")
+  graph.print_tree()  
+
+  # Now do enmeshing
+  def _enmesh(node):
+    node.render.calculate_mesh(options)
+  graph.walk_tree(_enmesh)
+
+  # Build the list of nodes
+  transformNodes = []
   renderNodes = []
-  rootNode = Node()
-  transformNodes = [rootNode]
-  for obj in [x for x in renderables]:
-    node = RenderNodeWriter(obj)
-    node.material = materialMap[obj.material_slots[0].material.name]
-    # Calculate the parents for this node's animation
-    parents = node.calculate_parents()
-    for parent in parents:
-      parent.index = len(transformNodes)
-      transformNodes.append(parent)
-    # We now have the information to properly enmesh the object
-    node.calculate_mesh(options)
-    # And, prepare references for writing
-    node.convert_references_to_index()
-    renderNodes.append(node)
+  def _add_transforms(node):
+    if node.render:
+      renderNodes.append(node.render)
+    for tf in node.transform:
+      if not tf in transformNodes:
+        tf.index = len(transformNodes)
+        transformNodes.append(tf)
+  graph.walk_tree(_add_transforms, include_root=True)
 
-  # Materials:    √
-  # Render Nodes: √
-  # Parents:      √
+  # # Now we know all node indices, prepare renderables for writing
+  # for node in renderNodes:
+  #   node.convert_references_to_index()
+
   # Let's build the root node
   root = RootNodeWriter()
   root.set_bounding_box_from(renderables)
@@ -117,7 +295,7 @@ def build_parent_nodes(obj):
 
 def create_arganimation_node(object, actions):
   # For now, let's assume single-action
-  node = ArgAnimationNode(name=object.name)
+  node = ArgAnimationNodeBuilder(name=object.name)
   assert len(actions) == 1
   for action in actions:
     curves = set(x.data_path for x in action.fcurves)
@@ -131,6 +309,7 @@ def create_arganimation_node(object, actions):
     node.base.matrix = matrix_to_edm(Matrix())
     node.base.position = get_fcurve_position(posCurves, 0.0, object.location)
     node.base.scale = object.scale
+    print("WARNING: Probably want local scale here (change when done restructing")
     # Get the base rotation... however we can. Although we need only directly
     # support quaternion animation, it's convenient to allow non-quat base
     if not object.rotation_mode == "QUATERNION":
@@ -320,13 +499,12 @@ class RenderNodeWriter(RenderNode):
   def __init__(self, obj):
     super(RenderNodeWriter, self).__init__(name=obj.name)
     self.source = obj
-
-  def calculate_parents(self):
-    """Calculate parent objects, assign, and then return them"""
-    parents = build_parent_nodes(self.source)
-    if parents:
-      self.parent = parents[-1]
-    return parents
+    self.parent = None
+    # An additional transform to apply to our local space to transform
+    # ourselves through any static parent spaces (to the next edm 
+    # tranformation node)
+    self.additional_transform = Matrix()
+    self.apply_transform = False
 
   def calculate_mesh(self, options):
     assert self.material
@@ -334,9 +512,9 @@ class RenderNodeWriter(RenderNode):
     opt = dict(options)
     # If we have any kind of parent (OTHER than an ArgVisibilityNode), then 
     # we don't want to apply transformations
-    opt["apply_transform"] = self.parent == None or isinstance(self.parent, ArgVisibilityNode)
+    opt["apply_transform"] = self.apply_transform
     # ArgAnimationNode-based parents don't have axis-shifted data
-    opt["convert_axis"] = not isinstance(self.parent, ArgAnimationNode)
+    opt["convert_axis"] = self.apply_transform #not isinstance(self.parent, ArgAnimationNode)
     self.vertexData, self.indexData = create_mesh_data(self.source, self.material, opt)
 
   def convert_references_to_index(self):
@@ -355,3 +533,12 @@ class RootNodeWriter(RootNode):
     bboxmin, bboxmax = calculate_edm_world_bounds(objectList)
     self.boundingBoxMin = bboxmin
     self.boundingBoxMax = bboxmax
+
+class ArgAnimationNodeBuilder(ArgAnimationNode):
+  def __init__(self, *args, **kwargs):
+    super(ArgAnimationNodeBuilder, self).__init__(*args, **kwargs)
+
+  def apply_transform(self, matrix):
+    """Apply an extra transformation to the local space of this 
+    transform node. This is because of parenting issues"""
+    raise NotImplementedError()
