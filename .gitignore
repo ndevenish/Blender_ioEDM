@@ -4,3 +4,4 @@ __pycache__
 *.out
 EDMENV
 .DS_Store
+tests/*.png
