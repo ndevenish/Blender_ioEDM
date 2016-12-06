@@ -23,18 +23,18 @@ What Works
 - Simple texture materials, IF the textures are in the same directory
   or a subdirectory called "textures"
 - Connectors, and UI integration to mark empties as such
-- Exporting basic single-object meshes with a single diffuse texture
+- Exporting basic meshes with simple animations and single diffuse textures
 
 What Doesn't Work
 -----------------
-- Exporting anything complicated - e.g. with animations, multiple textures
+- Exporting anything in a hierarchy doesn't work
+- Scale animation, and non-quaternion rotation animation isn't exported
 - Bone-based animations are not handled at all
 - Multiple argument animations per object - decisions on the best way to 
   represent this in Blender need to be made (NLA? Custom Action attributes?)
 - Complex translation of material layers, including specular, bump maps etc
-- Not all the sub-object transformations are completely understood, or the
-  object-splitting process. This means when importing, some objects are
-  incorrectly placed.
+- Appears to be minor issues with placement of *some* items in e.g. SU-25T
+  cockpit
 
 Unanswered Questions about the EDM files
 ----------------------------------------
@@ -46,8 +46,7 @@ Unanswered Questions about the EDM files
   meaning of third field for multi-parent objects, why single-parent objects are
   not counted as control nodes...)
 - The interpretation of the material "TEXTURE_COORDINATES_CHANNELS"
-- Lots of other details needed on the occasional unknown datablock, the data
-  in `RootNode` for instance seems rather large but remains opaque.
+- Lots of other details needed on the occasional unknown datablock
 
 Installation
 ------------
