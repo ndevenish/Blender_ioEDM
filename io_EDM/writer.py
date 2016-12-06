@@ -294,23 +294,11 @@ def build_parent_nodes(obj):
 def create_animation_base(object):
   node = ArgAnimationNodeBuilder(name=object.name)
 
-  # This swaps blender space to EDM-space - rotate +ve around x 90 degrees
-  RPX = Quaternion((0.707, 0.707, 0, 0))
-  # This swaps edm-space to blender space - rotate -ve around x 90 degrees
-  RX = Quaternion((0.707, -0.707, 0, 0))
-  RXm = RX.to_matrix().to_4x4()
-
   # Build the base transforms.
   node.base.matrix = matrix_to_edm(Matrix())
   node.base.position = object.location
   node.base.scale = object.scale
   node.base.quat_1 = object.rotation_quaternion 
-
-  inverse_base_rotation = node.base.quat_1.inverted()
-  
-  # For validation
-  matQuat = matrix_to_blender(node.base.matrix).decompose()[1]
-  invMatQuat = matQuat.inverted()
 
   print("  Saved Basis data")
   print("     Position:", node.base.position)
@@ -318,6 +306,10 @@ def create_animation_base(object):
   print("     Scale:   ", node.base.scale)
   print("     Matrix:\n" + repr(node.base.matrix))
   
+  # This swaps edm-space to blender space - rotate -ve around x 90 degrees
+  RX = Quaternion((0.707, -0.707, 0, 0))
+  RXm = RX.to_matrix().to_4x4()
+
   # ON THE OTHER SIDE
   # vector_to_blender - z = y, y = -z - positive rotation around X == RPX
   # actual data transformed is RPX * file
@@ -330,28 +322,7 @@ def create_animation_base(object):
   # 
   # e.g. all transforms are applied in file-space
 
-# node.zero_transform = aabT * q1m * aabS * RXm
-
- # Calculate the pre and post-animation-value transforms
-  # leftRotation = matQuat * q1
-  # rightRotation = RX
-  # At the moment, we don't understand the position transform
-  # leftPosition = matrix_to_blender(mat) * aabT
-  # rightPosition = aabS
-
-  # bPos = M * T * ANIMT * q1 * RANIM * S
-  # bPos = aabT * ANIM * aabS * file
-  # bRot * q1 * ANIM = file
-  # 
-# node.zero_transform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
-  
-  # import pdb
-  # pdb.set_trace()
-    # print("At time {}".format(time))
-  #         leftRotation = matQuat * q1
-  # rightRotation = RX
-
-  # print("Zeroth transform")
+  # Calculate what we think that the importing script should see
   zero_transform = matrix_to_blender(node.base.matrix) \
         * Matrix.Translation(node.base.position) \
         * node.base.quat_1.to_matrix().to_4x4() \
@@ -359,7 +330,7 @@ def create_animation_base(object):
         * RXm
   print("   Expected zeroth")
   print("     Location: {}\n     Rotation: {}\n     Scale: {}".format(*zero_transform.decompose()))
-  # This appears to match. What doesn't match is when rotations are applied
+  # This appears to match the no-rot case. What doesn't match is when rotations are applied
 
   # Get the base rotation... however we can. Although we need only directly
   # support quaternion animation, it's convenient to allow non-quat base
@@ -373,6 +344,17 @@ def create_animation_base(object):
 def create_arganimation_node(object, actions):
   # For now, let's assume single-action
   node = create_animation_base(object)
+
+  # Secondary variables for calculation
+  #  
+  # This swaps blender space to EDM-space - rotate +ve around x 90 degrees
+  RPX = Quaternion((0.707, 0.707, 0, 0))
+  # This swaps edm-space to blender space - rotate -ve around x 90 degrees
+  RX = Quaternion((0.707, -0.707, 0, 0))
+  RXm = RX.to_matrix().to_4x4()
+  inverse_base_rotation = node.base.quat_1.inverted()
+  matQuat = matrix_to_blender(node.base.matrix).decompose()[1]
+  invMatQuat = matQuat.inverted()
 
   assert len(actions) == 1
   for action in actions:
@@ -389,7 +371,7 @@ def create_arganimation_node(object, actions):
       posKeys = []
       # Build up the key data for everything
       for time in get_all_keyframe_times(posCurves):
-        position = vector_to_blender(get_fcurve_position(posCurves, time, node.base.position) - node.base.position)
+        position = get_fcurve_position(posCurves, time, node.base.position) - node.base.position
         key = PositionKey(frame=time*scale, value=position)
         posKeys.append(key)
       node.posData.append((argument, posKeys))
