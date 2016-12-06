@@ -265,9 +265,9 @@ def create_arganimation_actions(node):
   # apply it to any object using this node's animation. This is independant
   # of any argument-based animation
   # baseTransform = aabT * q1m * q2m * aabS * mat
-  node.zero_transform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
+  node.zero_transform = (matrix_to_blender(mat) * aabT * q1m * aabS * RXm).decompose()
   # ob.location, ob.rotation_quaternion, ob.scale = baseTransform.decompose()
-
+  
   # Split a single node into separate actions based on the argument
   for arg in node.get_all_args():
     # Filter the animation data for this node to just this action
@@ -408,7 +408,7 @@ def apply_transform_or_animation_node(node, obj):
     # Set the base transform, if we have one
     if hasattr(node, "zero_transform"):
       # Set the basis position
-      obj.location, obj.rotation_quaternion, obj.scale = node.zero_transform.decompose()
+      obj.location, obj.rotation_quaternion, obj.scale = node.zero_transform
     if actions:
       obj.animation_data.action = actions[0]
   elif isinstance(node, Node):
