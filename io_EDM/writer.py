@@ -254,7 +254,7 @@ def build_parent_nodes(obj):
 
   # Collect all actions for this object
   if not obj.animation_data:
-    return []
+    return [create_empty_animation(obj)]
   actions = set()
   if obj.animation_data.action and obj.animation_data.action.argument != -1:
     actions.add(obj.animation_data.action)
@@ -291,7 +291,24 @@ def build_parent_nodes(obj):
     nodes.append(create_arganimation_node(obj, [action]))
   return nodes
 
+def create_empty_animation(object):
+  node = ArgAnimationNodeBuilder(name=object.name)
 
+  # Build the base transforms.
+  # The base matrix needs to include final scale, because the other scale
+  # is applied before transformation
+  node.base.matrix = matrix_to_edm(Matrix())
+  node.base.position = object.matrix_local.decompose()[0]
+  node.base.scale = object.matrix_local.decompose()[2]
+
+  # Get the base rotation... however we can. Although we need only directly
+  # support quaternion animation, it's convenient to allow non-quat base
+  if not object.rotation_mode == "QUATERNION":
+    node.base.quat_1 = object.matrix_local.decompose()[1]
+  else:
+    node.base.quat_1 = object.rotation_quaternion
+  inverse_base_rotation = node.base.quat_1.inverted()
+  return node
 
 def create_arganimation_node(object, actions):
   # For now, let's assume single-action
@@ -303,42 +320,82 @@ def create_arganimation_node(object, actions):
     posCurves = [x for x in action.fcurves if x.data_path == "location"]
     argument = action.argument
 
+    # This swaps blender space to EDM-space - rotate +ve around x 90 degrees
+    RPX = Quaternion((0.707, 0.707, 0, 0))
+    # This swaps edm-space to blender space - rotate -ve around x 90 degrees
+    RX = Quaternion((0.707, -0.707, 0, 0))
+
+
+    #zero pos = node.zero_transform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
+  
+    # We use this in the animation chain on the other end
+
+    RXm = RX.to_matrix().to_4x4()
     # Build the base transforms.
     # The base matrix needs to include final scale, because the other scale
     # is applied before transformation
+    base_transform = object.matrix_local
+    locPos, locRot, locScale = base_transform.decompose()
     node.base.matrix = matrix_to_edm(Matrix())
-    node.base.position = get_fcurve_position(posCurves, 0.0, object.location)
-    node.base.scale = object.scale
-    print("WARNING: Probably want local scale here (change when done restructing")
-    # Get the base rotation... however we can. Although we need only directly
-    # support quaternion animation, it's convenient to allow non-quat base
-    if not object.rotation_mode == "QUATERNION":
-      node.base.quat_1 = object.matrix_local.decompose()[1]
-    else:
-      node.base.quat_1 = object.rotation_quaternion
-    inverse_base_rotation = node.base.quat_1.inverted()
+    node.base.position = locPos #get_fcurve_position(posCurves, 0.0, locPos)
+    node.base.scale = locScale
+    node.base.quat_1 = locRot
 
+    inverse_base_rotation = node.base.quat_1.inverted()
+  # node.zero_transform = (I) * aabT * q1m * aabS * RXm
+
+# node.zero_transform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
+    # file = R-X * inv(aabS) * inv(q1m) * inv(aabT) * inv(matrix_to_blender(mat)) * blMtransform
+
+
+    # ON THE OTHER SIDE
+    # vector_to_blender - z = y, y = -z - positive rotation around X == RPX
+    # actual data transformed is RPX * file
+    # Base transform is reasonably standard;
+    #
+    #          ________________Direct values from node
+    #         |     |      |
+    # mat * aabT * q1m * aabS * [RX * RPX] * file
+    # mat *   T  *  R  *  S         *        file
+    # 
+    # e.g. all transforms are applied in file-space
+
+# node.zero_transform = aabT * q1m * aabS * RXm
+
+   # Calculate the pre and post-animation-value transforms
+    # leftRotation = matQuat * q1
+    # rightRotation = RX
+    # At the moment, we don't understand the position transform
+    # leftPosition = matrix_to_blender(mat) * aabT
+    # rightPosition = aabS
+
+    # bPos = M * T * ANIMT * q1 * RANIM * S
+    # bPos = aabT * ANIM * aabS * file
+    # bRot * q1 * ANIM = file
+    # 
+# node.zero_transform = matrix_to_blender(mat) * aabT * q1m * aabS * RXm
+    
     # What we should scale to - take the maximum keyframe value as '1.0'
     scale = 1.0 / (max(abs(x) for x in get_all_keyframe_times(posCurves + rotCurves)) or 100.0)
     
-    if "location" in curves:
-      # Build up a set of keys
-      posKeys = []
-      # Build up the key data for everything
-      for time in get_all_keyframe_times(posCurves):
-        position = get_fcurve_position(posCurves, time, node.base.position) - node.base.position
-        key = PositionKey(frame=time*scale, value=position)
-        posKeys.append(key)
-      node.posData.append((argument, posKeys))
-    if "rotation_quaternion" in curves:
-      rotKeys = []
-      for time in get_all_keyframe_times(rotCurves):
-        rotation = get_fcurve_quaternion(rotCurves, time)  * inverse_base_rotation
-        key = RotationKey(frame=time*scale, value=rotation)
-        rotKeys.append(key)
-      node.rotData.append((argument, rotKeys))
-    if "scale" in curves:
-      raise NotImplementedError("Curves not totally understood yet")
+    # if "location" in curves:
+    #   # Build up a set of keys
+    #   posKeys = []
+    #   # Build up the key data for everything
+    #   for time in get_all_keyframe_times(posCurves):
+    #     position = vector_to_blender(get_fcurve_position(posCurves, time, node.base.position) - node.base.position)
+    #     key = PositionKey(frame=time*scale, value=position)
+    #     posKeys.append(key)
+    #   node.posData.append((argument, posKeys))
+    # if "rotation_quaternion" in curves:
+    #   rotKeys = []
+    #   for time in get_all_keyframe_times(rotCurves):
+    #     rotation = get_fcurve_quaternion(rotCurves, time) * inverse_base_rotation
+    #     key = RotationKey(frame=time*scale, value=rotation)
+    #     rotKeys.append(key)
+    #   node.rotData.append((argument, rotKeys))
+    # if "scale" in curves:
+    #   raise NotImplementedError("Curves not totally understood yet")
 
   # Now we've processed everything
   return node
