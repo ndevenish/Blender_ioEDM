@@ -6,24 +6,9 @@ import os
 from .edm.types import *
 from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm, Vector, MatrixScale, matrix_to_blender
 from .edm.basewriter import BaseWriter
+from .utils import get_all_parents, get_root_object
 
-def _get_all_parents(objects):
-  """Gets all direct ancestors of all objects"""
-  objs = set()
-  if not hasattr(objects, "__iter__"):
-    objects = [objects]
-  for item in objects:
-    objs.add(item)
-    if item.parent:
-      objs.update(_get_all_parents(item.parent))
-  return objs
 
-def _get_root_object(obj):
-  """Given an object, returns the root node"""
-  obj = obj
-  while obj.parent:
-    obj = obj.parent
-  return obj
 
 class TransformNode(object):
   "Holds a triple of blender object, render node and transform"
@@ -58,8 +43,8 @@ class TransformGraphBuilder(object):
     "Read all objects and build a node tree that leads to them"
     self.nodes = []
 
-    all_nodes = _get_all_parents(blender_objects)
-    roots = set(_get_root_object(x) for x in blender_objects)
+    all_nodes = get_all_parents(blender_objects)
+    roots = set(get_root_object(x) for x in blender_objects)
 
     def _create_node(base, prefix=""):
       node = TransformNode(base)
