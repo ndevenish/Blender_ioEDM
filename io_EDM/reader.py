@@ -346,7 +346,9 @@ def _find_texture_file(name):
           print("Warning: Could not find texture named {}".format(name))
           return None
   # print("Found {} as: {}".format(name, files))
-  assert len(files) == 1
+  if len(files) > 1:
+    print("Warning: Found more than one possible match for texture named {}. Using {}".format(name, files[0]))
+    files = [files[0]]
   textureFilename = files[0]
   return os.path.abspath(textureFilename)
 
