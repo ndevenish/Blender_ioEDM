@@ -90,43 +90,53 @@ def read_file(filename):
   #   - If no objects, surrogate empty is created, and added to objects
   #   - every object's parent is set to the parent node's surrogate
   #   - Every child transform is applied
-  def _process_transform_node(node, depth=0):
+  def _process_transform_node(node, prefix=None, last=False):
+    if prefix is None:
+      firstPre = ""
+      prefix = ""
+    else:
+      firstPre = prefix + (" `-" if last else " |-")
+      prefix = prefix + ("   " if last else " | ")
+
+    print(firstPre + repr(node))
+
     if not node.parent:
       # This is a root node. All children are directly embedded in the world
       # and so need no further processing
       node.surrogate = None
-      print("ROOT: {}".format(node))
-      for child in node.children:
-        _process_transform_node(child, depth+1)
-      return
-    print("  "*depth, "{}".format(node))
-    # Check we need anything
-    if not node.objects and not node.children:
-      print("WARNING: Found transform node with no dependent objects or children")
-    # Any node may have a surrogate - this is an object that acts as a parent
-    # for any child node's objects. Only need a surrogate if there are children
-    if node.children:
-      if node.objects:
-        # Use an object if we have any
-        surrogate = sorted(node.objects, key=lambda x: x.dimensions[0]*x.dimensions[1]*x.dimensions[2])[-1]
-      else:
-        # Create one
-        surrogate = bpy.data.objects.new("Surr_{}".format(type(node).__name__), None)
-        bpy.context.scene.objects.link(surrogate)
-        apply_transform_or_animation_node(node, surrogate)
-        node.objects.append(surrogate)
-      node.surrogate = surrogate
-    # Associate any objects with the parent's surrogate
-    for obj in node.objects:
-      obj.parent = node.parent.surrogate
-      print("  "*depth, obj.name)
+      # for child in node.children:
+      #   _process_transform_node(child, prefix, child is node.children[-1])
+    else:
+      # Check we need anything
+      if not node.objects and not node.children:
+        print(prefix + "WARNING: Found transform node with no dependent objects or children")
+      # Any node may have a surrogate - this is an object that acts as a parent
+      # for any child node's objects. Only need a surrogate if there are children
+      if node.children:
+        if node.objects:
+          # Use an object if we have any
+          surrogate = sorted(node.objects, key=lambda x: x.dimensions[0]*x.dimensions[1]*x.dimensions[2])[-1]
+        else:
+          # Create one
+          surrogate = bpy.data.objects.new("Surr_{}".format(type(node).__name__), None)
+          bpy.context.scene.objects.link(surrogate)
+          apply_transform_or_animation_node(node, surrogate)
+          node.objects.append(surrogate)
+        node.surrogate = surrogate
+      # Associate any objects with the parent's surrogate
+      for obj in node.objects:
+        oPre = " `-" if obj is node.objects[-1] else " |-"
+        obj.parent = node.parent.surrogate
+        isSurrogate = (obj is node.surrogate) if hasattr(node, "surrogate") else False
+        print(prefix + oPre + "bObject: " + obj.name + ("<Surrogate>" if isSurrogate else ""))
 
     # Now process any children
     for child in node.children:
-      _process_transform_node(child, depth+1)
+      _process_transform_node(child, prefix, child is node.children[-1])
 
   # Process all parenting for this tree
-  _process_transform_node(roots[0])  
+  print("Building tree from transformation nodes:")
+  _process_transform_node(roots[0])
 
   # Update the scene
   bpy.context.scene.update()
