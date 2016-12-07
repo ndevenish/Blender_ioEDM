@@ -7,8 +7,6 @@ import bpy
 import addon_utils
 
 def _main(args):
-  print("Writing", args)
-
   default, state = addon_utils.check("io_EDM")
   if not state:
     import io_EDM
@@ -20,7 +18,7 @@ def _main(args):
     filepath = args[0]
   except StopIteration:
     filepath = "test.edm"
-  
+  print("Writing", filepath)  
   # Call the import operator
   bpy.ops.export_mesh.edm(filepath=filepath)
 
