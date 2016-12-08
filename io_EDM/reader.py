@@ -14,6 +14,8 @@ from .edm.types import (AnimatingNode, ArgAnimationNode,
   ArgRotationNode, ArgPositionNode, ArgVisibilityNode, Node, TransformNode,
   RenderNode)
 
+from .translation import TranslateGraph, TranslateNode
+
 import re
 import glob
 import fnmatch
@@ -21,10 +23,81 @@ import os
 
 FRAME_SCALE = 100
 
+def iterate_renderNodes(edmFile):
+  """Iterates all renderNodes in an edmFile - whilst ignoring any nesting
+  due to e.g. renderNode splitting"""
+  for node in edmFile.renderNodes:
+    if node.children:
+      for child in node.children:
+        yield child
+    else:
+      yield node
+
+def build_graph(edmFile):
+  "Build a translation graph object from an EDM file"
+  graph = TranslateGraph()
+  # The first node is ALWAYS the root ndoe
+  graph.root.transform = edmFile.nodes[0]
+  nodeLookup = {edmFile.nodes[0]: graph.root}
+
+  # Add an entry for every other transform node
+  for tfnode in edmFile.nodes[1:]:
+    newNode = TranslateNode()
+    newNode.transform = tfnode
+    nodeLookup[tfnode] = newNode
+    graph.nodes.append(newNode)
+
+  # Make the parent/child links
+  for node in graph.nodes:
+    if node.transform.parent:
+      node.parent = nodeLookup[node.transform.parent]
+      node.parent.children.append(node)
+
+  # Verify we only have one root
+  assert len([x for x in graph.nodes if not x.parent]) == 1, "More than one root node after reading EDM"
+
+  # Connect every renderNode to it's place in the chain
+  for node in iterate_renderNodes(edmFile):
+    owner = nodeLookup[node.parent]
+    newNode = TranslateNode()
+    newNode.render = node
+    graph.attach_node(newNode, owner)
+
+  # Postprocessing: Any transform node with only one child, and that child
+  # is a renderNode ONLY, absorbs the rendernode
+  def _absorb_rendernode_child(node):
+    # Check for an uncomplicated single child that isn't a parent and is a 
+    # rendernode, where this node is ONLY a transformnode, and has no other data
+    # - some of these might be automatic, but we might have done other tree
+    # work between construction and now, so better to be safe
+    # if node.transform and node.transform.name == "indicator_warning":
+    #   import pdb
+    #   pdb.set_trace()
+    if not node.type == "TRANSFORM" or len(node.children) != 1:
+      return
+    child = node.children[0]
+    if not child.type == "RENDER" or child.children:
+      return
+    node.render = child.render
+    # Rename the child render node if the parent has one; it may have lost it
+    # if it was merged with others
+    if node.transform.name:
+      node.render.name = node.transform.name
+    graph.remove_node(child)
+
+  graph.walk_tree(_absorb_rendernode_child)
+
+  return graph
+
 def read_file(filename):
   # Parse the EDM file
   edm = EDMFile(filename)
   edm.postprocess()
+
+  # WIP - use a translation graph to read. For now, just use it to print 
+  # the file structure
+  graph = build_graph(edm)
+  graph.print_tree()
 
   # Must have negative frames
   bpy.context.user_preferences.edit.use_negative_frames = True
