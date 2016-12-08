@@ -465,7 +465,16 @@ class ArgAnimationNode(BaseNode, AnimatingNode):
     self.parent = None
 
   def __repr__(self):
-    return "<ArgAnimationNode {:}{:}{:}{}>".format(
+    if self.posData and not self.rotData and not self.scaleData:
+      nodeName = "ArgPositionNode"
+    elif self.rotData and not self.posData and not self.scaleData:
+      nodeName = "ArgRotationNode"
+    elif self.scaleData and not self.posData and not self.rotData:
+      nodeName = "ArgScaleNode"
+    else:
+      nodeName = "ArgAnimationNode"
+    
+    return "<{} {:}{:}{:}{}>".format(nodeName,
       len(self.posData), len(self.rotData), len(self.scaleData),
       " "+self.name if self.name else "")
 
