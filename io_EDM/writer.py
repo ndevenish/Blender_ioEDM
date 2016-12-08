@@ -170,8 +170,8 @@ def _build_transform(node):
     return
   transforms = build_parent_nodes(node.blender)
   if transforms:
-    print(node, transforms)
-    for parent in transforms:
+    node.transform = transforms[-1]
+    for parent in transforms[:-1]:
       parentNode = node.insert_parent()
       parentNode.transform = parent
 
@@ -186,7 +186,7 @@ def build_parent_nodes(obj):
 
   # If the object has no animation data, it is static and so just embedded
   if not obj.animation_data:
-    return None
+    return [create_animation_base(obj)]
 
   actions = set()
   if obj.animation_data.action and obj.animation_data.action.argument != -1:
