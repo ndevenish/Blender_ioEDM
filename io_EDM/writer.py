@@ -9,85 +9,39 @@ from .edm.basewriter import BaseWriter
 from .utils import get_all_parents, get_root_object
 from .translation import TranslationGraph, TranslationNode
 
+def build_graph(blender_objects):
+  """Takes a list of blender objects and builds the basic translation graph"""
+  graph = TranslationGraph()
 
-class TransformNode(object):
-  "Holds a triple of blender object, render node and transform"
-  blender = None
-  render = None
-  transform = None
+  # Walk up the graphs to get all 'root' objects
+  roots = set(get_root_object(x) for x in blender_objects)
+  # Get a collection of *all* objects that we reach between the given
+  # objects and the root nodes. This may even include objects that we weren't
+  # specifically given, which MAY constitute an error.
+  all_nodes = get_all_parents(blender_objects)
+  
+  nodeObjectMap = {}
 
-  @property
-  def name(self):
-    return self.blender.name
-
-  def __init__(self, blender):
-    self.blender = blender
-    self.parent = None
-    self.children = []
-
-class RootTransformNode(object):
-  def __init__(self):
-    self.transform = [Node()]
-    self.blender = None
-    self.children = []
-    self.parent = None
-    self.render = None
-  @property
-  def name(self):
-    return "<ROOT>"
-
-class TransformGraphBuilder(object):
-  """Constructs and allows walking a graph of object references"""
-
-  def __init__(self, blender_objects):
-    "Read all objects and build a node tree that leads to them"
-    self.nodes = []
-
-    all_nodes = get_all_parents(blender_objects)
-    roots = set(get_root_object(x) for x in blender_objects)
-
-    def _create_node(base, prefix=""):
-      node = TransformNode(base)
-      self.nodes.append(node)
-      for child in base.children:
-        if child in all_nodes:
-          childNode = _create_node(child, prefix+"  ")
-          childNode.parent = node
-          node.children.append(childNode)
-      return node
-    
-    self.root = RootTransformNode()
-    self.root.children = [_create_node(x) for x in roots]
-    for child in self.root.children:
-      child.parent = self.root
-
-  def print_tree(self):
-
-    def _printNode(node, prefix=None, last=True):
-      if prefix is None:
-        firstPre = ""
-        prefix = ""
-      else:
-        firstPre = prefix + (" `-" if last else " |-")
-        prefix = prefix + ("   " if last else " | ")
-      print(firstPre + node.name.ljust(30-len(firstPre)) + " Render: " + str(node.render).ljust(30) + " Trans: " + str(node.transform))
-      for child in node.children:
-        _printNode(child, prefix, child is node.children[-1])
-
-    _printNode(self.root)
-
-  def walk_tree(self, walker, include_root=False):
-    """Accepts a function, and calls it for every node in the tree.
-    The parent is guaranteed to be initialised before the child"""
-    def _walk_node(node):
-      walker(node)
-      for child in node.children:
-        _walk_node(child)
-    if include_root:
-      _walk_node(self.root)
+  def _create_node(object):
+    """Creates a graph node from a blender object"""
+    node = TranslationNode()
+    node.blender = object
+    nodeObjectMap[object] = node
+    if not object.parent:
+      parent = graph.root
     else:
-      for root in self.root.children:
-        _walk_node(root)
+      parent = nodeObjectMap[object.parent]
+    graph.attach_node(node, parent)
+
+    for child in object.children:
+      _create_node(child)
+
+
+  for root in roots:
+    _create_node(root)
+
+  return graph
+
 
 def write_file(filename, options={}):
 
@@ -107,8 +61,11 @@ def write_file(filename, options={}):
   #          |                               |
   #     [StartNode]---->--[Mesh for: StartNode]
 
+  # Build a graph from ALL blender objects we want ported across
+  graph = build_graph(renderables)
+  print("Blender graph we are exporting:")
+  graph.print_tree()
 
-  graph = TransformGraphBuilder(renderables)
 
   # Build transform nodes for everything in the tree.
   def _create_transform(node):

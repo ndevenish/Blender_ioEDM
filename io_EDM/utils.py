@@ -23,7 +23,7 @@ def get_all_parents(objects):
   for item in objects:
     objs.add(item)
     if item.parent:
-      objs.update(_get_all_parents(item.parent))
+      objs.update(get_all_parents(item.parent))
   return objs
 
 def get_root_object(obj):
