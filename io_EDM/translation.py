@@ -16,6 +16,7 @@ class TranslationNode(object):
   blender = None
   render = None
   transform = None
+  graph = None
 
   @property
   def name(self):
@@ -40,7 +41,11 @@ class TranslationNode(object):
     self.render = render
     self.transform = transform
     self.parent = None
+    self.graph = None
     self.children = []
+
+  def insert_parent(self):
+    return self.graph.insert_new_parent(self)
 
   @property
   def type(self):
@@ -98,10 +103,11 @@ class TranslationGraph(object):
       walker(node)
       for child in list(node.children):
         _walk_node(child)
+
     if include_root:
       _walk_node(self.root)
     else:
-      for root in self.root.children:
+      for root in list(self.root.children):
         _walk_node(root)
 
   def attach_node(self, node, parent):
@@ -110,7 +116,7 @@ class TranslationGraph(object):
     assert not node in self.nodes, "Attempting to reattach child already in graph"
 
     assert not node.children, "New child must not have chilren"
-
+    node.graph = self
     self.nodes.append(node)
     parent.children.append(node)
     node.parent = parent
@@ -120,6 +126,7 @@ class TranslationGraph(object):
     assert node.parent, "Invalid node: No parent. Cannot remove root node."
     node.parent.children.remove(node)
     node.parent = None
+    node.graph = None
     self.nodes.remove(node)
 
   def insert_new_parent(self, node):
@@ -128,13 +135,11 @@ class TranslationGraph(object):
     assert not node is self.root, "Cannot insert above root"
     # Create the new node
     newNode = TranslationNode()
-    nodes.append(newNode)
-    newNode.parent = node.parent
+    self.attach_node(newNode, node.parent)
+
+    # Move the node off it's original parent
     newNode.children.append(node)
-    # Manage the original parents child array
     node.parent.children.remove(node)
-    node.parent.children.append(newNode)
-    # Alter the original node
     node.parent = newNode
     
     return newNode

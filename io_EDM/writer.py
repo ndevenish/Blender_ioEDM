@@ -41,7 +41,6 @@ def write_file(filename, options={}):
   #       mesh will just be rendered static.
   graph.root.transform = Node()
   graph.walk_tree(_build_transform)
-  
   print("After creation of owner nodes:")
   graph.print_tree()
 
@@ -171,11 +170,9 @@ def _build_transform(node):
     return
   transforms = build_parent_nodes(node.blender)
   if transforms:
-    parentChain = transforms[:-1]
-    node.transform = transforms[-1]
-    # If more than one parent, insert them into the graph
-    for parent in parentChain:
-      parentNode = graph.insert_new_parent(node)
+    print(node, transforms)
+    for parent in transforms:
+      parentNode = node.insert_parent()
       parentNode.transform = parent
 
 
