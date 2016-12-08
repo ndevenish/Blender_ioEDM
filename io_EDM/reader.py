@@ -14,7 +14,7 @@ from .edm.types import (AnimatingNode, ArgAnimationNode,
   ArgRotationNode, ArgPositionNode, ArgVisibilityNode, Node, TransformNode,
   RenderNode)
 
-from .translation import TranslateGraph, TranslateNode
+from .translation import TranslationGraph, TranslationNode
 
 import re
 import glob
@@ -35,14 +35,14 @@ def iterate_renderNodes(edmFile):
 
 def build_graph(edmFile):
   "Build a translation graph object from an EDM file"
-  graph = TranslateGraph()
+  graph = TranslationGraph()
   # The first node is ALWAYS the root ndoe
   graph.root.transform = edmFile.nodes[0]
   nodeLookup = {edmFile.nodes[0]: graph.root}
 
   # Add an entry for every other transform node
   for tfnode in edmFile.nodes[1:]:
-    newNode = TranslateNode()
+    newNode = TranslationNode()
     newNode.transform = tfnode
     nodeLookup[tfnode] = newNode
     graph.nodes.append(newNode)
@@ -59,7 +59,7 @@ def build_graph(edmFile):
   # Connect every renderNode to it's place in the chain
   for node in iterate_renderNodes(edmFile):
     owner = nodeLookup[node.parent]
-    newNode = TranslateNode()
+    newNode = TranslationNode()
     newNode.render = node
     graph.attach_node(newNode, owner)
 

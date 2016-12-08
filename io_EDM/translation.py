@@ -5,9 +5,9 @@ Holds the translation tree that we use to step to/from blender/edm forms
 """
 
 
-class TranslateNode(object):
+class TranslationNode(object):
   """Holds a triple of blender object, render node and transform nodes.
-  Each TranslateNode maps to maximum ONE blender object maximum ONE renderNode
+  Each TranslationNode maps to maximum ONE blender object maximum ONE renderNode
   and maximum ONE transform node. It may map to more than one type, in cases
   where they are directly equatable.
   """
@@ -54,7 +54,7 @@ class TranslateNode(object):
     else:
       return None
 
-class RootTranslateNode(object):
+class RootTranslationNode(object):
   """Acts as the root node of a translation graph"""
   def __init__(self):
     self.transform = None
@@ -66,9 +66,9 @@ class RootTranslateNode(object):
   def name(self):
     return "<ROOT>"
 
-class TranslateGraph(object):
+class TranslationGraph(object):
   def __init__(self):
-    self.nodes = [RootTranslateNode()]
+    self.nodes = [RootTranslationNode()]
     self.root = self.nodes[0]
 
   def print_tree(self):

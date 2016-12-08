@@ -7,7 +7,7 @@ from .edm.types import *
 from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm, Vector, MatrixScale, matrix_to_blender
 from .edm.basewriter import BaseWriter
 from .utils import get_all_parents, get_root_object
-
+from .translation import TranslationGraph, TranslationNode
 
 
 class TransformNode(object):
