@@ -77,8 +77,8 @@ class TranslateGraph(object):
         firstPre = ""
         prefix = ""
       else:
-        firstPre = prefix + (" `-" if last else " |-")
-        prefix = prefix + ("   " if last else " | ")
+        firstPre = prefix + (" ┗━" if last else " ┣━")
+        prefix = prefix + ("   " if last else " ┃ ")
       print(firstPre + node.name.ljust(30-len(firstPre)) + " Render: " + str(node.render).ljust(30) + " Trans: " + str(node.transform))
       for child in node.children:
         _printNode(child, prefix, child is node.children[-1])
