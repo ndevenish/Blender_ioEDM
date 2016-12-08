@@ -6,42 +6,8 @@ import os
 from .edm.types import *
 from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm, Vector, MatrixScale, matrix_to_blender
 from .edm.basewriter import BaseWriter
-from .utils import get_all_parents, get_root_object
+
 from .translation import TranslationGraph, TranslationNode
-
-def build_graph(blender_objects):
-  """Takes a list of blender objects and builds the basic translation graph"""
-  graph = TranslationGraph()
-
-  # Walk up the graphs to get all 'root' objects
-  roots = set(get_root_object(x) for x in blender_objects)
-  # Get a collection of *all* objects that we reach between the given
-  # objects and the root nodes. This may even include objects that we weren't
-  # specifically given, which MAY constitute an error.
-  all_nodes = get_all_parents(blender_objects)
-  
-  nodeObjectMap = {}
-
-  def _create_node(object):
-    """Creates a graph node from a blender object"""
-    node = TranslationNode()
-    node.blender = object
-    nodeObjectMap[object] = node
-    if not object.parent:
-      parent = graph.root
-    else:
-      parent = nodeObjectMap[object.parent]
-    graph.attach_node(node, parent)
-
-    for child in object.children:
-      _create_node(child)
-
-
-  for root in roots:
-    _create_node(root)
-
-  return graph
-
 
 def write_file(filename, options={}):
 
@@ -61,17 +27,29 @@ def write_file(filename, options={}):
   #          |                               |
   #     [StartNode]---->--[Mesh for: StartNode]
 
+
   # Build a graph from ALL blender objects we want ported across
-  graph = build_graph(renderables)
+  graph = TranslationGraph.from_blender_objects(renderables)
+  
   print("Blender graph we are exporting:")
   graph.print_tree()
 
+  # For every object, create a parent transform node if it needs one
+  # e.g. if it has animation this will be handled by a transform node
+  #       If not, then it ends up being just a static mesh in the parent
+  #       tranform frame, and so on until the root object - in which case the
+  #       mesh will just be rendered static.
+  graph.root.transform = Node()
+  graph.walk_tree(_build_transform)
+  
+  print("After creation of owner nodes:")
+  graph.print_tree()
 
-  # Build transform nodes for everything in the tree.
-  def _create_transform(node):
-    print("  Calculating parent for", node.name)
-    node.transform = build_parent_nodes(node.blender)
-  graph.walk_tree(_create_transform)
+  import pdb
+  pdb.set_trace()
+
+
+
 
   # Create the basic rendernode structures
   def _create_renderNode(node):
@@ -183,6 +161,24 @@ def _create_material_map(blender_objects):
   return materials, materialMap
 
 
+def _build_transform(node):
+  """Given a translation node, creates the parent transform nodes for that 
+  blender object. If more than one parent transform, takes care of stitching
+  them into the end graph."""
+
+  # Skip any nodes that are not JUST blender objects
+  if not node.type == "BLEND":
+    return
+  transforms = build_parent_nodes(node.blender)
+  if transforms:
+    parentChain = transforms[:-1]
+    node.transform = transforms[-1]
+    # If more than one parent, insert them into the graph
+    for parent in parentChain:
+      parentNode = graph.insert_new_parent(node)
+      parentNode.transform = parent
+
+
 def build_parent_nodes(obj):
   """Inspects an object's actions to build a parent transform node.
   Possibly returns a chain of nodes, as in cases of position/visibility
@@ -191,9 +187,10 @@ def build_parent_nodes(obj):
   posess. If no nodes are returned, then the object should have it's
   local transformation applied."""
 
-  # Collect all actions for this object
+  # If the object has no animation data, it is static and so just embedded
   if not obj.animation_data:
-    return [create_animation_base(obj)]
+    return None
+
   actions = set()
   if obj.animation_data.action and obj.animation_data.action.argument != -1:
     actions.add(obj.animation_data.action)

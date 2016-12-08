@@ -4,6 +4,8 @@ translation.py
 Holds the translation tree that we use to step to/from blender/edm forms
 """
 
+from .utils import get_all_parents, get_root_object
+
 
 class TranslationNode(object):
   """Holds a triple of blender object, render node and transform nodes.
@@ -89,10 +91,12 @@ class TranslationGraph(object):
   def walk_tree(self, walker, include_root=False):
     """Accepts a function, and calls it for every node in the tree depth first.
     The parent is guaranteed to be initialised before the child. Any changes
-    to the collection of children of the active node are respected"""
+    to the collection of children of the active node are respected, and the
+    children will be walked. It is also safe to insert  additional parents
+    between the original and the current node. Anything else is undefined."""
     def _walk_node(node):
       walker(node)
-      for child in node.children:
+      for child in list(node.children):
         _walk_node(child)
     if include_root:
       _walk_node(self.root)
@@ -117,3 +121,58 @@ class TranslationGraph(object):
     node.parent.children.remove(node)
     node.parent = None
     self.nodes.remove(node)
+
+  def insert_new_parent(self, node):
+    """Inserts a new node between the passed argument node and it's parent"""
+    assert node in self.nodes, "Node not in graph"
+    assert not node is self.root, "Cannot insert above root"
+    # Create the new node
+    newNode = TranslationNode()
+    nodes.append(newNode)
+    newNode.parent = node.parent
+    newNode.children.append(node)
+    # Manage the original parents child array
+    node.parent.children.remove(node)
+    node.parent.children.append(newNode)
+    # Alter the original node
+    node.parent = newNode
+    
+    return newNode
+
+
+# Helpful, but not necessarily related directly to reading or writing,
+# construction helpers    
+
+  @classmethod
+  def from_blender_objects(cls, blender_objects):
+    """Takes a list of blender objects and builds the basic translation graph"""
+    graph = cls()
+
+    # Walk up the graphs to get all 'root' objects
+    roots = set(get_root_object(x) for x in blender_objects)
+    # Get a collection of *all* objects that we reach between the given
+    # objects and the root nodes. This may even include objects that we weren't
+    # specifically given, which MAY constitute an error.
+    all_nodes = get_all_parents(blender_objects)
+    
+    nodeObjectMap = {}
+
+    def _create_node(object):
+      """Creates a graph node from a blender object"""
+      node = TranslationNode()
+      node.blender = object
+      nodeObjectMap[object] = node
+      if not object.parent:
+        parent = graph.root
+      else:
+        parent = nodeObjectMap[object.parent]
+      graph.attach_node(node, parent)
+
+      for child in object.children:
+        _create_node(child)
+
+
+    for root in roots:
+      _create_node(root)
+
+    return graph
