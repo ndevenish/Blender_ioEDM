@@ -6,6 +6,7 @@ import os
 from .edm.types import *
 from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm, Vector, MatrixScale, matrix_to_blender
 from .edm.basewriter import BaseWriter
+from .utils import matrix_string, vector_string
 
 from .translation import TranslationGraph, TranslationNode
 
@@ -17,20 +18,8 @@ def write_file(filename, options={}):
   # Generate the materials for every renderable
   materials, materialMap = _create_material_map(renderables)  
   
-  # What we must map from, blender-side to edm-side:
-  #
-  #                                  [Transform for: BlenderParent]
-  #                                          |         |
-  #   [BlenderParent]-->--[Mesh for: BlenderParent]    |
-  #          |                                         |
-  #          |                       [Transform for: StartNode]
-  #          |                               |
-  #     [StartNode]---->--[Mesh for: StartNode]
-
-
   # Build a graph from ALL blender objects we want ported across
   graph = TranslationGraph.from_blender_objects(renderables)
-  
   print("Blender graph we are exporting:")
   graph.print_tree()
 
@@ -41,8 +30,6 @@ def write_file(filename, options={}):
   #       mesh will just be rendered static.
   graph.root.transform = Node()
   graph.walk_tree(_build_transform)
-  print("After creation of owner nodes:")
-  graph.print_tree()
 
   # Create the basic rendernode structures
   def _create_renderNode(node):
@@ -54,14 +41,8 @@ def write_file(filename, options={}):
       node.apply_transform = False
     else:
       node.apply_transform = True
-
   graph.walk_tree(_create_renderNode)
-
   
-  print("{} objects in transform tree:".format(len(graph.nodes)))
-  graph.print_tree()  
-
-
   # Now set all the transform parents, both for blender objects AND transforms
   # RenderNodes get connected to their associated transform
   # Transform nodes get connected to the parent transform node
@@ -72,13 +53,27 @@ def write_file(filename, options={}):
       node.transform.parent = node.parent.transform
   graph.walk_tree(_connect_parents)
 
+
+  # Now dump a load of information on our calculated base transforms
+  def _inspect_animarg(node, prefix):
+    if not node.transform or not isinstance(node.transform, ArgAnimationNode):
+      return
+    tf = node.transform
+    print(prefix + "Base (pre-animation) data:")
+    print(prefix + "Position:", vector_string(tf.base.position))
+    print(prefix + "Rotation:", vector_string(tf.base.quat_1))
+    print(prefix + "Scale:   ", vector_string(tf.base.scale))
+    print(matrix_string(tf.base.matrix, prefix=prefix, title="Matrix:  "))
+  print("Animation base transforms:")
+  graph.print_tree(_inspect_animarg)
+
   # Now do enmeshing
   def _enmesh(node):
     if node.render:
       node.render.calculate_mesh(options)
   graph.walk_tree(_enmesh)
 
-  # Build the list of nodes
+  # Build the linear list of transformation nodes and render nodes
   transformNodes = []
   renderNodes = []
   def _add_transforms(node):
@@ -183,7 +178,7 @@ def build_parent_nodes(obj):
     print("WARNING: Action has animated keys ({}) that ioEDM can not translate yet!".format(data_categories-ALL_KNOWN))
   # do we need to make an ArgAnimationNode?
   if data_categories & {"location", "rotation_quaternion", "scale"}:
-    print("Creating ArgAnimationNode for {}".format(obj.name))
+    # print("Creating ArgAnimationNode for {}".format(obj.name))
     nodes.append(create_arganimation_node(obj, [action]))
   return nodes
 
@@ -191,17 +186,13 @@ def create_animation_base(object):
   node = ArgAnimationNodeBuilder(name=object.name)
 
   # Build the base transforms.
-  node.base.matrix = matrix_to_edm(Matrix())
-  node.base.position = object.location
-  node.base.scale = object.scale
-  node.base.quat_1 = object.rotation_quaternion 
+  pos, rot, sca = object.matrix_local.decompose()
 
-  print("  Saved Basis data")
-  print("     Position:", node.base.position)
-  print("     Rotation:", node.base.quat_1)
-  print("     Scale:   ", node.base.scale)
-  print("     Matrix:\n" + repr(node.base.matrix))
-  
+  node.base.matrix = matrix_to_edm(Matrix())
+  node.base.position = pos
+  node.base.scale = sca
+  node.base.quat_1 = rot
+
   # This swaps edm-space to blender space - rotate -ve around x 90 degrees
   RX = Quaternion((0.707, -0.707, 0, 0))
   RXm = RX.to_matrix().to_4x4()
@@ -219,13 +210,13 @@ def create_animation_base(object):
   # e.g. all transforms are applied in file-space
 
   # Calculate what we think that the importing script should see
-  zero_transform = matrix_to_blender(node.base.matrix) \
-        * Matrix.Translation(node.base.position) \
-        * node.base.quat_1.to_matrix().to_4x4() \
-        * MatrixScale(node.base.scale) \
-        * RXm
-  print("   Expected zeroth")
-  print("     Location: {}\n     Rotation: {}\n     Scale: {}".format(*zero_transform.decompose()))
+  # zero_transform = matrix_to_blender(node.base.matrix) \
+  #       * Matrix.Translation(node.base.position) \
+  #       * node.base.quat_1.to_matrix().to_4x4() \
+  #       * MatrixScale(node.base.scale) \
+  #       * RXm
+  # print("   Expected zeroth")
+  # print("     Location: {}\n     Rotation: {}\n     Scale: {}".format(*zero_transform.decompose()))
   # This appears to match the no-rot case. What doesn't match is when rotations are applied
 
   return node
@@ -276,9 +267,9 @@ def create_arganimation_node(object, actions):
 #     rightRotation = RX
         # Extra RX because the vertex data on reading has had an extra
         # RPX rotation applied
-        predict = matQuat * node.base.quat_1 * rotation * RPX 
-        print("   Quat at time {:6}: {}".format(time, predict))
-        print("                Desired {}".format(actual))
+        # predict = matQuat * node.base.quat_1 * rotation * RPX 
+        # print("   Quat at time {:6}: {}".format(time, predict))
+        # print("                Desired {}".format(actual))
       node.rotData.append((argument, rotKeys))
     if "scale" in curves:
       raise NotImplementedError("Curves not totally understood yet")
