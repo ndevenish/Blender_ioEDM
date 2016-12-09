@@ -292,14 +292,13 @@ class EDMFile(object):
     # Write the Root node
     writer.write_named_type(self.root)
     
-    # Write nodes list
-    writer.write_uint(len(self.nodes))
-    for node in self.nodes:
-      writer.write_named_type(node)
-
     # For each parent node, set it's index
     for i, node in enumerate(self.nodes):
       node.index = i
+
+    writer.write_uint(len(self.nodes))
+    for node in self.nodes:
+      writer.write_named_type(node)
     
     # Write the parent data for the nodes
     writer.write_int(-1)
@@ -473,7 +472,7 @@ class ArgAnimationNode(BaseNode, AnimatingNode):
       nodeName = "ArgScaleNode"
     else:
       nodeName = "ArgAnimationNode"
-    
+
     return "<{} {:}{:}{:}{}>".format(nodeName,
       len(self.posData), len(self.rotData), len(self.scaleData),
       " "+self.name if self.name else "")
