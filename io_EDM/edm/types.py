@@ -195,7 +195,7 @@ class EDMFile(object):
   def _read(self, reader):
     reader.read_constant(b'EDM')
     self.version = reader.read_ushort()
-    assert self.version == 8, "Unexpected .EDM file version"
+    assert self.version == 8, "Unexpected .EDM file version = {}".format(self.version)
     # Read the two indexes
     self.indexA = read_string_uint_dict(reader)
     self.indexB = read_string_uint_dict(reader)
@@ -299,7 +299,7 @@ class EDMFile(object):
     writer.write_uint(len(self.nodes))
     for node in self.nodes:
       writer.write_named_type(node)
-    
+
     # Write the parent data for the nodes
     writer.write_int(-1)
     # Everything without a parent has 0 as it's parent

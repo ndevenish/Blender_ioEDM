@@ -6,7 +6,9 @@ from io_EDM import edm
 
 print("Loading data file....")
 with open("dump.dat", "rb") as f:
-  data = pickle.load(f)
+  dataSet = pickle.load(f)
+  data = dataSet["data"]
+  errors = dataSet["errors"]
 
 
 def all_materials():
@@ -55,10 +57,10 @@ def print_vertex_channel_count():
         chanCount[i].add(count)
   print(chanCount)
 
-dat = set()
-for edm in data.values():
-  dat = dat | {x.data for x in edm.connectors}
-print(dat)
+# dat = set()
+# for edm in data.values():
+#   dat = dat | {x.data for x in edm.connectors}
+# print(dat)
 
 # Look at all material channels
 code.interact(local=locals())

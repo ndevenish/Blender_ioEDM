@@ -25,20 +25,32 @@ all_files = all_files[start:end]
 if args["<start>"] or args["<end>"]:
   print("Processing files {} to {}".format(start, end))
 
-
+errors = []
 all_data = {}
 for i, filename in enumerate(all_files):
   print("\nReading {}: {}".format(i+start, filename))
-  edm = EDMFile(filename)
-  # Delete all vertex and index data
-  for node in itertools.chain(edm.renderNodes, edm.shellNodes):
-    if hasattr(node, "vertexData"):
-      node.vertexData = (len(node.vertexData), len(node.vertexData[0]))
-    if hasattr(node, "indexData"):
-      node.indexData = len(node.indexData)
-  all_data[os.path.basename(filename)] = edm
+  try:
+    edm = EDMFile(filename)
+    # Delete all vertex and index data
+    for node in itertools.chain(edm.renderNodes, edm.shellNodes):
+      if hasattr(node, "vertexData"):
+        node.vertexData = (len(node.vertexData), len(node.vertexData[0]))
+      if hasattr(node, "indexData"):
+        node.indexData = len(node.indexData)
+    all_data[os.path.basename(filename)] = edm
+  except KeyboardInterrupt:
+    raise
+  except Exception as e:
+    print("Error processing file;")
+    errors.append((filename, str(e)))
 
 print("Writing to dump file")
 with open("dump.dat", "wb") as f:
-  pickle.dump(all_data, f)
+  dataset = {"data": all_data, "errors": errors}
+  pickle.dump(dataset, f)
 
+if errors:
+  print("{} Errors occured:".format(len(errors)))
+  maxLen = max(len(x[0]) for x in errors)
+  for error in errors:
+    print("{}    {}".format(error[0].ljust(maxLen), error[1]))
