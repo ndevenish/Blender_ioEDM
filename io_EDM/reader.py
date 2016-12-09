@@ -462,7 +462,14 @@ def create_material(material):
   # Read uniform values
   mat.diffuse_intensity = material.uniforms.get("diffuseValue", 1.0)
   mat.specular_intensity = material.uniforms.get("specFactor", mat.specular_intensity)
-  mat.specular_hardness = material.uniforms.get("specPower", mat.specular_hardness)
+  
+  # Convert power to blender 'hardness'
+  # Actual range is (0-100) but basic step is 0.01 so at least this way every
+  # distinct edm setting (up to 510) gets a distinct hardness
+  specPower = material.uniforms.get("specPower", None)
+  if specPower is not None:
+    mat.specular_hardness = (specPower * 100) + 1
+
   reflection = material.uniforms.get("reflectionValue", 0.0)
   if reflection > 0.0:
     mat.raytrace_mirror.use = True

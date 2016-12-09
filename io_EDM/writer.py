@@ -359,8 +359,11 @@ def create_material(source):
   mat.blending = int(source.edm_blending)
   mat.material_name = source.edm_material
   mat.name = source.name
+
+  # Convert material 'hardness' to a specular power-like value
+  specPower = (float(source.specular_hardness) - 1.0) / 100.0
   mat.uniforms = {
-    "specPower": float(source.specular_hardness), # Important this is a float
+    "specPower": specPower,
     "specFactor": source.specular_intensity,
     "diffuseValue": source.diffuse_intensity,
     "reflectionValue": 0.0, # Always in uniforms, so keep here for compatibility
