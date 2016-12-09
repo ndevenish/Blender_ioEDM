@@ -78,7 +78,9 @@ class TranslationGraph(object):
     self.nodes = [RootTranslationNode()]
     self.root = self.nodes[0]
 
-  def print_tree(self):
+  def print_tree(self, inspector=None):
+    """Prints a graph of the tree, optionally with an inspection function"""
+
     def _printNode(node, prefix=None, last=True):
       if prefix is None:
         firstPre = ""
@@ -87,6 +89,9 @@ class TranslationGraph(object):
         firstPre = prefix + (" ┗━" if last else " ┣━")
         prefix = prefix + ("   " if last else " ┃ ")
       print(firstPre + node.name.ljust(30-len(firstPre)) + " Render: " + str(node.render).ljust(30) + " Trans: " + str(node.transform))
+      if inspector is not None:
+        inspectPrefix = (" ┃ " if node.children else "   ")
+        inspector(node, prefix + inspectPrefix)
       for child in node.children:
         _printNode(child, prefix, child is node.children[-1])
 
