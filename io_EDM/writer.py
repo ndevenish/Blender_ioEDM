@@ -228,13 +228,6 @@ def create_animation_base(object):
   print("     Location: {}\n     Rotation: {}\n     Scale: {}".format(*zero_transform.decompose()))
   # This appears to match the no-rot case. What doesn't match is when rotations are applied
 
-  # Get the base rotation... however we can. Although we need only directly
-  # support quaternion animation, it's convenient to allow non-quat base
-  if not object.rotation_mode == "QUATERNION":
-    node.base.quat_1 = object.matrix_local.decompose()[1]
-  else:
-    node.base.quat_1 = object.rotation_quaternion
-  inverse_base_rotation = node.base.quat_1.inverted()
   return node
 
 def create_arganimation_node(object, actions):
