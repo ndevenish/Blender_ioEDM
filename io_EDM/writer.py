@@ -44,18 +44,13 @@ def write_file(filename, options={}):
   print("After creation of owner nodes:")
   graph.print_tree()
 
-  import pdb
-  pdb.set_trace()
-
-
-
-
   # Create the basic rendernode structures
   def _create_renderNode(node):
-    node.render = RenderNodeWriter(node.blender)
-    node.render.material = materialMap[node.blender.material_slots[0].material.name]
-
-    if node.transform and not all(isinstance(x, ArgVisibilityNode) for x in node.transform):
+    if node.blender and node.blender.edm.is_renderable:
+      node.render = RenderNodeWriter(node.blender)
+      node.render.material = materialMap[node.blender.material_slots[0].material.name]
+    # If we have an ArgAnimationNode, don't apply the transformation
+    if node.transform and isinstance(node.transform, ArgAnimationNode):
       node.apply_transform = False
     else:
       node.apply_transform = True
@@ -67,50 +62,20 @@ def write_file(filename, options={}):
   graph.print_tree()  
 
 
-  # Now, join up any gaps
-  # For any transform node whose parent node has a transform
-  #     - Set the transform.parent to parent.transform
-  # For any transform node whose parent node has NO transform
-  #     - Calculate the transform of all local matrices up to the next 
-  #       node with a transform, and post-apply to the transform node
-  #       (this will require recalculation on animation nodes)
-  #     - Then parent the node to that transform
-  # For any node with no transform:
-  #     - Calculate the chain of local matrices to apply when enmeshing
-  def _process_parents(node):
-    if node.transform and node.parent.transform:
-      node.transform[0].parent = node.parent.transform[-1]
-    else:
-      # All other options involve calculating a transformation chain
-      transform = Matrix()
-      currentNode = node.parent
-      while not currentNode.transform:
-        print("  Walking to parent {}".format(currentNode))
-        transform = currentNode.blender.matrix_local * transform
-        currentNode = currentNode.parent
-      # Now: currentNode is the node with the transform we want
-      #      transform   is the matrix to get to that space
-
-      # Two cases: Either we have a transform and no parent,
-      # or no transform and a parent transform somewhere above us
-      if node.transform:
-        node.transform[0].apply_transform(transform)
-        node.transform[0].parent = currentNode.transform[-1]
-      else:
-        node.render.additional_transform = transform
-        node.transform = [currentNode.transform[-1]]
-        node.apply_transform = True
-    # We can now safely assign the nodes parent
-    node.render.parent = node.transform[-1]
-
-  graph.walk_tree(_process_parents)
-
-  print("Graph after parent calculations")
-  graph.print_tree()  
+  # Now set all the transform parents, both for blender objects AND transforms
+  # RenderNodes get connected to their associated transform
+  # Transform nodes get connected to the parent transform node
+  def _connect_parents(node):
+    if node.render and node.transform:
+      node.render.parent = node.transform
+    if node.transform and node.parent and node.parent.transform:
+      node.transform.parent = node.parent.transform
+  graph.walk_tree(_connect_parents)
 
   # Now do enmeshing
   def _enmesh(node):
-    node.render.calculate_mesh(options)
+    if node.render:
+      node.render.calculate_mesh(options)
   graph.walk_tree(_enmesh)
 
   # Build the list of nodes
@@ -119,15 +84,10 @@ def write_file(filename, options={}):
   def _add_transforms(node):
     if node.render:
       renderNodes.append(node.render)
-    for tf in node.transform:
-      if not tf in transformNodes:
-        tf.index = len(transformNodes)
-        transformNodes.append(tf)
+    if node.transform:
+      if not node.transform in transformNodes:
+        transformNodes.append(node.transform)
   graph.walk_tree(_add_transforms, include_root=True)
-
-  # # Now we know all node indices, prepare renderables for writing
-  # for node in renderNodes:
-  #   node.convert_references_to_index()
 
   # Let's build the root node
   root = RootNodeWriter()
