@@ -449,11 +449,13 @@ def create_material(material):
   diffuse_texture = next(x for x in material.textures if x.index == 0)
 
   name = diffuse_texture.name
-  filename = _find_texture_file(name)
-  tex = bpy.data.textures.new(name, type="IMAGE")
-  if filename:
-    tex.image = bpy.data.images.load(filename)
-    tex.image.use_alpha = False
+  tex = bpy.data.textures.get(name)
+  if not tex:
+    filename = _find_texture_file(name)
+    tex = bpy.data.textures.new(name, type="IMAGE")
+    if filename:
+      tex.image = bpy.data.images.load(filename)
+      tex.image.use_alpha = False
 
   # Create material
   mat = bpy.data.materials.new(material.name)
