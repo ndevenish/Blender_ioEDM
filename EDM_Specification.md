@@ -874,7 +874,10 @@ is rendered data, the vertex and index data for these nodes contribute to the
       model::Node   base;
       uint          unknown[5]
       uint          count;
-      double        data[count*6];
+      model::FakeOmniLight        data[count];
+
+    mode::FakeOmniLight :=
+      double  data[6];
 
 #### `model::FakeSpotLightsNode`
 

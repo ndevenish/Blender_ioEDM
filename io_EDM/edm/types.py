@@ -1143,8 +1143,17 @@ class FakeOmniLightsNode(BaseNode):
     self.data_start = stream.read_uints(5)
     count = stream.read_uint()
     self.data = [stream.read_doubles(6) for _ in range(count)]
+    stream.mark_type_read("model::FakeOmniLight", count)
     return self
   def prepare(self, nodes, materials):
     pass
 
-
+@reads_type("model::FakeALSNode")
+class FakeALSNode(BaseNode):
+  @classmethod
+  def read(cls, stream):
+    print("Fake ALS")
+    self = super(FakeALSNode, cls).read(stream)
+    # batumi.edm 1138915 x 340
+    stream.read(336)
+    return self
