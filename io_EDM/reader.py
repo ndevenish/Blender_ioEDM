@@ -573,7 +573,7 @@ def create_object(renderNode):
       if uvIndex:
         uvData = [[new_vertices[x][y] for y in uvIndex] for x in face]
         for loop, uv in zip(f.loops, uvData):
-          loop[uv_layer].uv = (uv[0], -uv[1])
+          loop[uv_layer].uv = (uv[0], 1-uv[1])
     except ValueError as e:
       print("Error: {}".format(e))
 
