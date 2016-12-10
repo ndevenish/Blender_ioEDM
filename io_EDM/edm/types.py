@@ -1158,3 +1158,6 @@ class FakeALSNode(BaseNode):
     self.data = [stream.read(80) for _ in range(count)]
     stream.mark_type_read("model::FakeALSLight", count)
     return self
+
+  def prepare(self, nodes, materials):
+    pass

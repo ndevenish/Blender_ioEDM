@@ -21,6 +21,7 @@ _edm_matTypes = (
   ("forest_material", "forest_material", "forest_material"),
   ("lines_material", "lines_material", "lines_material"),
   ("mirror_material", "mirror_material", "mirror_material"),
+  ("fake_als_lights", "fake_als_lights", "fake_als_lights")
 )
 
 _edm_blendTypes = (

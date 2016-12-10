@@ -433,6 +433,7 @@ settings; the observed values are:
 | `chrome_material`     |                  |                                 |
 | `color_material`      |                  |                                 |
 | `def_material`        | Default          | Basic, diffuse, textured material |
+| `fake_als_lights`     |                  |                                 |
 | `fake_omni_lights`    |                  |                                 |
 | `fake_spot_lights`    |                  |                                 |
 | `forest_material`     |                  |                                 |

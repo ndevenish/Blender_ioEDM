@@ -58,9 +58,10 @@ def build_graph(edmFile):
 
   # Connect every renderNode to it's place in the chain
   for node in iterate_renderNodes(edmFile):
-    if isinstance(node, SkinNode):
-      print("Warning: Don't know yet how to process skin nodes")
+    if not isinstance(node, RenderNode):
+      print("Warning: Don't know yet how to process nodes of type {}".format(type(node).__name__))
       continue
+    
     owner = nodeLookup[node.parent]
     newNode = TranslationNode()
     newNode.render = node
