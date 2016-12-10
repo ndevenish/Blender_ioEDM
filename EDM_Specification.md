@@ -326,7 +326,7 @@ any (or all) may be missing:
 | String         | Node types                                |
 |----------------|-------------------------------------------|
 | `CONNECTORS`   | `model::Connector`                        |
-| `RENDER_NODES` | `model::RenderNode`, `model::SkinNode`, `model::FakeOmniLightsNode`, `model::FakeSpotLightsNode` |
+| `RENDER_NODES` | `model::RenderNode`, `model::SkinNode`, `model::FakeOmniLightsNode`, `model::FakeSpotLightsNode`, `model::FakeALSNode` |
 | `SHELL_NODES`  | `model::ShellNode`, `model::SegmentsNode` |
 | `LIGHT_NODES`  | `model::LightNode`                        |
 
@@ -907,6 +907,16 @@ And, similarly to `RenderNode` - the count of `model::FSLNControlNode` is
 equal to the number of these parent entries minus one. The actual light entries
 appear to be a big mix of float-like data, but definitely have a separate 
 uchar at the end of them. The meaning remains unknown.
+
+#### `model::FakeALSNode`
+
+  model::FakeALSNode := 
+    uint  unknown[3];
+    uint  count;
+    model::FakeALSLight lights[count];
+
+  model::FakeALSLight :=
+    uchar data[80];
 
 ### Light Nodes
 
