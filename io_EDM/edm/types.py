@@ -195,7 +195,18 @@ class EDMFile(object):
   def _read(self, reader):
     reader.read_constant(b'EDM')
     self.version = reader.read_ushort()
-    assert self.version == 8, "Unexpected .EDM file version = {}".format(self.version)
+    assert self.version in [8, 10], "Unexpected .EDM file version = {}".format(self.version)
+    if self.version == 10:
+      print("Warning: Version 10 not as well understood")
+    reader.version = self.version
+
+    if reader.v10:
+      stringsize = reader.read_uint()
+      sdata = reader.read(stringsize).split(bytes(1))
+      reader.strings = [x.decode("windows-1251") for x in sdata]
+    else:
+      reader.strings = None
+
     # Read the two indexes
     self.indexA = read_string_uint_dict(reader)
     self.indexB = read_string_uint_dict(reader)
@@ -340,7 +351,7 @@ class BaseNode(object):
     # Have now encountered a non-root node with a name..
     # Which basically confirms that it has at least similar
     # structure. Now need a third entry with a dictionary...
-    node.name = stream.read_string()
+    node.name = stream.read_string(lookup=False)
     node.version = stream.read_uint()
     node.props = read_raw_propertiesset(stream)
     return node

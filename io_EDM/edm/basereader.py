@@ -18,6 +18,7 @@ class BaseReader(object):
   def __init__(self, filename):
     self.filename = filename
     self.stream = open(filename, "rb")
+    self.version = None
 
   def tell(self):
     return self.stream.tell()
@@ -27,6 +28,13 @@ class BaseReader(object):
 
   def close(self):
     self.stream.close()
+
+  @property
+  def v8(self):
+    return self.version == 8
+  @property
+  def v10(self):
+    return self.version == 10
 
   def read_constant(self, data):
     filedata = self.stream.read(len(data))
@@ -80,18 +88,25 @@ class BaseReader(object):
     """Read a struct format from the data"""
     return struct.unpack(format, self.stream.read(struct.calcsize(format)))
 
-  def read_string(self):
-    """Read a length-prefixed string from the file"""
+  def read_string(self, lookup=True):
+    """Read a length-prefixed string from the file.
+    lookup: If v10, string will be read as lookup. Has no effect on v8"""
+
     prepos = self.stream.tell()
-    length = self.read_uint()
-    assert length < 200, "Overly long string length found; {} at {}".format(length, prepos)
-    try:
-      data = self.stream.read(length)
-      # return data.decode("UTF-8")
-      return data.decode("windows-1251")
-    except UnicodeDecodeError:
-      print("Bad data:100 : " + repr(data[:100]))
-      raise RuntimeError("Could not decode string with length {} at position {}".format(length, prepos))
+    if self.v10 and lookup:
+      index = self.read_uint()
+      assert index < len(self.strings), "Got index higher than lookup count; {} at {}".format(index, prepos)
+      return self.strings[index]
+    else:
+      length = self.read_uint()
+      assert length < 200, "Overly long string length found; {} at {}".format(length, prepos)
+      try:
+        data = self.stream.read(length)
+        # return data.decode("UTF-8")
+        return data.decode("windows-1251")
+      except UnicodeDecodeError:
+        print("Bad data:100 : " + repr(data[:100]))
+        raise RuntimeError("Could not decode string with length {} at position {}".format(length, prepos))
 
   def read_list(self, reader):
     """Reads a length-prefixed list of something"""
