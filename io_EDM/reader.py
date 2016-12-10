@@ -12,7 +12,7 @@ from .edm import EDMFile
 from .edm.mathtypes import *
 from .edm.types import (AnimatingNode, ArgAnimationNode,
   ArgRotationNode, ArgPositionNode, ArgVisibilityNode, Node, TransformNode,
-  RenderNode)
+  RenderNode, SkinNode)
 
 from .translation import TranslationGraph, TranslationNode
 
@@ -27,7 +27,7 @@ def iterate_renderNodes(edmFile):
   """Iterates all renderNodes in an edmFile - whilst ignoring any nesting
   due to e.g. renderNode splitting"""
   for node in edmFile.renderNodes:
-    if node.children:
+    if hasattr(node, "children") and node.children:
       for child in node.children:
         yield child
     else:
@@ -58,6 +58,9 @@ def build_graph(edmFile):
 
   # Connect every renderNode to it's place in the chain
   for node in iterate_renderNodes(edmFile):
+    if isinstance(node, SkinNode):
+      print("Warning: Don't know yet how to process skin nodes")
+      continue
     owner = nodeLookup[node.parent]
     newNode = TranslationNode()
     newNode.render = node
@@ -89,7 +92,7 @@ def build_graph(edmFile):
 
   return graph
 
-def read_file(filename):
+def read_file(filename, options={}):
   # Parse the EDM file
   edm = EDMFile(filename)
   edm.postprocess()
@@ -111,6 +114,8 @@ def read_file(filename):
   with chdir(os.path.dirname(os.path.abspath(filename))):
     for material in edm.root.materials:
       material.blender_material = create_material(material)
+      if material.blender_material and options.get("shadeless", False):
+        material.blender_material.use_shadeless = True
 
   # Prepare the animation/transformation nodes
   for node in edm.nodes:

@@ -28,7 +28,7 @@ def _main(args):
     bpy.context.scene.objects.unlink(obj)
 
   # Call the import operator
-  bpy.ops.import_mesh.edm(filepath=args[0])
+  bpy.ops.import_mesh.edm(filepath=args[0], shadeless=True)
 
 if __name__ == "__main__":
   if _main(sys.argv) == -1:

@@ -32,6 +32,10 @@ class ImportEDM(Operator, ImportHelper):
           subtype='DIR_PATH',
           )
 
+  shadeless = BoolProperty(name="Shadeless",
+      description="Import materials as shadeless (no lights required in blender)",
+      default=False)
+
   def execute(self, context):
     # Get a list of files
     paths = [os.path.join(self.directory, name.name) for name in self.files]
@@ -45,7 +49,7 @@ class ImportEDM(Operator, ImportHelper):
     # Import the file
     logger.warning("Reading EDM file {}".format(paths[0]))
     
-    read_file(paths[0])
+    read_file(paths[0], options={"shadeless": self.shadeless})
     return {'FINISHED'}
 
 
