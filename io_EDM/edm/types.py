@@ -213,7 +213,6 @@ class EDMFile(object):
     self.root = read_named_type(reader)
 
     self.nodes = reader.read_list(read_named_type)
-    print("NodeCount: {}".format(len(self.nodes)))
 
     # Read the node parenting data
     for (node, parent) in zip(self.nodes, reader.read_ints(len(self.nodes))):
