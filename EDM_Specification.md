@@ -14,14 +14,14 @@ Reading Type definitions
 
 C-like struct notation is relatively common for defining binary files, but can
 be misleading by e.g. giving the impression that it describes a fixed-size
-length of data, which would be incorrect in the case of this file format. 
+length of data, which would be incorrect in the case of this file format.
 Therefore, in this document we will use a list-based description with roughly
-c-style names; in order to define a type, we present it's name and then a 
-list of fields to be read in order - which may be simple or complex - of
-fixed size or no. For example, the definition of the string type used is
+c-style names; in order to define a type, we present it's name and then a
+list of fields to be read in order - which may be simple or complex - of fixed
+size or no. For example, the definition of the prefixed string type used is
 duplicated here as:
 
-    string :=
+    uint_string :=
       uint  count;
       char  data[count];
 
@@ -62,16 +62,10 @@ The most common type in the files are probably `unsigned integers`, or
 | double      | 8            |
 
 In addition to the basic types, there are several fundamental structures that
-are repeated throughout the file, starting with `string`. These are length-
-prefixed strings, *without* trailing null character:
-
-    string :=
-      unsigned_int count
-      char         data[count];
-
-And the character data is encoded in **windows-1251** encoding. Strings are
-particularly important in understanding one of the most common patterns in EDM
-files, the `named_type`:
+are repeated throughout the file. One of these were strings, however newer
+versions of the .edm format have made strings more complicated, so they are
+described below. Strings are particularly important in understanding one of
+the most common patterns in EDM files, the `named_type`:
 
     named_type :=
       string    typeName;
@@ -99,6 +93,36 @@ list of paired keys and values:
     pair<T,Q> :=
       T key
       Q value
+
+### Strings
+
+Whilst simple in version 8 files, strings become a little more complicated
+in version 10. Let's start with version 8. All strings are length-prefixed,
+*without* trailing null character:
+
+    // Strings in file format v8
+    string := uint_string
+
+    uint_string := 
+      unsigned_int count
+      char         data[count];
+
+And the character data is encoded in **windows-1251** encoding. 
+
+For version 10 files, they are a little different. Most of the string data
+is encoded in a lookup table at the beginning of the file (see `EDMFile`).
+So a string now looks like:
+
+    // Strings in file format v10
+    string := 
+      uint index;
+
+and the actual value is subsequently found in `lookupTable[index]`. There are
+also instances of `uint_string`, used for the node base names. (these will mostly be unique, so not much point in moving them to a lookup table).
+
+In absence of further evidence, the character data is assumed to also be
+encoded in **windows-1251** encoding. 
+
 
 ### Math Types
 
@@ -186,7 +210,11 @@ We now know enough to parse the EDM file, following type definitions. Let's look
 
     EDMFile :=
       const b'EDM'
-      ushort              version;    # 8 in all current EDM files
+      ushort              version;    # 8 or 10 in all current EDM files
+      // v10 ONLY
+      uint                lookupSize;
+      char                lookup[lookupSize];
+      // End of v10 only
       map<string, uint>   indexA;
       map<string, uint>   indexB;
       named_type          rootNode;   # Always model::RootNode
@@ -195,7 +223,14 @@ We now know enough to parse the EDM file, following type definitions. Let's look
       uint                nodeParents[nodeCount];
       map<string,list<named_type>>   renderItems;
 
-followed by an EOF. Let's start by looking at the two string-uint indexes.
+followed by an EOF.
+
+After the file signature and version, If the file version is 8, the indexes
+follow. If version 10, however, the string lookup tables are placed
+immediately. The lookup is in a big block of character data, consisting of a
+number of **null-terminated** strings, one after another. Once split and
+decoded, this data forms the string lookup table described earlier in the 
+definition for strings. This is then immediately used by the file indexes...
 
 They translate as a lookup table of (almost entirely) typename-to-count values
 and seem to act as a crosscheck for the file. `indexA` seems to function as a
@@ -313,7 +348,7 @@ The `RootNode` object holds information about all of the materials in the
 scene, and a chunk of vector data that is not well understood.
 
     model::RootNode :=
-      string            name;
+      uint_string       name;
       uint              version;      # Asssumed
       model::PropertiesSet properties;
       uchar             unknownA;     # Either 0, 1 or 2
@@ -323,11 +358,12 @@ scene, and a chunk of vector data that is not well understood.
       list<Material>    materials;
       uint              unknownC[2];
 
-The object begins like all other `Node`-derived objects, with the name, class
-version and properties dictionary. Although the properties are often empty
-for `Node`-derived objects, in the `RootNode` this always has the contents
-`{"__VERSION__": 2}` - a value which appears to be important
-when writing (it changes the layout of the unknown areas of the class?)
+The object begins like all other `Node`-derived objects, with the name
+(although in v10 files, this is explicitly a `uint_string`, not in the lookup
+table), class version and properties dictionary. Although the properties are
+often empty for `Node`-derived objects, in the `RootNode` this always has the
+contents `{"__VERSION__": 2}` - a value which appears to be important when
+writing (it changes the layout of the unknown areas of the class?)
 
 After a single char which is not understood, We then have two `Vector3d`
 objects. These define the bounding box of the model - the first being the
@@ -521,14 +557,15 @@ The `Node` node is used both as an empty node, and also is the basis for many
 of the other nodes - which all share the identical starting layout:
 
     model::Node :=
-      string        name;
+      uint_string   name;
       uint          version;
       propertiesset props;
 
-As with `RootNode` (which we can also see matches this exact layout) we have
-assumed that the `uint` field is representative of class version - this seems
-to have no other meaning, and makes a lot of sense in terms of allowing the
-schema to evolve over time.
+Noting that the name is explicitly a non-lookup string, regardless of file
+version. As with `RootNode` (which we can also see matches this exact layout)
+we have assumed that the `uint` field is representative of class version -
+this seems to have no other meaning, and makes a lot of sense in terms of
+allowing the schema to evolve over time.
 
 ### `model::TransformNode`
 
@@ -579,6 +616,7 @@ same way - but just appear to be written when the animation only has a single
 The actual `ArgAnimationNode` contains quite a lot of data:
 
     model::ArgAnimationNode := 
+      model::Node       base;
       osg::Matrixd      tf_Matrix;
       osg::Vec3d        tf_Position;
       osg::Quaternion   tf_Quat1;
@@ -684,7 +722,7 @@ values of `1e300` are not uncommon.
 Connectors are a very simple named connection to a parent transformation node:
 
     model::Connector :=
-      model::BaseNode   base;
+      model::Node       base;
       uint              parent;
       uint              unknown;
 
@@ -700,7 +738,7 @@ does not appear to be important. The parent is simply the index
 data, the actual renderable geometry of the edm file:
 
     model::RenderNode :=
-      model::BaseNode   base;
+      model::Node       base;
       uint              unknown;   # Always zero in known files
       uint              materialId;
       PARENTDATA        parentData;
