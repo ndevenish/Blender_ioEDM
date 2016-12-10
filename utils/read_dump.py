@@ -36,6 +36,11 @@ def all_Textures():
     for tex in mat.textures:
       yield tex
 
+def all_lights():
+  for edm in data.values():
+    for light in edm.lightNodes:
+      yield light
+
 def print_material_table():
   matData = {}
   for edm in data.values():
