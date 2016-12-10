@@ -878,9 +878,32 @@ is rendered data, the vertex and index data for these nodes contribute to the
 
 #### `model::FakeSpotLightsNode`
 
+This has a relatively similar structure to `model::RenderNode`. The counts and
+data types have been inferred from index and inspection, but the
+interpretation is currently unknown.
+
     model::FakeSpotLightsNode :=
       model::Node   base;
-      uchar         unknown[101];
+      uint          unknown;
+      uint          materialId;   // Assumed - same as renderNode
+      uint          controlNodeCount;
+      FSLNPARENT    parentData[controlNodeCount];
+      uint          lightCount;
+      model::FakeSpotLight  lights[lightCount];
+
+    FSLNPARENT :=
+      uint    nodeId;
+      uint    unknownA;
+      float   unknownB[3];
+
+    model::FakeSpotLight :=
+      uchar data[64];
+      uchar final_byte;
+
+And, similarly to `RenderNode` - the count of `model::FSLNControlNode` is
+equal to the number of these parent entries minus one. The actual light entries
+appear to be a big mix of float-like data, but definitely have a separate 
+uchar at the end of them. The meaning remains unknown.
 
 ### Light Nodes
 

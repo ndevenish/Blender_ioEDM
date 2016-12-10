@@ -1106,7 +1106,30 @@ class FakeSpotLightsNode(BaseNode):
   @classmethod
   def read(cls, stream):
     self = super(FakeSpotLightsNode, cls).read(stream)
-    self.data = stream.read(101)
+
+    # Seems to start relatively similar to renderNode
+    self.unknown_start = stream.read_uint()
+    self.material_ish = stream.read_uint()
+
+    # We have parent-like blocks of two uints + three floats
+    controlNodeCount = stream.read_uint()
+
+    self.parentData = []
+    for _ in range(controlNodeCount):
+      self.parentData.append([
+          stream.read_uint(),
+          stream.read_uint(),
+          stream.read_floats(3)
+        ])
+    # Control node seems to follow same rules as RenderNode
+    if controlNodeCount:
+      stream.mark_type_read('model::FSLNControlNode', controlNodeCount-1)
+
+    dataCount = stream.read_uint()
+    self.data = [stream.read(65) for _ in range(dataCount)]
+    stream.mark_type_read("model::FakeSpotLight", dataCount)
+
+    # print(dataCount)
     return self
 
   def prepare(self, nodes, materials):
