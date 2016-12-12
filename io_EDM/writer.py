@@ -428,7 +428,7 @@ def create_mesh_data(source, material, options={}):
       else:
         position = mesh.vertices[vtxIndex].co
         normal = mesh.vertices[vtxIndex].normal
-      uv = [uvFace.uv[i][0], -uvFace.uv[i][1]]
+      uv = [uvFace.uv[i][0], 1-uvFace.uv[i][1]]
       newVertices.append(tuple(itertools.chain(position, [0], normal, uv)))
 
     # We either have triangles or quads. Split into triangles, based on the
