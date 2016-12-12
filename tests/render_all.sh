@@ -22,6 +22,10 @@ testinout() {
   importandrender $2.edm $2e.png
 }
 
-testinout Axis.blend Axis_0
-testinout Axis_SingleFrame.blend Axis_1
-testinout ../Suzanne_Higher.blend Suzanne
+#testinout Axis.blend Axis_0
+#testinout Axis_SingleFrame.blend Axis_1
+testinout DoorAlignment.blend DoorAlign0
+testinout DoorAlignment_nokeys.blend DoorAlign1
+testinout DoorAlignment_nokeys_noscale.blend DoorAlign2
+testinout DoorAlignment_noscale.blend DoorAlign2
+

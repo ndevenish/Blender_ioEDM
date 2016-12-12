@@ -58,12 +58,8 @@ def write_file(filename, options={}):
   def _inspect_animarg(node, prefix):
     if not node.transform or not isinstance(node.transform, ArgAnimationNode):
       return
-    tf = node.transform
-    print(prefix + "Base (pre-animation) data:")
-    print(prefix + "Position:", vector_string(tf.base.position))
-    print(prefix + "Rotation:", vector_string(tf.base.quat_1))
-    print(prefix + "Scale:   ", vector_string(tf.base.scale))
-    print(matrix_string(tf.base.matrix, prefix=prefix, title="Matrix:  "))
+    node.transform.print_summary(prefix)
+    
   print("Animation base transforms:")
   graph.print_tree(_inspect_animarg)
 
@@ -186,12 +182,25 @@ def create_animation_base(object):
   node = ArgAnimationNodeBuilder(name=object.name)
 
   # Build the base transforms.
-  pos, rot, sca = object.matrix_local.decompose()
+  node.base.matrix = matrix_to_edm(object.matrix_parent_inverse)
+  
+  sM = MatrixScale(object.scale)
+  rM = object.rotation_quaternion.to_matrix().to_4x4()
+  tM = Matrix.Translation(object.location)
+  # Verify this
+  buildVec = object.matrix_parent_inverse * tM * rM * sM * Vector((1,1,1,1))
+  localVec = object.matrix_local * Vector((1,1,1,1))
+  delta = localVec - buildVec
+  # print("Delta vector = {}".format(delta.length))
+  if delta.length > 0.01:
+    print("Incorrect local matrix calculation")
+    import pdb
+    pdb.set_trace()
 
-  node.base.matrix = matrix_to_edm(Matrix())
-  node.base.position = pos
-  node.base.scale = sca
-  node.base.quat_1 = rot
+  pos, rot, sca = object.matrix_basis.decompose()
+  node.base.position = pos #object.location
+  node.base.scale = sca #object.scale
+  node.base.quat_1 = rot #object.rotation_quaternion
 
   # This swaps edm-space to blender space - rotate -ve around x 90 degrees
   RX = Quaternion((0.707, -0.707, 0, 0))
@@ -486,3 +495,27 @@ class ArgAnimationNodeBuilder(ArgAnimationNode):
     """Apply an extra transformation to the local space of this 
     transform node. This is because of parenting issues"""
     raise NotImplementedError()
+
+  def print_summary(self, prefix=""):
+    print(prefix + "Base (pre-animation) data:")
+    print(prefix + "Position:", vector_string(self.base.position))
+    print(prefix + "Rotation:", vector_string(self.base.quat_1))
+    print(prefix + "Scale:   ", vector_string(self.base.scale))
+    print(matrix_string(self.base.matrix, prefix=prefix, title="Matrix:  "))
+
+    # Calculate what the decomposed values will be
+    RX = Quaternion((0.707, -0.707, 0, 0))
+    RXm = RX.to_matrix().to_4x4()
+    zeroth =  matrix_to_blender(self.base.matrix) * \
+              Matrix.Translation(self.base.position) * \
+              self.base.quat_1.to_matrix().to_4x4() * \
+              MatrixScale(self.base.scale) * RXm
+    zPos, zRot, zSca = zeroth.decompose()
+    print(prefix + "Expected Zeroth Pos:", vector_string(zPos))
+    print(prefix + "                Rot:", vector_string(zRot))
+    print(prefix + "              Scale:", vector_string(zSca))
+    
+    if self.rotData:
+      print(prefix + "  Rotation Anim Data:")
+      for key in self.rotData[0][1]:
+        print(prefix + "    {:-6.3f}: {}".format(key.frame, key.value))
