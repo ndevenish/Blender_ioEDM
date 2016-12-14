@@ -33,6 +33,14 @@ _edm_blendTypes = (
 )
 
 
+def _updateIsRenderable(self, context):
+  if self.is_renderable and self.is_collision_shell:
+    self.is_collision_shell = False
+
+def _updateIsCollision(self, context):
+  if self.is_renderable and self.is_collision_shell:
+    self.is_renderable = False
+
 class EDMObjectSettings(bpy.types.PropertyGroup):
   # Only for empty objects: Is this a connector
   is_connector = bpy.props.BoolProperty(
@@ -42,11 +50,13 @@ class EDMObjectSettings(bpy.types.PropertyGroup):
   is_renderable = bpy.props.BoolProperty(
       default=True, 
       name="Renderable", 
-      description="Can this object's mesh be rendered")
+      description="Can this object's mesh be rendered",
+      update=_updateIsRenderable)
   is_collision_shell = bpy.props.BoolProperty(
       default=False, 
       name="Collision Shell", 
-      description="Is this mesh used for collision calculations?")
+      description="Is this mesh used for collision calculations?",
+      update=_updateIsCollision)
   damage_argument = bpy.props.IntProperty(
       default=-1, 
       name="Damage Argument", 
