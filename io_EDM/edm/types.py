@@ -894,6 +894,24 @@ def _read_index_data(stream, classification=None):
 
   return (unknown, data)
 
+def _write_index_data(indexData, vertexDataLength, writer):
+  # Index data
+  if vertexDataLength < 256:
+    writer.write_uchar(0)
+    iWriter = writer.write_uchars
+  elif vertexDataLength < 2**16:
+    writer.write_uchar(1)
+    iWriter = writer.write_ushorts
+  elif vertexDataLength < 2**32:
+    writer.write_ucar(2)
+    iWriter = writer.write_uints
+  else:
+    raise IOError("Do not know how to write index arrays with {} members".format(vertexDataLength))
+
+  writer.write_uint(len(indexData))
+  writer.write_uint(5)
+  iWriter(indexData)
+
 def _read_vertex_data(stream, classification=None):
   count = stream.read_uint()
   stride = stream.read_uint()
@@ -906,6 +924,12 @@ def _read_vertex_data(stream, classification=None):
   # Group the vertex data according to stride
   vtxData = [vtxData[i:i+stride] for i in range(0, len(vtxData), stride)]
   return vtxData
+
+def _write_vertex_data(data, writer):
+  writer.write_uint(len(data))
+  writer.write_uint(len(data))
+  flat_data = list(itertools.chain(*data))
+  writer.write_floats(flat_data)
 
 def _read_parent_data(stream):
     # Read the parent section
@@ -981,28 +1005,8 @@ class RenderNode(BaseNode):
     writer.write_uint(self.parent.index)
     writer.write_int(-1)
 
-    # Vertex data
-    writer.write_uint(len(self.vertexData))
-    writer.write_uint(len(self.vertexData[0]))
-    flat_data = list(itertools.chain(*self.vertexData))
-    writer.write_floats(flat_data)
-
-    # Index data
-    if len(self.vertexData) < 256:
-      writer.write_uchar(0)
-      iWriter = writer.write_uchars
-    elif len(self.vertexData) < 2**16:
-      writer.write_uchar(1)
-      iWriter = writer.write_ushorts
-    elif len(self.vertexData) < 2**32:
-      writer.write_ucar(2)
-      iWriter = writer.write_uints
-    else:
-      raise IOError("Do not know how to write index arrays with {} members".format(len(self.indexData)))
-
-    writer.write_uint(len(self.indexData))
-    writer.write_uint(5)
-    iWriter(self.indexData)
+    _write_vertex_data(self.vertexData, writer)
+    _write_index_data(self.indexData, len(self.vertexData), writer)
 
   def audit(self):
     c = _render_audit(self)
