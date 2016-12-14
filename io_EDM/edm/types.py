@@ -14,12 +14,23 @@ import struct
 from .mathtypes import Vector, sequence_to_matrix, Matrix, Quaternion
 
 from abc import ABC
+from enum import Enum
 
 import logging
 logger = logging.getLogger(__name__)
 
 # VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
 Texture = namedtuple("Texture", ["index", "name", "matrix"])
+
+class NodeCategory(Enum):
+  """Enum to describe what file-category the node is in"""
+  transform = "transform"
+  connector = "CONNECTORS"
+  render = "RENDER_NODES"
+  shell = "SHELL_NODES"
+  light = "LIGHT_NODES"
+
+
 
 class AnimatingNode(ABC):
   """Abstract base class for all nodes that animate the object"""
@@ -423,6 +434,7 @@ class RootNode(BaseNode):
 
 @reads_type("model::Node")
 class Node(BaseNode):
+  category = NodeCategory.transform
   @classmethod
   def read(cls, stream):
     # stream.mark_type_read("model::Node")
@@ -833,7 +845,7 @@ class Material(object):
     return c
 
 @reads_type("model::LodNode")
-class LodNode(BaseNode):
+class LodNode(Node):
   @classmethod
   def read(cls, stream):
     self = super(LodNode, cls).read(stream)
@@ -848,6 +860,7 @@ class LodNode(BaseNode):
 
 @reads_type("model::Connector")
 class Connector(BaseNode):
+  category = NodeCategory.connector
   @classmethod
   def read(cls, stream):
     self = super(Connector, cls).read(stream)
@@ -925,6 +938,8 @@ def _render_audit(self, verts="__gv_bytes", inds="__gi_bytes"):
 
 @reads_type("model::RenderNode")
 class RenderNode(BaseNode):
+  category = NodeCategory.render
+
   def __init__(self, name=None):
     super(RenderNode, self).__init__(name)
     self.version = 1
@@ -1033,6 +1048,7 @@ class RenderNode(BaseNode):
 
 @reads_type("model::ShellNode")
 class ShellNode(BaseNode):
+  category = NodeCategory.shell
   @classmethod
   def read(cls, stream):
     self = super(ShellNode, cls).read(stream)
@@ -1050,6 +1066,7 @@ class ShellNode(BaseNode):
   
 @reads_type("model::SkinNode")
 class SkinNode(BaseNode):
+  category = NodeCategory.render
   @classmethod
   def read(cls, stream):
     self = super(SkinNode, cls).read(stream)
@@ -1074,6 +1091,7 @@ class SkinNode(BaseNode):
   
 @reads_type("model::SegmentsNode")
 class SegmentsNode(BaseNode):
+  category = NodeCategory.shell
   @classmethod
   def read(cls, stream):
     self = super(SegmentsNode, cls).read(stream)
@@ -1089,7 +1107,7 @@ class SegmentsNode(BaseNode):
     return c
 
 @reads_type("model::BillboardNode")
-class BillboardNode(BaseNode):
+class BillboardNode(Node):
   @classmethod
   def read(cls, stream):
     self = super(BillboardNode, cls).read(stream)
@@ -1098,6 +1116,7 @@ class BillboardNode(BaseNode):
 
 @reads_type("model::LightNode")
 class LightNode(BaseNode):
+  category = NodeCategory.light
   @classmethod
   def read(cls, stream):
     self = super(LightNode, cls).read(stream)
@@ -1108,6 +1127,7 @@ class LightNode(BaseNode):
 
 @reads_type("model::FakeSpotLightsNode")
 class FakeSpotLightsNode(BaseNode):
+  category = NodeCategory.render
   @classmethod
   def read(cls, stream):
     self = super(FakeSpotLightsNode, cls).read(stream)
@@ -1142,6 +1162,7 @@ class FakeSpotLightsNode(BaseNode):
 
 @reads_type("model::FakeOmniLightsNode")
 class FakeOmniLightsNode(BaseNode):
+  category = NodeCategory.render
   @classmethod
   def read(cls, stream):
     self = super(FakeOmniLightsNode, cls).read(stream)
@@ -1155,6 +1176,7 @@ class FakeOmniLightsNode(BaseNode):
 
 @reads_type("model::FakeALSNode")
 class FakeALSNode(BaseNode):
+  category = NodeCategory.render
   @classmethod
   def read(cls, stream):
     self = super(FakeALSNode, cls).read(stream)
