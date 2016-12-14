@@ -525,8 +525,9 @@ class ShellNodeWriter(ShellNode):
   def calculate_mesh(self, options):
     assert self.source
     opt = dict(options)
-    vf = VertexFormat({"position":3})
-    self.vertexData, self.indexData = create_mesh_data(self.source, vertex_format=vf, options=opt)
+    self.vertex_format = VertexFormat({"position":3})
+    self.vertexData, self.indexData = create_mesh_data(self.source, vertex_format=self.vertex_format, options=opt)
+
 
 
 

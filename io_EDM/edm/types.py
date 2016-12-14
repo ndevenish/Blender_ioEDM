@@ -1057,7 +1057,7 @@ class ShellNode(BaseNode):
   def read(cls, stream):
     self = super(ShellNode, cls).read(stream)
     self.parent = stream.read_uint()
-    self.vertexFormat = _read_material_VertexFormat(stream)
+    self.vertex_format = _read_material_VertexFormat(stream)
 
     # Read the vertex and index data
     self.vertexData = _read_vertex_data(stream, "__cv_bytes")
@@ -1071,7 +1071,7 @@ class ShellNode(BaseNode):
   def write(self, writer):
     super(ShellNode, self).write(writer)
     writer.write_uint(self.parent.index)
-
+    self.vertex_format.write(writer)
     _write_vertex_data(self.vertexData, writer)
     _write_index_data(self.indexData, len(self.vertexData), writer)
 
