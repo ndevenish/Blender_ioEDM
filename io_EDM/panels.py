@@ -24,7 +24,7 @@ class EDMDataPanel(bpy.types.Panel):
     elif context.object.type == "MESH":
       self.layout.prop(context.object.edm, "is_renderable")
       self.layout.prop(context.object.edm, "is_collision_shell")
-      self.layout.prop(context.object.edm, "damage_argument")
+      # self.layout.prop(context.object.edm, "damage_argument")
 
 class DopeActionProperties(bpy.types.Panel):
   """Creates a Panel in the Object properties window"""
@@ -67,18 +67,16 @@ class EDMMaterialPanel(bpy.types.Panel):
 def draw_timeline_argument_property(self, context):
     scene = context.scene
     layout = self.layout
-    # call the property
-    # layout.prop(scene.render, "fps", text="FPS")
     layout.prop(scene, "active_edm_argument", text="Argument")
 
 
 def register():
   bpy.utils.register_class(EDMDataPanel)
   bpy.utils.register_class(DopeActionProperties)
-  bpy.types.TIME_HT_header.append(draw_timeline_argument_property)
+  # bpy.types.TIME_HT_header.append(draw_timeline_argument_property)
 
 def unregister():
-  bpy.types.TIME_HT_header.remove(draw_timeline_argument_property)
+  # bpy.types.TIME_HT_header.remove(draw_timeline_argument_property)
   bpy.utils.unregister_class(DopeActionProperties)
   bpy.utils.unregister_class(EDMDataPanel)
 
