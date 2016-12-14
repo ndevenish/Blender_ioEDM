@@ -927,7 +927,7 @@ def _read_vertex_data(stream, classification=None):
 
 def _write_vertex_data(data, writer):
   writer.write_uint(len(data))
-  writer.write_uint(len(data))
+  writer.write_uint(len(data[0]))
   flat_data = list(itertools.chain(*data))
   writer.write_floats(flat_data)
 
