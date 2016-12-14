@@ -31,7 +31,7 @@ _all_IndexA = {'model::TransformNode', 'model::FakeOmniLightsNode', 'model::Skin
 _all_IndexB = {'model::Key<key::ROTATION>', 'model::Property<float>', 'model::ArgAnimationNode::Position', '__pointers', 'model::FakeOmniLight', 'model::Key<key::SCALE>', 'model::AnimatedProperty<osg::Vec3f>', 'model::Key<key::VEC3F>', 'model::Property<osg::Vec2f>', 'model::Property<osg::Vec3f>', 'model::ArgAnimationNode::Rotation', 'model::ArgVisibilityNode::Range', 'model::Key<key::POSITION>', 'model::AnimatedProperty<osg::Vec2f>', 'model::Key<key::FLOAT>', '__ci_bytes', '__gv_bytes', 'model::ArgVisibilityNode::Arg', 'model::AnimatedProperty<float>', 'model::RNControlNode', 'model::SegmentsNode::Segments', '__gi_bytes', '__cv_bytes', 'model::Property<unsigned int>', 'model::Key<key::VEC2F>', 'model::ArgAnimationNode::Scale', 'model::LodNode::Level', 'model::PropertiesSet', 'model::FakeSpotLight'}
 
 class VertexFormat(object):
-  def __init__(self, channelData):
+  def __init__(self, channelData=None):
     """Initialise vertex format. takes a byte array, numeric per-channel string, 
     or a dictionary naming each count."""
     if isinstance(channelData, str):
@@ -46,12 +46,18 @@ class VertexFormat(object):
       for name, count in channelData.items():
         data[_vertex_channels[name]] = count
       self.data = bytes(data)
+    elif channelData is None:
+      self.data = bytes(26)
     else:
       self.data = channelData
 
     self.nposition = int(self.data[0])
     self.nnormal = int(self.data[1])
     self.ntexture = int(self.data[4])
+  def __hash__(self):
+    return hash(self.data)
+  def __eq__(self, other):
+    return self.data == other.data
 
   @property
   def position_indices(self):
