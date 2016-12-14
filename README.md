@@ -99,3 +99,4 @@ Here is a rough list of how concepts are mapped from 3DS to blender.
 | Argument Animation | Controllers         | Actions for an object, with an `Argument` property accesible in the dope-sheet properties. |
 | Multiple Animations| Controllers         | Not yet implemented - considering using the NLA sheet |
 | EDM materials      | 'Make Cool' button  | Directly integrated to material properties - equivalent settings are ported over |
+| Collision Shells   | Object properties   | Object Data -> EDM Tools -> Tick "Collision Shell" |
