@@ -1067,6 +1067,14 @@ class ShellNode(BaseNode):
   
   def audit(self):
     return _render_audit(self, verts="__cv_bytes", inds="__ci_bytes")
+
+  def write(self, writer):
+    super(ShellNode, self).write(writer)
+    writer.write_uint(self.parent.index)
+
+    _write_vertex_data(self.vertexData, writer)
+    _write_index_data(self.indexData, len(self.vertexData), writer)
+
   
 @reads_type("model::SkinNode")
 class SkinNode(BaseNode):

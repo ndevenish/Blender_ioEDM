@@ -14,12 +14,14 @@ def write_file(filename, options={}):
 
   # Get a set of all mesh objects to be exported as renderables
   renderables = {x for x in bpy.context.scene.objects if x.type == "MESH" and x.edm.is_renderable}
+  shells = {x for x in bpy.context.scene.objects if x.type == "MESH" and x.edm.is_collision_shell}
+
   print("Writing {} objects as renderables".format(len(renderables)))
   # Generate the materials for every renderable
   materials, materialMap = _create_material_map(renderables)  
   
   # Build a graph from ALL blender objects we want ported across
-  graph = TranslationGraph.from_blender_objects(renderables)
+  graph = TranslationGraph.from_blender_objects(renderables | shells)
   print("Blender graph we are exporting:")
   graph.print_tree()
 
@@ -33,9 +35,14 @@ def write_file(filename, options={}):
 
   # Create the basic rendernode structures
   def _create_renderNode(node):
-    if node.blender and node.blender.edm.is_renderable:
-      node.render = RenderNodeWriter(node.blender)
-      node.render.material = materialMap[node.blender.material_slots[0].material.name]
+    if node.blender:
+      assert not (node.blender.edm.is_renderable and node.blender.edm.is_collision_shell), "Can't yet cope with objects both collision and renderable"
+      if node.blender.edm.is_renderable:
+        node.render = RenderNodeWriter(node.blender)
+        node.render.material = materialMap[node.blender.material_slots[0].material.name]
+      if node.blender.edm.is_collision_shell:
+        node.render = ShellNodeWriter(node.blender)
+        
     # If we have an ArgAnimationNode, don't apply the transformation
     if node.transform and isinstance(node.transform, ArgAnimationNode):
       node.apply_transform = False
@@ -70,15 +77,14 @@ def write_file(filename, options={}):
   graph.walk_tree(_enmesh)
 
   # Build the linear list of transformation nodes and render nodes
-  transformNodes = []
-  renderNodes = []
-  def _add_transforms(node):
+  allNodes = {x: [] for x in NodeCategory}
+  def _flatten_graph(node):
     if node.render:
-      renderNodes.append(node.render)
+      allNodes[node.render.category].append(node.render)
     if node.transform:
-      if not node.transform in transformNodes:
-        transformNodes.append(node.transform)
-  graph.walk_tree(_add_transforms, include_root=True)
+      if not node.transform in allNodes[NodeCategory.transform]:
+        allNodes[NodeCategory.transform].append(node.transform)
+  graph.walk_tree(_flatten_graph, include_root=True)
 
   # Let's build the root node
   root = RootNodeWriter()
@@ -88,9 +94,12 @@ def write_file(filename, options={}):
   # And finally the wrapper
   file = EDMFile()
   file.root = root
-  file.nodes = transformNodes
-  file.renderNodes = renderNodes
-
+  file.nodes = allNodes[NodeCategory.transform]
+  file.renderNodes = allNodes[NodeCategory.render]
+  file.connectors = allNodes[NodeCategory.connector]
+  file.shellNodes = allNodes[NodeCategory.shell]
+  file.lightNodes = allNodes[NodeCategory.light]
+  
   writer = BaseWriter(filename)
   file.write(writer)
   writer.close()
@@ -391,12 +400,16 @@ def create_material(source):
 
   return mat
 
-def create_mesh_data(source, material, options={}):
+def create_mesh_data(source, material=None, vertex_format=None, options={}):
   """Takes an object and converts it to a mesh suitable for writing"""
   # Always remesh, because we will want to apply transformations
   mesh = source.to_mesh(bpy.context.scene,
     apply_modifiers=options.get("apply_modifiers", False),
     settings="RENDER", calc_tessface=True)
+
+  # Use the material's vertex format if not otherwise specified
+  if vertex_format is None and material:
+    vertex_format = material.vertex_format
 
   print("Enmeshing ", source.name)
   # Apply the local transform. IF there are no parents, then this should
@@ -407,29 +420,54 @@ def create_mesh_data(source, material, options={}):
   else:
     print("  Skipping transform application")
 
-  # Should be more complicated for multiple layers, but will do for now
-  uv_tex = mesh.tessface_uv_textures.active.data
+  # if vertex_format:
+
+  # if material:
+  #   vfPosition = 3
+  #   vfNormal = True
+  #   vfTexture = True
+  # else:
+  #   vfNormal = False
+  #   vfTexture = False
+
+  if vertex_format.ntexture:
+    # Should be more complicated for multiple layers, but will do for now
+    uv_tex = mesh.tessface_uv_textures.active.data
 
   if options.get("convert_axis", True):
     print("  Converting axis")
   else:
     print("  NOT Converting axis")
+
   newVertices = []
   newIndexValues = []
   # Loop over every face, and the UV data for that face
-  for face, uvFace in zip(mesh.tessfaces, uv_tex):
+  for faceIndex, face in enumerate(mesh.tessfaces):
     # What are the new index values going to be?
     newFaceIndex = [len(newVertices)+x for x in range(len(face.vertices))]
+    if vertex_format.ntexture:
+      uvFace = uv_tex[faceIndex]
+
     # Build the new vertex data
     for i, vtxIndex in enumerate(face.vertices):
+      vtxParts = []
       if options.get("convert_axis", True):
         position = vector_to_edm(mesh.vertices[vtxIndex].co)
         normal = vector_to_edm(mesh.vertices[vtxIndex].normal)
       else:
         position = mesh.vertices[vtxIndex].co
         normal = mesh.vertices[vtxIndex].normal
-      uv = [uvFace.uv[i][0], 1-uvFace.uv[i][1]]
-      newVertices.append(tuple(itertools.chain(position, [0], normal, uv)))
+      if vertex_format.nposition == 3:
+        vtxParts.append(list(position))
+      else:
+        vtxParts.append(list(position)+[0.0])
+      if vertex_format.nnormal:
+        vtxParts.append(normal)
+      if vertex_format.ntexture:
+        uv = [uvFace.uv[i][0], 1-uvFace.uv[i][1]]
+        vtxParts.append(uv)
+
+      newVertices.append(tuple(itertools.chain(*vtxParts)))
 
     # We either have triangles or quads. Split into triangles, based on the
     # vertex index subindex in face.vertices
@@ -468,7 +506,7 @@ class RenderNodeWriter(RenderNode):
     opt["apply_transform"] = self.apply_transform
     # ArgAnimationNode-based parents don't have axis-shifted data
     opt["convert_axis"] = self.apply_transform #not isinstance(self.parent, ArgAnimationNode)
-    self.vertexData, self.indexData = create_mesh_data(self.source, self.material, opt)
+    self.vertexData, self.indexData = create_mesh_data(self.source, material=self.material, options=opt)
 
   def convert_references_to_index(self):
     """Convert all stored references into their index equivalent"""
@@ -477,6 +515,20 @@ class RenderNodeWriter(RenderNode):
       self.parent = 0
     else:
       self.parent = self.parent.index
+
+class ShellNodeWriter(ShellNode):
+  def __init__(self, obj):
+    super(ShellNodeWriter, self).__init__(name=obj.name)
+    self.source = obj
+    self.parent = None
+
+  def calculate_mesh(self, options):
+    assert self.source
+    opt = dict(options)
+    vf = VertexFormat({"position":3})
+    self.vertexData, self.indexData = create_mesh_data(self.source, vertex_format=vf, options=opt)
+
+
 
 class RootNodeWriter(RootNode):
   def __init__(self, *args, **kwargs):
