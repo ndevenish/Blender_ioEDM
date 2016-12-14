@@ -45,9 +45,9 @@ def write_file(filename, options={}):
         
     # If we have an ArgAnimationNode, don't apply the transformation
     if node.transform and isinstance(node.transform, ArgAnimationNode):
-      node.apply_transform = False
+      node.render.apply_transform = False
     else:
-      node.apply_transform = True
+      node.render.apply_transform = True
   graph.walk_tree(_create_renderNode)
   
   # Now set all the transform parents, both for blender objects AND transforms
@@ -525,6 +525,8 @@ class ShellNodeWriter(ShellNode):
   def calculate_mesh(self, options):
     assert self.source
     opt = dict(options)
+    opt["apply_transform"] = self.apply_transform
+    opt["convert_axis"] = self.apply_transform
     self.vertex_format = VertexFormat({"position":3})
     self.vertexData, self.indexData = create_mesh_data(self.source, vertex_format=self.vertex_format, options=opt)
 
