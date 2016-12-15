@@ -576,15 +576,26 @@ allowing the schema to evolve over time.
 
 ### `model::LodNode`
 
+The `LodNode` object is a transform-tree root object - it controls the LOD
+appearance of the node graph underneath it. It appears that `model::Node` 
+objects always act as 'fake' roots underneath a `LodNode` (untested).
+
     model::LodNode :=
       model::Node             base;
       uint                    count;
       model::LodNode::Level   levels[count];
 
     model::LodNode::Level :=
-      float data[4];
+      double start_sq;
+      double end_sq;
 
-The exact interpretation of the level data is unknown.
+It appears that the count of `LodNode::Level` should always match the number
+of child nodes (also untested globally), and so it seems that the association
+between level to node is purely based on the ordering of the children.
+
+A `model::LodNode::Level` object contains a start and end value, stored as the
+square of the actual LOD distance desired (e.g. an LOD of `850m` would be stored
+as `722500`).
 
 ### `model::Bone`
 
