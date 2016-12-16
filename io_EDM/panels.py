@@ -6,14 +6,15 @@ Contains blender UI panels to allow editing of custom data
 
 import bpy
 
-
-class EDMDataPanel(bpy.types.Panel):
-  bl_idname = "OBJECT_PT_edmtools"
-  bl_label = "EDM Tools"
+class DataPanel(object):
   bl_space_type = 'PROPERTIES'
   bl_region_type = 'WINDOW'
   bl_context = "data"
 
+class EDMDataPanel(DataPanel, bpy.types.Panel):
+  bl_idname = "OBJECT_PT_edmtools"
+  bl_label = "EDM Tools"
+  
   @classmethod
   def poll(cls, context):
     return context.object.type == 'EMPTY' or context.object.type == "MESH"
@@ -21,10 +22,37 @@ class EDMDataPanel(bpy.types.Panel):
   def draw(self, context):
     if context.object.type == "EMPTY":
       self.layout.prop(context.object.edm, "is_connector")
+
     elif context.object.type == "MESH":
       self.layout.prop(context.object.edm, "is_renderable")
       self.layout.prop(context.object.edm, "is_collision_shell")
       # self.layout.prop(context.object.edm, "damage_argument")
+
+class EDMEmptyLODPanel(DataPanel, bpy.types.Panel):
+  bl_idname = "OBJECT_PT_edmLOD"
+  bl_label = "LOD Root"
+
+  @classmethod
+  def poll(cls, context):
+    return context.object.type == "EMPTY"
+
+  def draw_header(self, context):
+    self.layout.prop(context.object.edm, "is_lod_root", text="")
+
+  def draw(self, context):
+    if not context.object.edm.is_lod_root:
+      return
+    for i, child in enumerate(context.object.children):
+      box = self.layout.box()
+      row = box.row()
+
+      row.label(text=child.name, icon="OBJECT_DATA")
+      row.prop(child.edm, "nouse_lod_distance")
+
+      box.prop(child.edm, "lod_min_distance")
+      row = box.row()
+      row.active = not child.edm.nouse_lod_distance
+      row.prop(child.edm, "lod_max_distance")
 
 class DopeActionProperties(bpy.types.Panel):
   """Creates a Panel in the Object properties window"""
@@ -72,12 +100,14 @@ def draw_timeline_argument_property(self, context):
 
 def register():
   bpy.utils.register_class(EDMDataPanel)
+  bpy.utils.register_class(EDMEmptyLODPanel)
   bpy.utils.register_class(DopeActionProperties)
   # bpy.types.TIME_HT_header.append(draw_timeline_argument_property)
 
 def unregister():
   # bpy.types.TIME_HT_header.remove(draw_timeline_argument_property)
   bpy.utils.unregister_class(DopeActionProperties)
+  bpy.utils.unregister_class(EDMEmptyLODPanel)
   bpy.utils.unregister_class(EDMDataPanel)
 
 
