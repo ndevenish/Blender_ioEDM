@@ -440,7 +440,10 @@ class Node(BaseNode):
     # stream.mark_type_read("model::Node")
     return super(Node, cls).read(stream)
   def __repr__(self):
-    return "<Node>"
+    if not self.name:
+      return "<{}>".format(type(self).__name__)
+    else:
+      return "<{} \"{}\">".format(type(self).__name__, self.name)
 
 @reads_type("model::TransformNode")
 class TransformNode(BaseNode):
