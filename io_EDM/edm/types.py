@@ -315,9 +315,6 @@ class BaseNode(object):
   @classmethod
   def read(cls, stream):
     node = cls()
-    # Have now encountered a non-root node with a name..
-    # Which basically confirms that it has at least similar
-    # structure. Now need a third entry with a dictionary...
     node.name = stream.read_string(lookup=False)
     node.version = stream.read_uint()
     node.props = read_raw_propertiesset(stream)
@@ -333,6 +330,12 @@ class BaseNode(object):
     writer.write_string(self.name)
     writer.write_uint(self.version)
     write_propertiesset(writer, self.props)
+
+  def __repr__(self):
+    if not self.name:
+      return "<{}>".format(type(self).__name__)
+    else:
+      return "<{} \"{}\">".format(type(self).__name__, self.name)
 
 @reads_type("model::RootNode")
 class RootNode(BaseNode):
@@ -386,15 +389,6 @@ class RootNode(BaseNode):
 @reads_type("model::Node")
 class Node(BaseNode):
   category = NodeCategory.transform
-  @classmethod
-  def read(cls, stream):
-    # stream.mark_type_read("model::Node")
-    return super(Node, cls).read(stream)
-  def __repr__(self):
-    if not self.name:
-      return "<{}>".format(type(self).__name__)
-    else:
-      return "<{} \"{}\">".format(type(self).__name__, self.name)
 
 @reads_type("model::TransformNode")
 class TransformNode(BaseNode):
