@@ -148,8 +148,8 @@ class Material(object):
     self.name = ""
     self.shadows = ShadowSettings()
     self.vertex_format = None
-    self.uniforms = {}
-    self.animated_uniforms = {}
+    self.uniforms = PropertiesSet()
+    self.animated_uniforms = PropertiesSet()
     self.textures = []
 
   @classmethod
@@ -195,10 +195,10 @@ class Material(object):
       writer.write_uints([2,2,10,6])
       writer.write_matrixf(texture.matrix)
     writer.write_string("UNIFORMS")
-    write_propertiesset(writer, self.uniforms)
+    self.uniforms.write(writer)
     writer.write_string("ANIMATED_UNIFORMS")
     assert not self.animated_uniforms
-    write_propertiesset(writer, self.animated_uniforms)
+    self.animated_uniforms.write(writer)
 
   def audit(self):
     c = Counter()

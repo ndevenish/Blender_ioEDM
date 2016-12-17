@@ -1,8 +1,6 @@
 
 
 from collections import OrderedDict, Counter
-
-from .typereader import reads_type
 from .mathtypes import Vector
 
 class PropertiesSet(OrderedDict):

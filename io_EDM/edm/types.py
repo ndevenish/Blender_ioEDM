@@ -252,7 +252,7 @@ class BaseNode(object):
   def __init__(self, name=None):
     self.name = name or ""
     self.version = 0
-    self.props = {}
+    self.props = PropertiesSet()
 
   @classmethod
   def read(cls, stream):
@@ -271,7 +271,7 @@ class BaseNode(object):
   def write(self, writer):
     writer.write_string(self.name)
     writer.write_uint(self.version)
-    write_propertiesset(writer, self.props)
+    self.props.write(writer)
 
   def __repr__(self):
     if not self.name:
