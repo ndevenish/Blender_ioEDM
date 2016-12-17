@@ -64,7 +64,7 @@ class TrackingReader(BaseReader):
       print("Error at position {}".format(self.tell()))
       raise
 
-def read_string_uint_dict(stream):
+def _read_index(stream):
   """Reads a dictionary of type String : uint"""
   length = stream.read_uint()
   data = OrderedDict()
@@ -74,24 +74,12 @@ def read_string_uint_dict(stream):
     data[key] = value
   return data
 
-def write_string_uint_dict(writer, data):
+def _write_index(writer, data):
   writer.write_uint(len(data))
   keys = sorted(data.keys())
   for key in keys:
     writer.write_string(key)
     writer.write_uint(data[key])
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class EDMFile(object):
@@ -130,8 +118,8 @@ class EDMFile(object):
       reader.strings = None
 
     # Read the two indexes
-    self.indexA = read_string_uint_dict(reader)
-    self.indexB = read_string_uint_dict(reader)
+    self.indexA = _read_index(reader)
+    self.indexB = _read_index(reader)
     self.root = reader.read_named_type()
 
     self.nodes = reader.read_list(reader.read_named_type)
@@ -218,8 +206,8 @@ class EDMFile(object):
     # Do the writing
     writer.write(b'EDM')
     writer.write_ushort(8)
-    write_string_uint_dict(writer, indexA)
-    write_string_uint_dict(writer, indexB)
+    _write_index(writer, indexA)
+    _write_index(writer, indexB)
 
     # Write the Root node
     writer.write_named_type(self.root)
