@@ -5,3 +5,5 @@ __pycache__
 EDMENV
 .DS_Store
 tests/*.png
+*.blend1
+io_EDM.zip
