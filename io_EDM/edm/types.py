@@ -3,7 +3,7 @@
 # from .typereader import Property, allow_properties, reads_type
 # from collections import namedtuple
 
-from .typereader import reads_type, readMatrixf, readMatrixd, readQuaternion, readVec3d, readVec3f, readVec2f
+from .typereader import reads_type
 from .typereader import get_type_reader as _tr_get_type_reader
 from .basereader import BaseReader
 
@@ -395,9 +395,9 @@ class RootNode(BaseNode):
   def read(cls, stream):
     self = super(RootNode, cls).read(stream)
     self.unknownA = stream.read_uchar()
-    self.boundingBoxMin = readVec3d(stream)
-    self.boundingBoxMax = readVec3d(stream)
-    self.unknownB = [readVec3d(stream) for _ in range(4)]
+    self.boundingBoxMin = stream.read_vec3d()
+    self.boundingBoxMax = stream.read_vec3d()
+    self.unknownB = [stream.read_vec3d() for _ in range(4)]
     self.materials = stream.read_list(Material.read)
     stream.materials = self.materials
     self.unknownD = stream.read_uints(2)
@@ -450,7 +450,7 @@ class TransformNode(BaseNode):
   @classmethod
   def read(cls, stream):
     self = super(TransformNode, cls).read(stream)
-    self.matrix = readMatrixd(stream)
+    self.matrix = stream.read_matrixd()
     return self
 
 @reads_type("model::Bone")
@@ -458,7 +458,7 @@ class Bone(BaseNode):
   @classmethod
   def read(cls, reader):
     self = super(Bone, cls).read(reader)
-    self.data = [readMatrixd(reader), readMatrixd(reader)]
+    self.data = [reader.read_matrixd(), reader.read_matrixd()]
     return self
 
 class ArgAnimationBase(object):
@@ -471,11 +471,11 @@ class ArgAnimationBase(object):
   @classmethod
   def read(cls, stream):
     self = cls()
-    self.matrix = readMatrixd(stream)
-    self.position = readVec3d(stream)
-    self.quat_1 = readQuaternion(stream)
-    self.quat_2 = readQuaternion(stream)
-    self.scale = readVec3d(stream)
+    self.matrix = stream.read_matrixd()
+    self.position = stream.read_vec3d()
+    self.quat_1 = stream.read_quaternion()
+    self.quat_2 = stream.read_quaternion()
+    self.scale = stream.read_vec3d()
     return self
   def write(self, stream):
     stream.write_matrixd(self.matrix)
@@ -569,7 +569,7 @@ class ArgAnimatedBone(ArgAnimationNode):
   @classmethod
   def read(cls, stream):
     self = super(ArgAnimatedBone, cls).read(stream)
-    self.boneTransform = readMatrixd(stream)
+    self.boneTransform = stream.read_matrixd()
     return self
 
 @reads_type("model::ArgRotationNode")
@@ -637,7 +637,7 @@ class RotationKey(object):
   def read(cls, stream):
     self = cls()
     self.frame = stream.read_double()
-    self.value = readQuaternion(stream)
+    self.value = stream.read_quaternion()
     return self
 
   def __repr__(self):
@@ -708,7 +708,7 @@ def _read_material_texture(reader):
   assert (reader.read_int() == -1)
   name = reader.read_string()
   assert reader.read_uints(4) == (2,2,10,6)
-  matrix = readMatrixf(reader)
+  matrix = reader.read_matrixf()
   return Texture(index, name, matrix)
 
 def _read_animateduniforms(stream):

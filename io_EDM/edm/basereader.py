@@ -11,6 +11,8 @@ uint-prefixed list of some item, defined by the function passed in
 import struct
 from collections import namedtuple
 
+from .mathtypes import Vector, Matrix, Quaternion, sequence_to_matrix
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -116,8 +118,25 @@ class BaseReader(object):
       entries.append(reader(self))
     return entries
 
-  # def read_single_type(self):
-  #   """Reads a single instance of a name-prefixed type"""
-  #   typeName = self.read_string()
-  #   reader = get_type_reader(typeName)
-  #   return reader(self)
+  def read_vec2f(self):
+    return Vector(self.read_format("<ff"))
+
+  def read_vec3f(self):
+    return Vector(self.read_format("<fff"))
+
+  def read_vec3d(self):
+    return Vector(self.read_format("<ddd"))
+
+  def read_matrixf(self):
+    md = self.read_floats(16)
+    return sequence_to_matrix(md)
+
+  def read_matrixd(self):
+    md = self.read_doubles(16)
+    return sequence_to_matrix(md)
+
+  def read_quaternion(self):
+    qd = self.read_doubles(4)
+    # Reorder as osg saves xyzw and we want wxyz
+    return Quaternion([qd[3], qd[0], qd[1], qd[2]])
+
