@@ -42,7 +42,9 @@ class EDMEmptyLODPanel(DataPanel, bpy.types.Panel):
   def draw(self, context):
     if not context.object.edm.is_lod_root:
       return
-    for i, child in enumerate(context.object.children):
+    # Sort LOD children by the LOD distance
+    children = sorted(context.object.children, key=lambda x: (x.edm.lod_min_distance, x.edm.lod_max_distance))
+    for i, child in enumerate(children):
       box = self.layout.box()
       row = box.row()
 
