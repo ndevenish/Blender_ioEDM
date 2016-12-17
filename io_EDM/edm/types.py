@@ -7,6 +7,8 @@ from .typereader import reads_type
 from .typereader import get_type_reader as _tr_get_type_reader
 from .basereader import BaseReader
 
+from .material import VertexFormat
+
 from collections import namedtuple, OrderedDict, Counter
 import itertools
 import struct
@@ -35,62 +37,11 @@ class NodeCategory(Enum):
 class AnimatingNode(ABC):
   """Abstract base class for all nodes that animate the object"""
 
-_vertex_channels = {"position": 0, "normal": 1, "tex0": 4, "bones": 21}
 
 # All possible entries for indexA and indexB
 _all_IndexA = {'model::TransformNode', 'model::FakeOmniLightsNode', 'model::SkinNode', 'model::Connector', 'model::ShellNode', 'model::SegmentsNode', 'model::FakeSpotLightsNode', 'model::BillboardNode', 'model::ArgAnimatedBone', 'model::RootNode', 'model::Node', 'model::ArgAnimationNode', 'model::LightNode', 'model::LodNode', 'model::Bone', 'model::RenderNode', 'model::ArgVisibilityNode'}
 _all_IndexB = {'model::Key<key::ROTATION>', 'model::Property<float>', 'model::ArgAnimationNode::Position', '__pointers', 'model::FakeOmniLight', 'model::Key<key::SCALE>', 'model::AnimatedProperty<osg::Vec3f>', 'model::Key<key::VEC3F>', 'model::Property<osg::Vec2f>', 'model::Property<osg::Vec3f>', 'model::ArgAnimationNode::Rotation', 'model::ArgVisibilityNode::Range', 'model::Key<key::POSITION>', 'model::AnimatedProperty<osg::Vec2f>', 'model::Key<key::FLOAT>', '__ci_bytes', '__gv_bytes', 'model::ArgVisibilityNode::Arg', 'model::AnimatedProperty<float>', 'model::RNControlNode', 'model::SegmentsNode::Segments', '__gi_bytes', '__cv_bytes', 'model::Property<unsigned int>', 'model::Key<key::VEC2F>', 'model::ArgAnimationNode::Scale', 'model::LodNode::Level', 'model::PropertiesSet', 'model::FakeSpotLight'}
 
-class VertexFormat(object):
-  def __init__(self, channelData=None):
-    """Initialise vertex format. takes a byte array, numeric per-channel string, 
-    or a dictionary naming each count."""
-    if isinstance(channelData, str):
-      if len(channelData) < 26:
-        channelData = channelData + "0"*(26-len(channelData))
-      self.data = bytes(int(x) for x in channelData)
-    elif isinstance(channelData, bytes):
-      self.data = channelData
-    elif isinstance(channelData, dict):
-      assert all(x in _vertex_channels for x in channelData.keys())
-      data = bytearray(26)
-      for name, count in channelData.items():
-        data[_vertex_channels[name]] = count
-      self.data = bytes(data)
-    elif channelData is None:
-      self.data = bytes(26)
-    else:
-      self.data = channelData
-
-    self.nposition = int(self.data[0])
-    self.nnormal = int(self.data[1])
-    self.ntexture = int(self.data[4])
-  def __hash__(self):
-    return hash(self.data)
-  def __eq__(self, other):
-    return self.data == other.data
-
-  @property
-  def position_indices(self):
-    return [0,1,2]
-
-  @property
-  def normal_indices(self):
-    start = self.data[0]
-    return list(range(start, start+self.nnormal))
-
-  @property
-  def texture_indices(self):
-    start = sum(self.data[:4])
-    return list(range(start, start+self.ntexture))
-
-  def __repr__(self):
-    assert all(x < 10 for x in self.data)
-    return "VertexFormat('{}')".format("".join(str(x) for x in self.data))
-
-  def write(self, writer):
-    writer.write_uint(len(self.data))
-    writer.write(self.data)
 
 class TrackingReader(BaseReader):
   def __init__(self, *args, **kwargs):
@@ -691,17 +642,17 @@ class ArgVisibilityNode(BaseNode, AnimatingNode):
     c["model::ArgVisibilityNode::Range"] += sum(len(x[1]) for x in self.visData)
     return c
 
-def _read_material_VertexFormat(reader):
-  channels = reader.read_uint()
-  data = reader.read_uchars(channels)
-  # Which channels have data?
-  knownChannels = {0,1,4, 21}
-  dataChannels = {i: x for i, x in enumerate(data) if x != 0 and not i in knownChannels} 
-  # assert not dataChannels, "Unknown vertex data channels"
-  if dataChannels:
-    print("Warning: Vertex channel data in unrecognised channels: {}".format(dataChannels))
-  vf = VertexFormat(data)
-  return vf
+# def _read_material_VertexFormat(reader):
+#   channels = reader.read_uint()
+#   data = reader.read_uchars(channels)
+#   # Which channels have data?
+#   knownChannels = {0,1,4, 21}
+#   dataChannels = {i: x for i, x in enumerate(data) if x != 0 and not i in knownChannels} 
+#   # assert not dataChannels, "Unknown vertex data channels"
+#   if dataChannels:
+#     print("Warning: Vertex channel data in unrecognised channels: {}".format(dataChannels))
+#   vf = VertexFormat(data)
+#   return vf
 
 def _read_material_texture(reader):
   index = reader.read_uint()
@@ -732,7 +683,7 @@ _material_entry_lookup = {
   "MATERIAL_NAME": lambda x: x.read_string(),
   "NAME": lambda x: x.read_string(),
   "SHADOWS": lambda x: ShadowSettings(x.read_uchar()),
-  "VERTEX_FORMAT": _read_material_VertexFormat,
+  "VERTEX_FORMAT": VertexFormat.read,
   "UNIFORMS": read_propertyset,
   "ANIMATED_UNIFORMS": _read_animateduniforms,
   "TEXTURES": lambda x: x.read_list(_read_material_texture)
