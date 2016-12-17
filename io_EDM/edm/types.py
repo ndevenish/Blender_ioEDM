@@ -7,7 +7,8 @@ from .typereader import reads_type
 from .typereader import get_type_reader as _tr_get_type_reader
 from .basereader import BaseReader
 
-from .material import VertexFormat
+from .material_types import VertexFormat, Material, Texture
+from .propertiesset import PropertiesSet
 
 from collections import namedtuple, OrderedDict, Counter
 import itertools
@@ -21,9 +22,6 @@ from enum import Enum
 import logging
 logger = logging.getLogger(__name__)
 
-# VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
-Texture = namedtuple("Texture", ["index", "name", "matrix"])
-
 class NodeCategory(Enum):
   """Enum to describe what file-category the node is in"""
   transform = "transform"
@@ -31,8 +29,6 @@ class NodeCategory(Enum):
   render = "RENDER_NODES"
   shell = "SHELL_NODES"
   light = "LIGHT_NODES"
-
-
 
 class AnimatingNode(ABC):
   """Abstract base class for all nodes that animate the object"""
@@ -43,6 +39,13 @@ _all_IndexA = {'model::TransformNode', 'model::FakeOmniLightsNode', 'model::Skin
 _all_IndexB = {'model::Key<key::ROTATION>', 'model::Property<float>', 'model::ArgAnimationNode::Position', '__pointers', 'model::FakeOmniLight', 'model::Key<key::SCALE>', 'model::AnimatedProperty<osg::Vec3f>', 'model::Key<key::VEC3F>', 'model::Property<osg::Vec2f>', 'model::Property<osg::Vec3f>', 'model::ArgAnimationNode::Rotation', 'model::ArgVisibilityNode::Range', 'model::Key<key::POSITION>', 'model::AnimatedProperty<osg::Vec2f>', 'model::Key<key::FLOAT>', '__ci_bytes', '__gv_bytes', 'model::ArgVisibilityNode::Arg', 'model::AnimatedProperty<float>', 'model::RNControlNode', 'model::SegmentsNode::Segments', '__gi_bytes', '__cv_bytes', 'model::Property<unsigned int>', 'model::Key<key::VEC2F>', 'model::ArgAnimationNode::Scale', 'model::LodNode::Level', 'model::PropertiesSet', 'model::FakeSpotLight'}
 
 
+def get_type_reader(name):
+  _readfun = _tr_get_type_reader(name)
+  def _reader(reader):
+    reader.typecount[name] += 1
+    return _readfun(reader)
+  return _reader
+
 class TrackingReader(BaseReader):
   def __init__(self, *args, **kwargs):
     self.typecount = Counter()
@@ -52,23 +55,14 @@ class TrackingReader(BaseReader):
   def mark_type_read(self, name, amount=1):
     self.typecount[name] += amount
 
-def get_type_reader(name):
-  _readfun = _tr_get_type_reader(name)
-  def _reader(reader):
-    reader.typecount[name] += 1
-    return _readfun(reader)
-  return _reader
-
-def read_named_type(reader):
-  """Reads a typename, and then reads the type named"""
-  typename = reader.read_string()
-  # reader.typecount[typename] += 1
-  # reader.autoTypeCount[typename] += 1
-  try:
-    return get_type_reader(typename)(reader)
-  except KeyError:
-    print("Error at position {}".format(reader.tell()))
-    raise
+  def read_named_type(self, selfOrNone=None):
+    assert selfOrNone is None or selfOrNone is self
+    typeName = self.read_string()
+    try:
+      return get_type_reader(typeName)(self)
+    except KeyError:
+      print("Error at position {}".format(self.tell()))
+      raise
 
 def read_string_uint_dict(stream):
   """Reads a dictionary of type String : uint"""
@@ -87,57 +81,17 @@ def write_string_uint_dict(writer, data):
     writer.write_string(key)
     writer.write_uint(data[key])
 
-def read_propertyset(stream):
-  """Reads a typed list of properties and returns as an ordered dict"""
-  data = read_raw_propertiesset(stream)
-  if data:
-    stream.mark_type_read("model::PropertiesSet")
-  return data
 
 
-def read_raw_propertiesset(stream):
-  # Read the potential Propertiesset-like dictionary
-  length = stream.read_uint()
-  data = OrderedDict()
-  for _ in range(length):
-    prop = read_named_type(stream)
-    if hasattr(prop, "keys"):
-      data[prop.name] = prop.keys
-    else:
-      data[prop.name] = prop.value
-  return data
 
-def write_propertiesset(writer, props):
-  writer.write_uint(len(props))
-  for key, value in props.items():
-    if type(value) == float:
-      writer.write_string("model::Property<float>")
-      writer.write_string(key)
-      writer.write_float(value)
-    elif type(value) == int:
-      writer.write_string("model::Property<unsigned int>")
-      writer.write_string(key)
-      writer.write_uint(value)
-    elif type(value) == Vector:
-      typeName = "model::Property<osg::Vec{}f>".format(len(value))
-      writer.write_string(typeName)
-      writer.write_string(key)
-      writer.write_vecf(value)
-    else:
-      raise IOError("Don't know how to write property {}/{}".format(value, type(value)))
 
-def audit_properties_set(props):
-  c = Counter()
-  for entry in props.values():
-    if isinstance(entry, Vector):
-      c["model::Property<osg::Vec{}f>".format(len(entry))] += 1
-    elif isinstance(entry, int):
-      c["model::Property<unsigned int>"] += 1
-    elif isinstance(entry, float):
-      c["model::Property<float>"] += 1
-    else:
-      raise IOError("Do not know how to write uniform property {}".format(entry))
-  return c
+
+
+
+
+
+
+
 
 
 class EDMFile(object):
@@ -178,9 +132,9 @@ class EDMFile(object):
     # Read the two indexes
     self.indexA = read_string_uint_dict(reader)
     self.indexB = read_string_uint_dict(reader)
-    self.root = read_named_type(reader)
+    self.root = reader.read_named_type()
 
-    self.nodes = reader.read_list(read_named_type)
+    self.nodes = reader.read_list(reader.read_named_type)
 
     # Read the node parenting data
     for (node, parent) in zip(self.nodes, reader.read_ints(len(self.nodes))):
@@ -196,7 +150,7 @@ class EDMFile(object):
       objects = {}
       for _ in range(count):
         name = stream.read_string()
-        objects[name] = stream.read_list(read_named_type)
+        objects[name] = stream.read_list(reader.read_named_type)
       return objects
 
     # Read the renderable objects
@@ -317,13 +271,13 @@ class BaseNode(object):
     node = cls()
     node.name = stream.read_string(lookup=False)
     node.version = stream.read_uint()
-    node.props = read_raw_propertiesset(stream)
+    node.props = PropertiesSet.read(stream, count=False)
     return node
 
   def audit(self):
     c = Counter()
     if self.props:
-      c += audit_properties_set(self.props)
+      c += self.props.audit()
     return c
 
   def write(self, writer):
@@ -636,162 +590,6 @@ class ArgVisibilityNode(BaseNode, AnimatingNode):
     c["model::ArgVisibilityNode::Range"] += sum(len(x[1]) for x in self.visData)
     return c
 
-# def _read_material_VertexFormat(reader):
-#   channels = reader.read_uint()
-#   data = reader.read_uchars(channels)
-#   # Which channels have data?
-#   knownChannels = {0,1,4, 21}
-#   dataChannels = {i: x for i, x in enumerate(data) if x != 0 and not i in knownChannels} 
-#   # assert not dataChannels, "Unknown vertex data channels"
-#   if dataChannels:
-#     print("Warning: Vertex channel data in unrecognised channels: {}".format(dataChannels))
-#   vf = VertexFormat(data)
-#   return vf
-
-def _read_material_texture(reader):
-  index = reader.read_uint()
-  assert (reader.read_int() == -1)
-  name = reader.read_string()
-  assert reader.read_uints(4) == (2,2,10,6)
-  matrix = reader.read_matrixf()
-  return Texture(index, name, matrix)
-
-def _read_animateduniforms(stream):
-  length = stream.read_uint()
-  data = OrderedDict()
-  for _ in range(length):
-    prop = read_named_type(stream)
-    data[prop.name] = prop
-  return data
-
-def _read_texture_coordinates_channels(stream):
-  count = stream.read_uint()
-  return stream.read_ints(count)
-
-# Lookup table for material reading types
-_material_entry_lookup = {
-  "BLENDING": lambda x: x.read_uchar(),
-  "CULLING" : lambda x: x.read_uchar(),
-  "DEPTH_BIAS": lambda x: x.read_uint(),
-  "TEXTURE_COORDINATES_CHANNELS": _read_texture_coordinates_channels,
-  "MATERIAL_NAME": lambda x: x.read_string(),
-  "NAME": lambda x: x.read_string(),
-  "SHADOWS": lambda x: ShadowSettings(x.read_uchar()),
-  "VERTEX_FORMAT": VertexFormat.read,
-  "UNIFORMS": read_propertyset,
-  "ANIMATED_UNIFORMS": _read_animateduniforms,
-  "TEXTURES": lambda x: x.read_list(_read_material_texture)
-}
-
-class ShadowSettings(object):
-  def __init__(self, value=None, **kwargs):
-    if value is not None:
-      assert value <= 7, "Only understand first three shadow flags"
-      self.cast = bool(value & 1)
-      self.receive = bool(value & 2)
-      self.cast_only = bool(value & 4)
-    else:
-      self.cast = kwargs.get("cast", False)
-      self.receive = kwargs.get("receive", False)
-      self.cast_only = kwargs.get("cast_only", False)
-
-  @property
-  def value(self):
-    return (1 if self.cast else 0) + \
-           (2 if self.recieve else 0) + \
-           (4 if self.cast_only else 0)
-
-  def __repr__(self):
-    args = []
-    if self.cast:
-      args.append("cast=True")
-    if self.receive:
-      args.append("recieve=True")
-    if self.cast_only:
-      args.append("cast_only=True")
-    return "ShadowSettings(" + ", ".join(args) + ")"
-
-class Material(object):
-  def __init__(self):
-    self.blending = 0
-    self.culling = 0
-    self.depth_bias = 0
-    self.texture_coordinates_channels = None
-    self.material_name = ""
-    self.name = ""
-    self.shadows = ShadowSettings()
-    self.vertex_format = None
-    self.uniforms = {}
-    self.animated_uniforms = {}
-    self.textures = []
-
-  @classmethod
-  def read(cls, stream):
-    self = cls()
-    props = OrderedDict()
-    for _ in range(stream.read_uint()):
-      name = stream.read_string()
-      props[name] = _material_entry_lookup[name](stream)
-    for k, i in props.items():
-      setattr(self, k.lower(), i)
-    self.props = props
-    return self
-
-  def write(self, writer):
-    #  'TEXTURES', 'UNIFORMS', 'ANIMATED_UNIFORMS'])
-    writer.write_uint(10)
-    writer.write_string("BLENDING")
-    writer.write_uchar(self.blending)
-    # writer.write_string("CULLING")
-    # writer.write_uchar(self.culling)
-    writer.write_string("DEPTH_BIAS")
-    writer.write_uint(self.depth_bias)
-    if self.vertex_format:
-      writer.write_string("VERTEX_FORMAT")
-      self.vertex_format.write(writer)
-    writer.write_string("TEXTURE_COORDINATES_CHANNELS")
-    tcc = (0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
-    writer.write_uint(len(tcc))
-    writer.write_ints(tcc)
-    writer.write_string("MATERIAL_NAME")
-    writer.write_string(self.material_name)
-    writer.write_string("NAME")
-    writer.write_string(self.name.replace(".", "_"))
-    writer.write_string("SHADOWS")
-    writer.write_uchar(self.shadows.value)
-    writer.write_string("TEXTURES")
-    writer.write_uint(len(self.textures))
-    for texture in self.textures:
-      writer.write_uint(texture.index)
-      writer.write_int(-1)
-      writer.write_string(texture.name.lower())
-      writer.write_uints([2,2,10,6])
-      writer.write_matrixf(texture.matrix)
-    writer.write_string("UNIFORMS")
-    write_propertiesset(writer, self.uniforms)
-    writer.write_string("ANIMATED_UNIFORMS")
-    assert not self.animated_uniforms
-    write_propertiesset(writer, self.animated_uniforms)
-
-  def audit(self):
-    c = Counter()
-    if self.uniforms:
-      c["model::PropertiesSet"] = 1
-      c += audit_properties_set(self.uniforms)
-    if self.animated_uniforms:
-      for entry in self.animated_uniforms.values():
-        typeEntry = entry.keys[0].value
-        if isinstance(typeEntry, float):
-          c["model::AnimatedProperty<float>"] += 1
-          c["model::Key<key::FLOAT>"] += len(entry.keys)
-        elif isinstance(typeEntry, Vector):
-          vLen = len(typeEntry)
-          c["model::AnimatedProperty<osg::Vec{}f>".format(vLen)] += 1
-          c["model::Key<key::VEC{}F>".format(vLen)] += len(entry.keys)
-        else:
-          raise IOError("Have not encountered writing animated property of type {}/{}".format(entry, type(entry)))          
-    return c
-
 @reads_type("model::LodNode")
 class LodNode(Node):
   @classmethod
@@ -815,8 +613,6 @@ class Connector(BaseNode):
     self.parent = stream.read_uint()
     self.data = stream.read_uint()
     return self
-
-uint_negative_one = struct.unpack("<I", struct.pack("<i", -1))[0]
 
 def _read_index_data(stream, classification=None):
   "Performs the common index-reading operation"
