@@ -1,0 +1,268 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Developers &mdash; Blender_ioEDM 0.2.0 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="genindex.html"/>
+        <link rel="search" title="Search" href="search.html"/>
+    <link rel="top" title="Blender_ioEDM 0.2.0 documentation" href="index.html"/>
+        <link rel="next" title="EDM Specification" href="EDM_Specification.html"/>
+        <link rel="prev" title="Materials" href="modelling/materials.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Blender_ioEDM
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.2.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modelling.html">Modelling Concepts</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Developers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="EDM_Specification.html">EDM Specification</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">Blender_ioEDM</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">Docs</a> &raquo;</li>
+      
+    <li>Developers</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/developers.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="developers">
+<h1>Developers<a class="headerlink" href="#developers" title="Permalink to this headline">¶</a></h1>
+<p>This section is information about the Addon and <code class="docutils literal"><span class="pre">.edm</span></code> file format that you
+only need if you want to work directly in some way with the addon code or
+interpreting the file yourself.</p>
+<p>Source code is available on Github, at <a class="reference external" href="https://github.com/ndevenish/Blender_ioEDM">https://github.com/ndevenish/Blender_ioEDM</a>.
+Current development may be on <code class="docutils literal"><span class="pre">master</span></code>, or may be on a specific working branch,
+depending on what is currently in progress.</p>
+<p>Notes on development:</p>
+<ul class="simple">
+<li>There is a <cite>read.py</cite> file that can be used to launch blender with an instant
+import, to be used e.g. <cite>blender &#8211;python read.py &#8211; edmfile.EDM</cite>. This makes
+the cycle of change/debug/rewrite more manageable</li>
+<li>There is also a <cite>write.py</cite>. Use as
+<cite>blender &lt;filename&gt;.blend &#8211;python write.py</cite> and the writer will be run on
+the contents of the loaded blender file.</li>
+<li>Several useful scripts in <cite>utils</cite>. <cite>read_all.py</cite> reads every .edm file in an
+<cite>all_edms/</cite> subdirectory (useful itself as a verification), removes the raw
+vertex and index data, and pickles the entire result into <cite>dump.dat</cite>. The
+script <cite>read_dump.py</cite> opens this file, defines some useful functions and
+then opens an interpreter (with the local variable <cite>data</cite>). This allows
+inspection of a large subset (or every single .edm file) simultaneously.</li>
+<li>All of the file-&gt;Blender conversion is done in io_EDM.reader, and most of
+the actual functionality is currently in one large function,
+<cite>create_object</cite></li>
+<li>All parsing of the binary data is done in the <cite>io_EDM.edm</cite> sub-package, and
+is at time of writing separate from Blenders API - although if the API is
+available, the <cite>bpy.mathutils</cite> module is used for
+<cite>Vector</cite>/<cite>Matrix</cite>/<cite>Quaternion</cite> representations. Most of the edm-specific
+reading is done in <cite>io_EDM.edm.types</cite> module, starting with the <cite>EDMFile</cite>
+class <cite>__init__</cite>.</li>
+<li>A summary of the knowledge gained about the <cite>.EDM</cite> file format can be found
+in the <cite>EDM_Specification.md</cite> file also located in this repository.</li>
+</ul>
+<p>In addition, there are several unanswered questions regarding the contents of
+the edm file, including:</p>
+<ul class="simple">
+<li>Exactly how are the animation transformations applied, and the purpose of
+the &#8216;second quaternion&#8217; in the <cite>ArgAnimationNode</cite> common base data</li>
+<li>The <cite>model::RenderNode</cite> objects have a structure mapping vertex data to
+parent data, via <cite>RNControlNode</cite> objects - but there are situations where
+this is not understood (e.g. single-parent but a value in the second field,
+meaning of third field for multi-parent objects, why single-parent objects are
+not counted as control nodes...)</li>
+<li>The interpretation of the material &#8220;TEXTURE_COORDINATES_CHANNELS&#8221;</li>
+<li>Lots of other details needed on the occasional unknown datablock</li>
+</ul>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="EDM_Specification.html">EDM Specification</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="EDM_Specification.html#reading-type-definitions">Reading Type definitions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="EDM_Specification.html#basic-types-and-structures">Basic types and Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="EDM_Specification.html#file-level-structure">File-level Structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="EDM_Specification.html#named-types">Named Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="EDM_Specification.html#material"><code class="docutils literal"><span class="pre">Material</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="EDM_Specification.html#nodes">Nodes</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="EDM_Specification.html" class="btn btn-neutral float-right" title="EDM Specification" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="modelling/materials.html" class="btn btn-neutral" title="Materials" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Nicholas Devenish.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'0.2.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
