@@ -114,7 +114,11 @@ class TranslationGraph(object):
     def _walk_node(node):
       ret = walker(node)
       if isgenerator(ret):
-        next(ret)
+        try:
+          next(ret)
+        except StopIteration:
+          # Is a generator, but only one return value for this node
+          ret = None
       for child in list(node.children):
         _walk_node(child)
       # If this was a generator, we need to call again but this must be the
