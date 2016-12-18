@@ -22,10 +22,11 @@ class TranslationNode(object):
   def name(self):
     if self.blender:
       return "bl:" + self.blender.name
+    elif self.render and self.render.name:
+      prefixLookup = {"transform": "tf", "CONNECTORS": "cn", "RENDER_NODES": "rn", "SHELL_NODES": "shell", "LIGHT_NODES": "light"}
+      return prefixLookup[self.render.category.value] + ":" + self.render.name
     elif self.transform and self.transform.name:
       return "tf:" + self.transform.name
-    elif self.render and self.render.name:
-      return "rn:" + self.render.name
     else:
       parts = []
       if self.blender:

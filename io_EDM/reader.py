@@ -20,6 +20,7 @@ import re
 import glob
 import fnmatch
 import os
+import itertools
 
 FRAME_SCALE = 100
 
@@ -32,6 +33,10 @@ def iterate_renderNodes(edmFile):
         yield child
     else:
       yield node
+
+def iterate_all_objects(edmFile):
+  for node in itertools.chain(iterate_renderNodes(edmFile), edmFile.connectors, edmFile.shellNodes, edmFile.lightNodes):
+    yield node
 
 def build_graph(edmFile):
   "Build a translation graph object from an EDM file"
@@ -57,11 +62,10 @@ def build_graph(edmFile):
   assert len([x for x in graph.nodes if not x.parent]) == 1, "More than one root node after reading EDM"
 
   # Connect every renderNode to it's place in the chain
-  for node in iterate_renderNodes(edmFile):
-    if not isinstance(node, RenderNode):
-      print("Warning: Don't know yet how to process nodes of type {}".format(type(node).__name__))
+  for node in iterate_all_objects(edmFile):
+    if not hasattr(node, "parent"):
+      print("Warning: Node {} has no parent attribute; skipping".format(node))
       continue
-    
     owner = nodeLookup[node.parent]
     newNode = TranslationNode()
     newNode.render = node
