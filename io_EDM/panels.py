@@ -52,9 +52,10 @@ class EDMEmptyLODPanel(DataPanel, bpy.types.Panel):
       row.prop(child.edm, "nouse_lod_distance")
 
       box.prop(child.edm, "lod_min_distance")
-      row = box.row()
-      row.active = not child.edm.nouse_lod_distance
-      row.prop(child.edm, "lod_max_distance")
+      if not child.edm.nouse_lod_distance:
+        row = box.row()
+        row.active = not child.edm.nouse_lod_distance
+        row.prop(child.edm, "lod_max_distance")
 
 class DopeActionProperties(bpy.types.Panel):
   """Creates a Panel in the Object properties window"""
