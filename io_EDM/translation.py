@@ -4,6 +4,8 @@ translation.py
 Holds the translation tree that we use to step to/from blender/edm forms
 """
 
+from inspect import isgenerator
+
 from .utils import get_all_parents, get_root_object
 
 
@@ -105,11 +107,25 @@ class TranslationGraph(object):
     The parent is guaranteed to be initialised before the child. Any changes
     to the collection of children of the active node are respected, and the
     children will be walked. It is also safe to insert  additional parents
-    between the original and the current node. Anything else is undefined."""
+    between the original and the current node. Anything else is undefined.
+
+    If the walker function is a generator, it will be called twice; once
+    before, and once after the children are walked."""
     def _walk_node(node):
-      walker(node)
+      ret = walker(node)
+      if isgenerator(ret):
+        next(ret)
       for child in list(node.children):
         _walk_node(child)
+      # If this was a generator, we need to call again but this must be the
+      # last time
+      if isgenerator(ret):
+        try:
+          next(ret)
+        except StopIteration:
+          pass
+        else:
+          raise RuntimeError("Tree walker generator did not terminate on second call")
 
     if include_root:
       _walk_node(self.root)
