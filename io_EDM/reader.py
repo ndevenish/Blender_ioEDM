@@ -136,7 +136,9 @@ def process_node(node):
       actions = get_actions_for_node(node.transform)
       if len(actions) > 1:
         print("Warning: More than one action for node not yet integrated")
-
+      if actions:
+        node.blender.animation_data_create()
+        node.blender.animation_data.action = actions[0]
     # Apply the transformation base
     apply_node_transform(node.transform, node.blender)
 
