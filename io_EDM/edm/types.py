@@ -338,7 +338,7 @@ class Node(BaseNode):
   category = NodeCategory.transform
 
 @reads_type("model::TransformNode")
-class TransformNode(BaseNode):
+class TransformNode(Node):
   @classmethod
   def read(cls, stream):
     self = super(TransformNode, cls).read(stream)
@@ -346,7 +346,7 @@ class TransformNode(BaseNode):
     return self
 
 @reads_type("model::Bone")
-class Bone(BaseNode):
+class Bone(Node):
   @classmethod
   def read(cls, reader):
     self = super(Bone, cls).read(reader)
@@ -377,7 +377,7 @@ class ArgAnimationBase(object):
     stream.write_vec3d(self.scale)
 
 @reads_type("model::ArgAnimationNode")
-class ArgAnimationNode(BaseNode, AnimatingNode):
+class ArgAnimationNode(Node, AnimatingNode):
   def __init__(self, *args, **kwargs):
     super(ArgAnimationNode, self).__init__(*args, **kwargs)
     self.base = ArgAnimationBase()
@@ -561,7 +561,7 @@ class ScaleKey(object):
     return "Key(frame={}, value={})".format(self.frame, repr(self.value))
 
 @reads_type("model::ArgVisibilityNode")
-class ArgVisibilityNode(BaseNode, AnimatingNode):
+class ArgVisibilityNode(Node, AnimatingNode):
   @classmethod
   def read(cls, stream):
     self = super(ArgVisibilityNode, cls).read(stream)
