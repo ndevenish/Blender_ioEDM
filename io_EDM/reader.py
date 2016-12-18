@@ -10,9 +10,7 @@ import bmesh
 from .utils import chdir
 from .edm import EDMFile
 from .edm.mathtypes import *
-from .edm.types import (AnimatingNode, ArgAnimationNode,
-  ArgRotationNode, ArgPositionNode, ArgVisibilityNode, Node, TransformNode,
-  RenderNode, SkinNode)
+from .edm.types import *
 
 from .translation import TranslationGraph, TranslationNode
 
@@ -20,6 +18,7 @@ import re
 import glob
 import fnmatch
 import os
+import itertools
 
 FRAME_SCALE = 100
 
@@ -32,6 +31,10 @@ def iterate_renderNodes(edmFile):
         yield child
     else:
       yield node
+
+def iterate_all_objects(edmFile):
+  for node in itertools.chain(iterate_renderNodes(edmFile), edmFile.connectors, edmFile.shellNodes, edmFile.lightNodes):
+    yield node
 
 def build_graph(edmFile):
   "Build a translation graph object from an EDM file"
@@ -57,11 +60,10 @@ def build_graph(edmFile):
   assert len([x for x in graph.nodes if not x.parent]) == 1, "More than one root node after reading EDM"
 
   # Connect every renderNode to it's place in the chain
-  for node in iterate_renderNodes(edmFile):
-    if not isinstance(node, RenderNode):
-      print("Warning: Don't know yet how to process nodes of type {}".format(type(node).__name__))
+  for node in iterate_all_objects(edmFile):
+    if not hasattr(node, "parent"):
+      print("Warning: Node {} has no parent attribute; skipping".format(node))
       continue
-    
     owner = nodeLookup[node.parent]
     newNode = TranslationNode()
     newNode.render = node
@@ -93,17 +95,60 @@ def build_graph(edmFile):
 
   return graph
 
+
+def process_node(node):
+  """Processes a single node of the transform graph"""
+  # Root node has no processing
+  if node.parent is None:
+    return
+
+  # Potentially two parts to transformation;
+  #   - building the blender world object
+  #   - building the transform node
+  #   - Applying the transform node to the world object
+  # Without a transform node, we can just safely parent onto the next blender
+  # world object up the chain.
+
+  # First, create the blender object to apply the animations/transform to
+  if node.render:
+    if isinstance(node.render, Connector):
+      node.blender = create_connector(node.render)
+    elif isinstance(node.render, (RenderNode, ShellNode)):
+      node.blender = create_object(node.render)
+    else:
+      print("Warning: No case yet for object node {}".format(node))
+  else:
+    # In cases where we have a transformation node, but no directly associated
+    # render object, we are probably at the root of a tree of other items.
+    # Create an empty object to act as the parent of this sub-tree
+    ob = bpy.data.objects.new(type(node.transform).__name__, None)
+    ob.empty_draw_size = 0.1
+    bpy.context.scene.objects.link(ob)
+    node.blender = ob
+
+  # Connect this object to the parent object (if there is one)
+  if node.parent.blender:
+    node.blender.parent = node.parent.blender
+
+  if node.transform:
+    # Now, apply the animation, if there is one
+    if isinstance(node.transform, AnimatingNode):
+      actions = get_actions_for_node(node.transform)
+      if len(actions) > 1:
+        print("Warning: More than one action for node not yet integrated")
+      if actions:
+        node.blender.animation_data_create()
+        node.blender.animation_data.action = actions[0]
+    # Apply the transformation base
+    apply_node_transform(node.transform, node.blender)
+
+
 def read_file(filename, options={}):
   # Parse the EDM file
   edm = EDMFile(filename)
   edm.postprocess()
 
-  # WIP - use a translation graph to read. For now, just use it to print 
-  # the file structure
-  graph = build_graph(edm)
-  graph.print_tree()
-
-  # Must have negative frames
+  # Set the required blender preferences
   bpy.context.user_preferences.edit.use_negative_frames = True
   bpy.context.scene.use_preview_range = True
   bpy.context.scene.frame_preview_start = -100
@@ -118,104 +163,13 @@ def read_file(filename, options={}):
       if material.blender_material and options.get("shadeless", False):
         material.blender_material.use_shadeless = True
 
-  # Prepare the animation/transformation nodes
-  for node in edm.nodes:
-    node.children = []
-    node.objects = []
-    node.actions = get_actions_for_node(node)
+  # WIP - use a translation graph to read. For now, just use it to print 
+  # the file structure
+  graph = build_graph(edm)
+  graph.print_tree()
 
-  # Convert all the connectors!
-  for connector in edm.connectors:
-    obj = create_connector(connector)
-    # Add this to the bulk collection of elements to apply
-    connector.parent.objects.append(obj)
-
-  # Build a tree of nodes/children so we can iterate top-down
-  roots = []
-  for node in edm.nodes:
-    if node.parent:
-      node.parent.children.append(node)
-    else:
-      roots.append(node)
-  # Should only ever have one root node, and this should be a model::Node.
-  # If this is ever not the case, we'll have to merge them, but just protect
-  # against this case for now.
-  assert len(roots) == 1, "More than one root node in transform graph"
-
-  # Go through all render nodes, create the objects, and add to it's transform parent
-  for node in edm.renderNodes:
-    # Skip non-rendernodes for now
-    if not isinstance(node, RenderNode):
-      continue
-    # If this renderNode hasn't been split, treat it as a single-child list
-    if node.children:
-      sub_nodes = node.children
-      group = bpy.data.groups.new(node.name)
-    else:
-      sub_nodes = [node]
-      group = None
-
-    for child in sub_nodes:
-      obj = create_object(child)
-      child.parent.objects.append(obj)
-      if group:
-        group.objects.link(obj)
-
-
-  # If ROOT node:
-  #   - No surrogate
-  # Otherwise:
-  #   - If any objects, largest is the surrogate
-  #   - If no objects, surrogate empty is created, and added to objects
-  #   - every object's parent is set to the parent node's surrogate
-  #   - Every child transform is applied
-  def _process_transform_node(node, prefix=None, last=False):
-    if prefix is None:
-      firstPre = ""
-      prefix = ""
-    else:
-      firstPre = prefix + (" `-" if last else " |-")
-      prefix = prefix + ("   " if last else " | ")
-
-    print(firstPre + repr(node))
-
-    if not node.parent:
-      # This is a root node. All children are directly embedded in the world
-      # and so need no further processing
-      node.surrogate = None
-      # for child in node.children:
-      #   _process_transform_node(child, prefix, child is node.children[-1])
-    else:
-      # Check we need anything
-      if not node.objects and not node.children:
-        print(prefix + "WARNING: Found transform node with no dependent objects or children")
-      # Any node may have a surrogate - this is an object that acts as a parent
-      # for any child node's objects. Only need a surrogate if there are children
-      if node.children:
-        if node.objects:
-          # Use an object if we have any
-          surrogate = sorted(node.objects, key=lambda x: x.dimensions[0]*x.dimensions[1]*x.dimensions[2])[-1]
-        else:
-          # Create one
-          surrogate = bpy.data.objects.new("Surr_{}".format(type(node).__name__), None)
-          bpy.context.scene.objects.link(surrogate)
-          apply_transform_or_animation_node(node, surrogate)
-          node.objects.append(surrogate)
-        node.surrogate = surrogate
-      # Associate any objects with the parent's surrogate
-      for obj in node.objects:
-        oPre = " `-" if obj is node.objects[-1] else " |-"
-        obj.parent = node.parent.surrogate
-        isSurrogate = (obj is node.surrogate) if hasattr(node, "surrogate") else False
-        print(prefix + oPre + "bObject: " + obj.name + ("<Surrogate>" if isSurrogate else ""))
-
-    # Now process any children
-    for child in node.children:
-      _process_transform_node(child, prefix, child is node.children[-1])
-
-  # Process all parenting for this tree
-  print("Building tree from transformation nodes:")
-  _process_transform_node(roots[0])
+  # Walk through every node, and do the node processing
+  graph.walk_tree(process_node)
 
   # Update the scene
   bpy.context.scene.update()
@@ -405,13 +359,7 @@ def get_actions_for_node(node):
     # Save these actions on the node
     node.actions = actions
 
-  # For now, only use the first action until we are doing NLA stuff
-  if len(actions) > 1:
-    print("WARNING: More than one action generated by node, but not yet implemented")
-  if actions:
-    return [actions[0]]
-  return []
-
+  return actions
 
 
 def _find_texture_file(name):
@@ -494,63 +442,49 @@ def create_material(material):
 
 def create_connector(connector):
   """Create an empty object representing a connector"""
-
-  # Create a new empty object with a cube representation
   ob = bpy.data.objects.new(connector.name, None)
   ob.empty_draw_type = "CUBE"
-  ob.empty_draw_size = 0.01
+  ob.empty_draw_size = 0.1
   ob.edm.is_connector = True
   bpy.context.scene.objects.link(ob)
-  apply_transform_or_animation_node(connector.parent, ob)
   return ob
 
-def apply_transform_or_animation_node(node, obj):
-  if isinstance(node, AnimatingNode):
-    obj.animation_data_create()
-    # Get or create actions
-    actions = get_actions_for_node(node)
-    # This will go away eventually, but for now should be tested in sub function
-    assert len(actions) <= 1
-    # Set the base transform, if we have one
-    if hasattr(node, "zero_transform"):
-      # Set the basis position
-      obj.location, obj.rotation_quaternion, obj.scale = node.zero_transform
-    if actions:
-      obj.animation_data.action = actions[0]
-  elif isinstance(node, Node):
-    pass
-  elif isinstance(node, TransformNode):
-    loc, rot, sca = matrix_to_blender(node.matrix).decompose()
-    obj.rotation_mode = "QUATERNION"
-    obj.location = loc
+def apply_node_transform(node, obj):
+  """Assigns the transform to a given node"""
+  assert node.category is NodeCategory.transform
+
+  obj.rotation_mode = "QUATERNION"
+
+  if isinstance(node, TransformNode):
+    loc, rot, scale = matrix_to_blender(node.matrix).decompose()
+    obj.location            = loc
     obj.rotation_quaternion = rot
-    obj.scale = sca
-  else:
-    print("WARNING: {} not applied".format(node))
+    obj.scale               = scale
+  elif isinstance(node, AnimatingNode):
+    if hasattr(node, "zero_transform"):
+      obj.location, obj.rotation_quaternion, obj.scale = node.zero_transform
+    elif not isinstance(node, ArgVisibilityNode):
+      # Vis nodes don't have transforms, but otherwise they should
+      print("Warning: Transform {} has no zero-tranform".format(node))
 
 
-def create_object(renderNode):
-  """Does most of the work creating a blender object from a renderNode"""
-
-  if not isinstance(renderNode, RenderNode):
-    print("WARNING: Do not understand creating types {} yet".format(type(renderNode)))
-    return
+def _create_mesh(vertexData, indexData, vertexFormat):
+  """Creates a blender mesh object from vertex, index and format data"""
 
   # We need to reduce the vertex set to match the index set
-  all_index = sorted(list(set(renderNode.indexData)))
-  new_vertices = [renderNode.vertexData[x] for x in all_index]
+  all_index = sorted(list(set(indexData)))
+  new_vertices = [vertexData[x] for x in all_index]
   # new_indices = [i for i, _ in enumerate(all_index)]
   indexMap = {idx: i for i, idx in enumerate(all_index)}
-  new_indices = [indexMap[x] for x in renderNode.indexData]
+  new_indices = [indexMap[x] for x in indexData]
   # Make sure we have the right number of indices...
   assert len(new_indices) % 3 == 0
-
 
   bm = bmesh.new()
 
   # Extract where the indices are
-  posIndex = renderNode.material.vertex_format.position_indices
-  normIndex = renderNode.material.vertex_format.normal_indices
+  posIndex = vertexFormat.position_indices
+  normIndex = vertexFormat.normal_indices
   # Create the BMesh vertices, optionally with normals
   for i, vtx in enumerate(new_vertices):
     pos = vector_to_blender(Vector(vtx[x] for x in posIndex))
@@ -561,7 +495,7 @@ def create_object(renderNode):
   bm.verts.ensure_lookup_table()
 
   # Prepare for texture information
-  uvIndex = renderNode.material.vertex_format.texture_indices
+  uvIndex = vertexFormat.texture_indices
   if uvIndex:
     # Ensure a UV layer exists before creating faces
     uv_layer = bm.loops.layers.uv.verify()
@@ -580,21 +514,33 @@ def create_object(renderNode):
     except ValueError as e:
       print("Error: {}".format(e))
 
-  # Put the mesh data into the scene
-  mesh = bpy.data.meshes.new(renderNode.name)
+  # Create the mesh object
+  mesh = bpy.data.meshes.new("Mesh")
   bm.to_mesh(mesh)
   mesh.update()
-  ob = bpy.data.objects.new(renderNode.name, mesh)
-  ob.data.materials.append(renderNode.material.blender_material)
 
-  # Handle application of any direct animations
-  ob.rotation_mode = "QUATERNION"
-  # Aply the parent to this object
-  apply_transform_or_animation_node(renderNode.parent, ob)
+  return mesh
 
-  # import pdb
-  # pdb.set_trace()
+def create_object(node):
+  """Accepts an edm renderable and returns a blender object"""
+
+  if not isinstance(node, (RenderNode, ShellNode)):
+    print("WARNING: Do not understand creating types {} yet".format(type(node)))
+    return
+
+  if isinstance(node, RenderNode):
+    vertexFormat = node.material.vertex_format
+  elif isinstance(node, ShellNode):
+    vertexFormat = node.vertex_format
+
+  # Create the mesh
+  mesh = _create_mesh(node.vertexData, node.indexData, vertexFormat)
+  mesh.name = node.name
+
+  # Create and link the object
+  ob = bpy.data.objects.new(node.name, mesh)
+  ob.edm.is_collision_shell = isinstance(node, ShellNode)
+  ob.edm.is_renderable      = isinstance(node, RenderNode)
   bpy.context.scene.objects.link(ob)
 
   return ob
-

@@ -1,5 +1,12 @@
 # Change Log
 
+## [Unreleased]
+### Added
+- Reading of collision shells
+
+### Changed
+- (Internal) Streamlining, meaning it's easier to add features to the importer
+
 ## [0.2.0] - 2016-12-14
 ### Added
 - Writing of Collision shells

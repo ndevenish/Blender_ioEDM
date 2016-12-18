@@ -4,9 +4,13 @@ translation.py
 Holds the translation tree that we use to step to/from blender/edm forms
 """
 
+from inspect import isgenerator
+
 from .utils import get_all_parents, get_root_object
 
 
+_prefixLookup = {"transform": "tf", "CONNECTORS": "cn", "RENDER_NODES": "rn", "SHELL_NODES": "shell", "LIGHT_NODES": "light"}
+      
 class TranslationNode(object):
   """Holds a triple of blender object, render node and transform nodes.
   Each TranslationNode maps to maximum ONE blender object maximum ONE renderNode
@@ -22,18 +26,18 @@ class TranslationNode(object):
   def name(self):
     if self.blender:
       return "bl:" + self.blender.name
+    elif self.render and self.render.name:
+      return _prefixLookup[self.render.category.value] + ":" + self.render.name
     elif self.transform and self.transform.name:
       return "tf:" + self.transform.name
-    elif self.render and self.render.name:
-      return "rn:" + self.render.name
     else:
       parts = []
       if self.blender:
         parts.append("bobj")
       if self.render:
-        parts.append("rendernode")
+        parts.append(_prefixLookup[self.render.category.value])
       if self.transform:
-        parts.append("transform")
+        parts.append("tf")
       return "Unnamed" + (" " if parts else "")+ "/".join(parts)
 
   def __init__(self, blender=None, render=None, transform=None):
@@ -103,11 +107,29 @@ class TranslationGraph(object):
     The parent is guaranteed to be initialised before the child. Any changes
     to the collection of children of the active node are respected, and the
     children will be walked. It is also safe to insert  additional parents
-    between the original and the current node. Anything else is undefined."""
+    between the original and the current node. Anything else is undefined.
+
+    If the walker function is a generator, it will be called twice; once
+    before, and once after the children are walked."""
     def _walk_node(node):
-      walker(node)
+      ret = walker(node)
+      if isgenerator(ret):
+        try:
+          next(ret)
+        except StopIteration:
+          # Is a generator, but only one return value for this node
+          ret = None
       for child in list(node.children):
         _walk_node(child)
+      # If this was a generator, we need to call again but this must be the
+      # last time
+      if isgenerator(ret):
+        try:
+          next(ret)
+        except StopIteration:
+          pass
+        else:
+          raise RuntimeError("Tree walker generator did not terminate on second call")
 
     if include_root:
       _walk_node(self.root)

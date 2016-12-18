@@ -3,9 +3,12 @@
 # from .typereader import Property, allow_properties, reads_type
 # from collections import namedtuple
 
-from .typereader import reads_type, readMatrixf, readMatrixd, readQuaternion, readVec3d, readVec3f, readVec2f
+from .typereader import reads_type
 from .typereader import get_type_reader as _tr_get_type_reader
 from .basereader import BaseReader
+
+from .material_types import VertexFormat, Material, Texture
+from .propertiesset import PropertiesSet
 
 from collections import namedtuple, OrderedDict, Counter
 import itertools
@@ -19,9 +22,6 @@ from enum import Enum
 import logging
 logger = logging.getLogger(__name__)
 
-# VertexFormat = namedtuple("VertexFormat", ["position", "normal", "texture"])
-Texture = namedtuple("Texture", ["index", "name", "matrix"])
-
 class NodeCategory(Enum):
   """Enum to describe what file-category the node is in"""
   transform = "transform"
@@ -30,67 +30,21 @@ class NodeCategory(Enum):
   shell = "SHELL_NODES"
   light = "LIGHT_NODES"
 
-
-
 class AnimatingNode(ABC):
   """Abstract base class for all nodes that animate the object"""
 
-_vertex_channels = {"position": 0, "normal": 1, "tex0": 4, "bones": 21}
 
 # All possible entries for indexA and indexB
 _all_IndexA = {'model::TransformNode', 'model::FakeOmniLightsNode', 'model::SkinNode', 'model::Connector', 'model::ShellNode', 'model::SegmentsNode', 'model::FakeSpotLightsNode', 'model::BillboardNode', 'model::ArgAnimatedBone', 'model::RootNode', 'model::Node', 'model::ArgAnimationNode', 'model::LightNode', 'model::LodNode', 'model::Bone', 'model::RenderNode', 'model::ArgVisibilityNode'}
 _all_IndexB = {'model::Key<key::ROTATION>', 'model::Property<float>', 'model::ArgAnimationNode::Position', '__pointers', 'model::FakeOmniLight', 'model::Key<key::SCALE>', 'model::AnimatedProperty<osg::Vec3f>', 'model::Key<key::VEC3F>', 'model::Property<osg::Vec2f>', 'model::Property<osg::Vec3f>', 'model::ArgAnimationNode::Rotation', 'model::ArgVisibilityNode::Range', 'model::Key<key::POSITION>', 'model::AnimatedProperty<osg::Vec2f>', 'model::Key<key::FLOAT>', '__ci_bytes', '__gv_bytes', 'model::ArgVisibilityNode::Arg', 'model::AnimatedProperty<float>', 'model::RNControlNode', 'model::SegmentsNode::Segments', '__gi_bytes', '__cv_bytes', 'model::Property<unsigned int>', 'model::Key<key::VEC2F>', 'model::ArgAnimationNode::Scale', 'model::LodNode::Level', 'model::PropertiesSet', 'model::FakeSpotLight'}
 
-class VertexFormat(object):
-  def __init__(self, channelData=None):
-    """Initialise vertex format. takes a byte array, numeric per-channel string, 
-    or a dictionary naming each count."""
-    if isinstance(channelData, str):
-      if len(channelData) < 26:
-        channelData = channelData + "0"*(26-len(channelData))
-      self.data = bytes(int(x) for x in channelData)
-    elif isinstance(channelData, bytes):
-      self.data = channelData
-    elif isinstance(channelData, dict):
-      assert all(x in _vertex_channels for x in channelData.keys())
-      data = bytearray(26)
-      for name, count in channelData.items():
-        data[_vertex_channels[name]] = count
-      self.data = bytes(data)
-    elif channelData is None:
-      self.data = bytes(26)
-    else:
-      self.data = channelData
 
-    self.nposition = int(self.data[0])
-    self.nnormal = int(self.data[1])
-    self.ntexture = int(self.data[4])
-  def __hash__(self):
-    return hash(self.data)
-  def __eq__(self, other):
-    return self.data == other.data
-
-  @property
-  def position_indices(self):
-    return [0,1,2]
-
-  @property
-  def normal_indices(self):
-    start = self.data[0]
-    return list(range(start, start+self.nnormal))
-
-  @property
-  def texture_indices(self):
-    start = sum(self.data[:4])
-    return list(range(start, start+self.ntexture))
-
-  def __repr__(self):
-    assert all(x < 10 for x in self.data)
-    return "VertexFormat('{}')".format("".join(str(x) for x in self.data))
-
-  def write(self, writer):
-    writer.write_uint(len(self.data))
-    writer.write(self.data)
+def get_type_reader(name):
+  _readfun = _tr_get_type_reader(name)
+  def _reader(reader):
+    reader.typecount[name] += 1
+    return _readfun(reader)
+  return _reader
 
 class TrackingReader(BaseReader):
   def __init__(self, *args, **kwargs):
@@ -101,25 +55,16 @@ class TrackingReader(BaseReader):
   def mark_type_read(self, name, amount=1):
     self.typecount[name] += amount
 
-def get_type_reader(name):
-  _readfun = _tr_get_type_reader(name)
-  def _reader(reader):
-    reader.typecount[name] += 1
-    return _readfun(reader)
-  return _reader
+  def read_named_type(self, selfOrNone=None):
+    assert selfOrNone is None or selfOrNone is self
+    typeName = self.read_string()
+    try:
+      return get_type_reader(typeName)(self)
+    except KeyError:
+      print("Error at position {}".format(self.tell()))
+      raise
 
-def read_named_type(reader):
-  """Reads a typename, and then reads the type named"""
-  typename = reader.read_string()
-  # reader.typecount[typename] += 1
-  # reader.autoTypeCount[typename] += 1
-  try:
-    return get_type_reader(typename)(reader)
-  except KeyError:
-    print("Error at position {}".format(reader.tell()))
-    raise
-
-def read_string_uint_dict(stream):
+def _read_index(stream):
   """Reads a dictionary of type String : uint"""
   length = stream.read_uint()
   data = OrderedDict()
@@ -129,64 +74,12 @@ def read_string_uint_dict(stream):
     data[key] = value
   return data
 
-def write_string_uint_dict(writer, data):
+def _write_index(writer, data):
   writer.write_uint(len(data))
   keys = sorted(data.keys())
   for key in keys:
     writer.write_string(key)
     writer.write_uint(data[key])
-
-def read_propertyset(stream):
-  """Reads a typed list of properties and returns as an ordered dict"""
-  data = read_raw_propertiesset(stream)
-  if data:
-    stream.mark_type_read("model::PropertiesSet")
-  return data
-
-
-def read_raw_propertiesset(stream):
-  # Read the potential Propertiesset-like dictionary
-  length = stream.read_uint()
-  data = OrderedDict()
-  for _ in range(length):
-    prop = read_named_type(stream)
-    if hasattr(prop, "keys"):
-      data[prop.name] = prop.keys
-    else:
-      data[prop.name] = prop.value
-  return data
-
-def write_propertiesset(writer, props):
-  writer.write_uint(len(props))
-  for key, value in props.items():
-    if type(value) == float:
-      writer.write_string("model::Property<float>")
-      writer.write_string(key)
-      writer.write_float(value)
-    elif type(value) == int:
-      writer.write_string("model::Property<unsigned int>")
-      writer.write_string(key)
-      writer.write_uint(value)
-    elif type(value) == Vector:
-      typeName = "model::Property<osg::Vec{}f>".format(len(value))
-      writer.write_string(typeName)
-      writer.write_string(key)
-      writer.write_vecf(value)
-    else:
-      raise IOError("Don't know how to write property {}/{}".format(value, type(value)))
-
-def audit_properties_set(props):
-  c = Counter()
-  for entry in props.values():
-    if isinstance(entry, Vector):
-      c["model::Property<osg::Vec{}f>".format(len(entry))] += 1
-    elif isinstance(entry, int):
-      c["model::Property<unsigned int>"] += 1
-    elif isinstance(entry, float):
-      c["model::Property<float>"] += 1
-    else:
-      raise IOError("Do not know how to write uniform property {}".format(entry))
-  return c
 
 
 class EDMFile(object):
@@ -225,11 +118,11 @@ class EDMFile(object):
       reader.strings = None
 
     # Read the two indexes
-    self.indexA = read_string_uint_dict(reader)
-    self.indexB = read_string_uint_dict(reader)
-    self.root = read_named_type(reader)
+    self.indexA = _read_index(reader)
+    self.indexB = _read_index(reader)
+    self.root = reader.read_named_type()
 
-    self.nodes = reader.read_list(read_named_type)
+    self.nodes = reader.read_list(reader.read_named_type)
 
     # Read the node parenting data
     for (node, parent) in zip(self.nodes, reader.read_ints(len(self.nodes))):
@@ -245,7 +138,7 @@ class EDMFile(object):
       objects = {}
       for _ in range(count):
         name = stream.read_string()
-        objects[name] = stream.read_list(read_named_type)
+        objects[name] = stream.read_list(reader.read_named_type)
       return objects
 
     # Read the renderable objects
@@ -254,6 +147,15 @@ class EDMFile(object):
     self.renderNodes = objects.get("RENDER_NODES", [])
     self.shellNodes = objects.get("SHELL_NODES", [])
     self.lightNodes = objects.get("LIGHT_NODES", [])
+
+    # Tie each of the connectors to it's parent node
+    for conn in self.connectors:
+      conn.parent = self.nodes[conn.parent]
+
+    # Assign the parent cross-references
+    for node in self.shellNodes:
+      if hasattr(node, "parent"):
+        node.parent = self.nodes[node.parent]
 
     # Validate against the index
     self.selfCount = self.audit()
@@ -279,10 +181,6 @@ class EDMFile(object):
 
   def postprocess(self):
     """Go through, and crosslink and process all data for consumption"""
-
-    # Tie each of the connectors to it's parent node
-    for conn in self.connectors:
-      conn.parent = self.nodes[conn.parent]
 
     # Finalize all the render nodes (link, split etc)
     for node in self.renderNodes:
@@ -313,8 +211,8 @@ class EDMFile(object):
     # Do the writing
     writer.write(b'EDM')
     writer.write_ushort(8)
-    write_string_uint_dict(writer, indexA)
-    write_string_uint_dict(writer, indexB)
+    _write_index(writer, indexA)
+    _write_index(writer, indexB)
 
     # Write the Root node
     writer.write_named_type(self.root)
@@ -359,29 +257,32 @@ class BaseNode(object):
   def __init__(self, name=None):
     self.name = name or ""
     self.version = 0
-    self.props = {}
+    self.props = PropertiesSet()
 
   @classmethod
   def read(cls, stream):
     node = cls()
-    # Have now encountered a non-root node with a name..
-    # Which basically confirms that it has at least similar
-    # structure. Now need a third entry with a dictionary...
     node.name = stream.read_string(lookup=False)
     node.version = stream.read_uint()
-    node.props = read_raw_propertiesset(stream)
+    node.props = PropertiesSet.read(stream, count=False)
     return node
 
   def audit(self):
     c = Counter()
     if self.props:
-      c += audit_properties_set(self.props)
+      c += self.props.audit()
     return c
 
   def write(self, writer):
     writer.write_string(self.name)
     writer.write_uint(self.version)
-    write_propertiesset(writer, self.props)
+    self.props.write(writer)
+
+  def __repr__(self):
+    if not self.name:
+      return "<{}>".format(type(self).__name__)
+    else:
+      return "<{} \"{}\">".format(type(self).__name__, self.name)
 
 @reads_type("model::RootNode")
 class RootNode(BaseNode):
@@ -395,9 +296,9 @@ class RootNode(BaseNode):
   def read(cls, stream):
     self = super(RootNode, cls).read(stream)
     self.unknownA = stream.read_uchar()
-    self.boundingBoxMin = readVec3d(stream)
-    self.boundingBoxMax = readVec3d(stream)
-    self.unknownB = [readVec3d(stream) for _ in range(4)]
+    self.boundingBoxMin = stream.read_vec3d()
+    self.boundingBoxMax = stream.read_vec3d()
+    self.unknownB = [stream.read_vec3d() for _ in range(4)]
     self.materials = stream.read_list(Material.read)
     stream.materials = self.materials
     self.unknownD = stream.read_uints(2)
@@ -435,30 +336,21 @@ class RootNode(BaseNode):
 @reads_type("model::Node")
 class Node(BaseNode):
   category = NodeCategory.transform
-  @classmethod
-  def read(cls, stream):
-    # stream.mark_type_read("model::Node")
-    return super(Node, cls).read(stream)
-  def __repr__(self):
-    if not self.name:
-      return "<{}>".format(type(self).__name__)
-    else:
-      return "<{} \"{}\">".format(type(self).__name__, self.name)
 
 @reads_type("model::TransformNode")
-class TransformNode(BaseNode):
+class TransformNode(Node):
   @classmethod
   def read(cls, stream):
     self = super(TransformNode, cls).read(stream)
-    self.matrix = readMatrixd(stream)
+    self.matrix = stream.read_matrixd()
     return self
 
 @reads_type("model::Bone")
-class Bone(BaseNode):
+class Bone(Node):
   @classmethod
   def read(cls, reader):
     self = super(Bone, cls).read(reader)
-    self.data = [readMatrixd(reader), readMatrixd(reader)]
+    self.data = [reader.read_matrixd(), reader.read_matrixd()]
     return self
 
 class ArgAnimationBase(object):
@@ -471,11 +363,11 @@ class ArgAnimationBase(object):
   @classmethod
   def read(cls, stream):
     self = cls()
-    self.matrix = readMatrixd(stream)
-    self.position = readVec3d(stream)
-    self.quat_1 = readQuaternion(stream)
-    self.quat_2 = readQuaternion(stream)
-    self.scale = readVec3d(stream)
+    self.matrix = stream.read_matrixd()
+    self.position = stream.read_vec3d()
+    self.quat_1 = stream.read_quaternion()
+    self.quat_2 = stream.read_quaternion()
+    self.scale = stream.read_vec3d()
     return self
   def write(self, stream):
     stream.write_matrixd(self.matrix)
@@ -485,7 +377,7 @@ class ArgAnimationBase(object):
     stream.write_vec3d(self.scale)
 
 @reads_type("model::ArgAnimationNode")
-class ArgAnimationNode(BaseNode, AnimatingNode):
+class ArgAnimationNode(Node, AnimatingNode):
   def __init__(self, *args, **kwargs):
     super(ArgAnimationNode, self).__init__(*args, **kwargs)
     self.base = ArgAnimationBase()
@@ -569,7 +461,7 @@ class ArgAnimatedBone(ArgAnimationNode):
   @classmethod
   def read(cls, stream):
     self = super(ArgAnimatedBone, cls).read(stream)
-    self.boneTransform = readMatrixd(stream)
+    self.boneTransform = stream.read_matrixd()
     return self
 
 @reads_type("model::ArgRotationNode")
@@ -637,7 +529,7 @@ class RotationKey(object):
   def read(cls, stream):
     self = cls()
     self.frame = stream.read_double()
-    self.value = readQuaternion(stream)
+    self.value = stream.read_quaternion()
     return self
 
   def __repr__(self):
@@ -669,7 +561,7 @@ class ScaleKey(object):
     return "Key(frame={}, value={})".format(self.frame, repr(self.value))
 
 @reads_type("model::ArgVisibilityNode")
-class ArgVisibilityNode(BaseNode, AnimatingNode):
+class ArgVisibilityNode(Node, AnimatingNode):
   @classmethod
   def read(cls, stream):
     self = super(ArgVisibilityNode, cls).read(stream)
@@ -689,162 +581,6 @@ class ArgVisibilityNode(BaseNode, AnimatingNode):
     c = super(ArgVisibilityNode, self).audit()
     c["model::ArgVisibilityNode::Arg"] += len(self.visData)
     c["model::ArgVisibilityNode::Range"] += sum(len(x[1]) for x in self.visData)
-    return c
-
-def _read_material_VertexFormat(reader):
-  channels = reader.read_uint()
-  data = reader.read_uchars(channels)
-  # Which channels have data?
-  knownChannels = {0,1,4, 21}
-  dataChannels = {i: x for i, x in enumerate(data) if x != 0 and not i in knownChannels} 
-  # assert not dataChannels, "Unknown vertex data channels"
-  if dataChannels:
-    print("Warning: Vertex channel data in unrecognised channels: {}".format(dataChannels))
-  vf = VertexFormat(data)
-  return vf
-
-def _read_material_texture(reader):
-  index = reader.read_uint()
-  assert (reader.read_int() == -1)
-  name = reader.read_string()
-  assert reader.read_uints(4) == (2,2,10,6)
-  matrix = readMatrixf(reader)
-  return Texture(index, name, matrix)
-
-def _read_animateduniforms(stream):
-  length = stream.read_uint()
-  data = OrderedDict()
-  for _ in range(length):
-    prop = read_named_type(stream)
-    data[prop.name] = prop
-  return data
-
-def _read_texture_coordinates_channels(stream):
-  count = stream.read_uint()
-  return stream.read_ints(count)
-
-# Lookup table for material reading types
-_material_entry_lookup = {
-  "BLENDING": lambda x: x.read_uchar(),
-  "CULLING" : lambda x: x.read_uchar(),
-  "DEPTH_BIAS": lambda x: x.read_uint(),
-  "TEXTURE_COORDINATES_CHANNELS": _read_texture_coordinates_channels,
-  "MATERIAL_NAME": lambda x: x.read_string(),
-  "NAME": lambda x: x.read_string(),
-  "SHADOWS": lambda x: ShadowSettings(x.read_uchar()),
-  "VERTEX_FORMAT": _read_material_VertexFormat,
-  "UNIFORMS": read_propertyset,
-  "ANIMATED_UNIFORMS": _read_animateduniforms,
-  "TEXTURES": lambda x: x.read_list(_read_material_texture)
-}
-
-class ShadowSettings(object):
-  def __init__(self, value=None, **kwargs):
-    if value is not None:
-      assert value <= 7, "Only understand first three shadow flags"
-      self.cast = bool(value & 1)
-      self.receive = bool(value & 2)
-      self.cast_only = bool(value & 4)
-    else:
-      self.cast = kwargs.get("cast", False)
-      self.receive = kwargs.get("receive", False)
-      self.cast_only = kwargs.get("cast_only", False)
-
-  @property
-  def value(self):
-    return (1 if self.cast else 0) + \
-           (2 if self.recieve else 0) + \
-           (4 if self.cast_only else 0)
-
-  def __repr__(self):
-    args = []
-    if self.cast:
-      args.append("cast=True")
-    if self.receive:
-      args.append("recieve=True")
-    if self.cast_only:
-      args.append("cast_only=True")
-    return "ShadowSettings(" + ", ".join(args) + ")"
-
-class Material(object):
-  def __init__(self):
-    self.blending = 0
-    self.culling = 0
-    self.depth_bias = 0
-    self.texture_coordinates_channels = None
-    self.material_name = ""
-    self.name = ""
-    self.shadows = ShadowSettings()
-    self.vertex_format = None
-    self.uniforms = {}
-    self.animated_uniforms = {}
-    self.textures = []
-
-  @classmethod
-  def read(cls, stream):
-    self = cls()
-    props = OrderedDict()
-    for _ in range(stream.read_uint()):
-      name = stream.read_string()
-      props[name] = _material_entry_lookup[name](stream)
-    for k, i in props.items():
-      setattr(self, k.lower(), i)
-    self.props = props
-    return self
-
-  def write(self, writer):
-    #  'TEXTURES', 'UNIFORMS', 'ANIMATED_UNIFORMS'])
-    writer.write_uint(10)
-    writer.write_string("BLENDING")
-    writer.write_uchar(self.blending)
-    # writer.write_string("CULLING")
-    # writer.write_uchar(self.culling)
-    writer.write_string("DEPTH_BIAS")
-    writer.write_uint(self.depth_bias)
-    if self.vertex_format:
-      writer.write_string("VERTEX_FORMAT")
-      self.vertex_format.write(writer)
-    writer.write_string("TEXTURE_COORDINATES_CHANNELS")
-    tcc = (0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
-    writer.write_uint(len(tcc))
-    writer.write_ints(tcc)
-    writer.write_string("MATERIAL_NAME")
-    writer.write_string(self.material_name)
-    writer.write_string("NAME")
-    writer.write_string(self.name.replace(".", "_"))
-    writer.write_string("SHADOWS")
-    writer.write_uchar(self.shadows.value)
-    writer.write_string("TEXTURES")
-    writer.write_uint(len(self.textures))
-    for texture in self.textures:
-      writer.write_uint(texture.index)
-      writer.write_int(-1)
-      writer.write_string(texture.name.lower())
-      writer.write_uints([2,2,10,6])
-      writer.write_matrixf(texture.matrix)
-    writer.write_string("UNIFORMS")
-    write_propertiesset(writer, self.uniforms)
-    writer.write_string("ANIMATED_UNIFORMS")
-    assert not self.animated_uniforms
-    write_propertiesset(writer, self.animated_uniforms)
-
-  def audit(self):
-    c = Counter()
-    if self.uniforms:
-      c["model::PropertiesSet"] = 1
-      c += audit_properties_set(self.uniforms)
-    if self.animated_uniforms:
-      for entry in self.animated_uniforms.values():
-        typeEntry = entry.keys[0].value
-        if isinstance(typeEntry, float):
-          c["model::AnimatedProperty<float>"] += 1
-          c["model::Key<key::FLOAT>"] += len(entry.keys)
-        elif isinstance(typeEntry, Vector):
-          vLen = len(typeEntry)
-          c["model::AnimatedProperty<osg::Vec{}f>".format(vLen)] += 1
-          c["model::Key<key::VEC{}F>".format(vLen)] += len(entry.keys)
-        else:
-          raise IOError("Have not encountered writing animated property of type {}/{}".format(entry, type(entry)))          
     return c
 
 @reads_type("model::LodNode")
@@ -870,8 +606,6 @@ class Connector(BaseNode):
     self.parent = stream.read_uint()
     self.data = stream.read_uint()
     return self
-
-uint_negative_one = struct.unpack("<I", struct.pack("<i", -1))[0]
 
 def _read_index_data(stream, classification=None):
   "Performs the common index-reading operation"
@@ -1060,7 +794,7 @@ class ShellNode(BaseNode):
   def read(cls, stream):
     self = super(ShellNode, cls).read(stream)
     self.parent = stream.read_uint()
-    self.vertex_format = _read_material_VertexFormat(stream)
+    self.vertex_format = VertexFormat.read(stream)
 
     # Read the vertex and index data
     self.vertexData = _read_vertex_data(stream, "__cv_bytes")
