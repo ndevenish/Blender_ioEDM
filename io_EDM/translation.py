@@ -7,6 +7,8 @@ Holds the translation tree that we use to step to/from blender/edm forms
 from .utils import get_all_parents, get_root_object
 
 
+_prefixLookup = {"transform": "tf", "CONNECTORS": "cn", "RENDER_NODES": "rn", "SHELL_NODES": "shell", "LIGHT_NODES": "light"}
+      
 class TranslationNode(object):
   """Holds a triple of blender object, render node and transform nodes.
   Each TranslationNode maps to maximum ONE blender object maximum ONE renderNode
@@ -23,8 +25,7 @@ class TranslationNode(object):
     if self.blender:
       return "bl:" + self.blender.name
     elif self.render and self.render.name:
-      prefixLookup = {"transform": "tf", "CONNECTORS": "cn", "RENDER_NODES": "rn", "SHELL_NODES": "shell", "LIGHT_NODES": "light"}
-      return prefixLookup[self.render.category.value] + ":" + self.render.name
+      return _prefixLookup[self.render.category.value] + ":" + self.render.name
     elif self.transform and self.transform.name:
       return "tf:" + self.transform.name
     else:
@@ -32,9 +33,9 @@ class TranslationNode(object):
       if self.blender:
         parts.append("bobj")
       if self.render:
-        parts.append("rendernode")
+        parts.append(_prefixLookup[self.render.category.value])
       if self.transform:
-        parts.append("transform")
+        parts.append("tf")
       return "Unnamed" + (" " if parts else "")+ "/".join(parts)
 
   def __init__(self, blender=None, render=None, transform=None):

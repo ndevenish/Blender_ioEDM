@@ -148,6 +148,15 @@ class EDMFile(object):
     self.shellNodes = objects.get("SHELL_NODES", [])
     self.lightNodes = objects.get("LIGHT_NODES", [])
 
+    # Tie each of the connectors to it's parent node
+    for conn in self.connectors:
+      conn.parent = self.nodes[conn.parent]
+
+    # Assign the parent cross-references
+    for node in self.shellNodes:
+      if hasattr(node, "parent"):
+        node.parent = self.nodes[node.parent]
+
     # Validate against the index
     self.selfCount = self.audit()
     rems = Counter(self.indexA)
@@ -172,10 +181,6 @@ class EDMFile(object):
 
   def postprocess(self):
     """Go through, and crosslink and process all data for consumption"""
-
-    # Tie each of the connectors to it's parent node
-    for conn in self.connectors:
-      conn.parent = self.nodes[conn.parent]
 
     # Finalize all the render nodes (link, split etc)
     for node in self.renderNodes:
@@ -789,7 +794,7 @@ class ShellNode(BaseNode):
   def read(cls, stream):
     self = super(ShellNode, cls).read(stream)
     self.parent = stream.read_uint()
-    self.vertex_format = _read_material_VertexFormat(stream)
+    self.vertex_format = VertexFormat.read(stream)
 
     # Read the vertex and index data
     self.vertexData = _read_vertex_data(stream, "__cv_bytes")
