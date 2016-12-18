@@ -463,7 +463,8 @@ def apply_node_transform(node, obj):
   elif isinstance(node, AnimatingNode):
     if hasattr(node, "zero_transform"):
       obj.location, obj.rotation_quaternion, obj.scale = node.zero_transform
-    else:
+    elif not isinstance(node, ArgVisibilityNode):
+      # Vis nodes don't have transforms, but otherwise they should
       print("Warning: Transform {} has no zero-tranform".format(node))
 
 
