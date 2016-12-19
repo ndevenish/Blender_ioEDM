@@ -104,6 +104,7 @@ def write_file(filename, options={}):
 
   # Generate the materials for every renderable
   edmMaterials = {}
+  materials = []
   def _create_materials(node):
     if not node.render or not hasattr(node.render, "material") or not node.render.material:
       return
@@ -112,6 +113,8 @@ def write_file(filename, options={}):
       edmMaterial = edmMaterials[blendMaterial]
     else:
       edmMaterial = create_material(blendMaterial)
+      edmMaterial.index = len(materials)
+      materials.append(edmMaterial)
       edmMaterials[blendMaterial] = edmMaterial
     node.render.material = edmMaterial
   graph.walk_tree(_create_materials)
@@ -447,12 +450,12 @@ def create_material(source):
 
   # Convert material 'hardness' to a specular power-like value
   specPower = (float(source.specular_hardness) - 1.0) / 100.0
-  mat.uniforms = {
+  mat.uniforms = PropertiesSet({
     "specPower": specPower,
     "specFactor": source.specular_intensity,
     "diffuseValue": source.diffuse_intensity,
     "reflectionValue": 0.0, # Always in uniforms, so keep here for compatibility
-  }
+  })
   # No ide what this corresponds to yet:
   # "diffuseShift": Vector((0,0)),
   if source.raytrace_mirror.use:

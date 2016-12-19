@@ -597,6 +597,12 @@ class LodNode(Node):
     c = super(LodNode, self).audit()
     c["model::LodNode::Level"] += len(self.level)
     return c
+  def write(self, stream):
+    super(LodNode, self).write(stream)
+    stream.write_uint(len(self.level))
+    for low, high in self.level:
+      stream.write_double(low**2)
+      stream.write_double(high**2)
 
 @reads_type("model::Connector")
 class Connector(BaseNode):
