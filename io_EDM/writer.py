@@ -2,73 +2,157 @@
 import bpy
 
 import itertools
+from collections import Counter
 import os
+
 from .edm.types import *
 from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm, Vector, MatrixScale, matrix_to_blender
 from .edm.basewriter import BaseWriter
-from .utils import matrix_string, vector_string
+from .utils import matrix_string, vector_string, print_edm_graph
 
 from .translation import TranslationGraph, TranslationNode
 
-def write_file(filename, options={}):
+def get_all_actions(obj):
+  """Retrieve all actions given a blender object. Includes NLA-actions"""
+  if obj.animation_data:
+    if obj.animation_data.action:
+      yield obj.animation_data.action
+    for track in obj.animation_data.nla_tracks:
+      if len(track.strips) > 1:
+        print("Warning: Multi-action tracks not supported")
+      for strip in track.strips:
+        yield strip.action
 
-  # Get a set of all mesh objects to be exported as renderables
-  renderables = {x for x in bpy.context.scene.objects if x.type == "MESH" and x.edm.is_renderable}
-  shells = {x for x in bpy.context.scene.objects if x.type == "MESH" and x.edm.is_collision_shell}
+def is_null_transform(obj):
+  """Checks if a blender object has no transform"""
+  if obj.location.length > 1e-4:
+    return False
+  if obj.rotation_quaternion.angle > 2e-4:
+    return False
+  if (obj.scale - Vector((1,1,1))).length > 1e-4:
+    return False
+  return True
 
-  print("Writing {} objects as renderables".format(len(renderables)))
-  # Generate the materials for every renderable
-  materials, materialMap = _create_material_map(renderables)  
-  
-  # Build a graph from ALL blender objects we want ported across
-  graph = TranslationGraph.from_blender_objects(renderables | shells)
-  print("Blender graph we are exporting:")
-  graph.print_tree()
 
-  # For every object, create a parent transform node if it needs one
-  # e.g. if it has animation this will be handled by a transform node
-  #       If not, then it ends up being just a static mesh in the parent
-  #       tranform frame, and so on until the root object - in which case the
-  #       mesh will just be rendered static.
-  graph.root.transform = Node()
-  graph.walk_tree(_build_transform)
+def convert_node(node):
+  # Are we the root node?
+  if node.parent is None:
+    node.transform = Node()
+    node.transform.parent = None
+    return
 
-  # Create the basic rendernode structures
-  def _create_renderNode(node):
-    if node.blender:
-      assert not (node.blender.edm.is_renderable and node.blender.edm.is_collision_shell), "Can't yet cope with objects both collision and renderable"
-      if node.blender.edm.is_renderable:
-        node.render = RenderNodeWriter(node.blender)
-        node.render.material = materialMap[node.blender.material_slots[0].material.name]
-      if node.blender.edm.is_collision_shell:
-        node.render = ShellNodeWriter(node.blender)
-        
-    # If we have an ArgAnimationNode, don't apply the transformation
-    if node.transform and isinstance(node.transform, ArgAnimationNode):
+  # If this can be turned into a renderable object, do so now
+  if node.blender.type == "MESH" and node.blender.edm.is_renderable:
+    node.render = RenderNodeWriter(node.blender)
+  if node.blender.type == "MESH" and node.blender.edm.is_collision_shell:
+    node.render = ShellNodeWriter(node.blender)
+
+  # Do we have animations? If so, we need to be turned into an animation node
+  # Also: If we have children, then they need to be parented to the correct
+  #       world position, so we need a transform
+  #    ...UNLESS the object HAS no transform. In which case we don't need to offset
+  if any(True for _ in get_all_actions(node.blender)) or (node.children and not is_null_transform(node.blender)):
+    node.transform = build_animation_node(node.blender)
+  else:
+    pass
+
+  # Decide whether to apply object transform or switch axis on writing, now
+  if node.render:
+    if isinstance(node.transform, ArgAnimationNode) or node.children:
       node.render.apply_transform = False
     else:
       node.render.apply_transform = True
-  graph.walk_tree(_create_renderNode)
+
+    if isinstance(node.transform, ArgAnimationNode):
+      node.render.convert_axis = False
+    else:
+      node.render.convert_axis = True
+    
+  # Handle LOD nodes and children
+  if node.blender.type == "EMPTY" and node.blender.edm.is_lod_root:
+    # If we already have a transform, then we need to add a new
+    # parent to hold it so we can create the LOD control node
+    if node.transform:
+      parent = node.insert_parent()
+      parent.transform = node.transform
+
+    node.transform = LodNode()
+    # Now wait until after child processing
+    yield
+    # Insert a new 'Node' between every child, and collect the LOD data
+    levels = []
+    for child in list(node.children):
+      newNode = child.insert_parent()
+      newNode.transform = Node()
+      lodMax = 1e30 if child.blender.edm.nouse_lod_distance else child.blender.edm.lod_max_distance
+      levels.append((child.blender.edm.lod_min_distance, lodMax))
+    node.transform.level = levels
+
+def write_file(filename, options={}):
+
+  # Get a set of all objects to be exported as renderables
+  allExport = _get_all_objects_to_export()  
+  print("Writing {} objects".format(len(allExport)))
+
+  # Build a graph from ALL blender objects we want ported across
+  graph = TranslationGraph.from_blender_objects(allExport)
+  print("Blender graph we are exporting:")
+  graph.print_tree()
+
+  graph.walk_tree(convert_node, include_root=True)
+
+
+  # Generate the materials for every renderable
+  edmMaterials = {}
+  def _create_materials(node):
+    if not node.render or not hasattr(node.render, "material") or not node.render.material:
+      return
+    blendMaterial = node.render.material
+    if blendMaterial in edmMaterials:
+      edmMaterial = edmMaterials[blendMaterial]
+    else:
+      edmMaterial = create_material(blendMaterial)
+      edmMaterials[blendMaterial] = edmMaterial
+    node.render.material = edmMaterial
+  graph.walk_tree(_create_materials)
+  del edmMaterials
+
+
+  print("After converting nodes")
+  graph.print_tree()
   
   # Now set all the transform parents, both for blender objects AND transforms
   # RenderNodes get connected to their associated transform
   # Transform nodes get connected to the parent transform node
   def _connect_parents(node):
+    # Set the render node's parent - at most one level away
     if node.render and node.transform:
       node.render.parent = node.transform
-    if node.transform and node.parent and node.parent.transform:
+    elif node.render and node.parent.transform:
+      node.render.parent = node.parent.transform
+    if node.transform and node.parent:
+      # Should never have a transform parented to anything else
+      assert node.parent.transform
       node.transform.parent = node.parent.transform
+
   graph.walk_tree(_connect_parents)
 
 
-  # Now dump a load of information on our calculated base transforms
-  def _inspect_animarg(node, prefix):
-    if not node.transform or not isinstance(node.transform, ArgAnimationNode):
-      return
-    node.transform.print_summary(prefix)
-    
-  print("Animation base transforms:")
-  graph.print_tree(_inspect_animarg)
+  # Calculate materials for every RenderNode
+  # materials = {}
+  # def _calculate_materials(node):
+  #   if not isinstance(node.render, RenderNode):
+  #     continue
+  #   material
+  # graph.walk_tree(_calculate_materials)
+
+  # # Now dump a load of information on our calculated base transforms
+  # def _inspect_animarg(node, prefix):
+  #   if not node.transform or not isinstance(node.transform, ArgAnimationNode):
+  #     return
+  #   node.transform.print_summary(prefix)    
+  # print("Animation base transforms:")
+  # graph.print_tree(_inspect_animarg)
 
   # Now do enmeshing
   def _enmesh(node):
@@ -79,16 +163,30 @@ def write_file(filename, options={}):
   # Build the linear list of transformation nodes and render nodes
   allNodes = {x: [] for x in NodeCategory}
   def _flatten_graph(node):
+    # Tie the edm-only objects toether into a graph to let us iterate it
+    if node.render and not hasattr(node.render, "children"):
+      node.render.children = []
+    if node.transform and not hasattr(node.transform, "children"):
+      node.transform.children = []
+
     if node.render:
       allNodes[node.render.category].append(node.render)
+      node.render.parent.children.append(node.render)
     if node.transform:
       if not node.transform in allNodes[NodeCategory.transform]:
         allNodes[NodeCategory.transform].append(node.transform)
+      if node.transform.parent:
+        node.transform.parent.children.append(node.transform)
   graph.walk_tree(_flatten_graph, include_root=True)
+
+  # We should now have an entirely separate tree ready for writing
+  print("Final EDM Graph for writing:")
+  print_edm_graph(allNodes[NodeCategory.transform][0])
+
 
   # Let's build the root node
   root = RootNodeWriter()
-  root.set_bounding_box_from(renderables)
+  root.set_bounding_box_from(allExport)
   root.materials = materials
   
   # And finally the wrapper
@@ -104,6 +202,15 @@ def write_file(filename, options={}):
   file.write(writer)
   writer.close()
 
+def _get_all_objects_to_export():
+  """Get all blender objects that will be exported as edm objects"""
+  all_export = set()
+  for obj in bpy.context.scene.objects:
+    if obj.type == "MESH" and (obj.edm.is_renderable or obj.edm.is_collision_shell):
+      all_export.add(obj)
+    elif obj.type == "EMPTY" and obj.edm.is_connector:
+      all_export.add(obj)
+  return all_export
 
 def _create_material_map(blender_objects):
   """Creates an list, and indexed material map from a list of blender objects.
@@ -136,56 +243,32 @@ def _build_transform(node):
       parentNode.transform = parent
 
 
-def build_parent_nodes(obj):
-  """Inspects an object's actions to build a parent transform node.
-  Possibly returns a chain of nodes, as in cases of position/visibility
-  these must be handled by separate nodes. The returned nodes (or none)
-  must then be parented onto whatever parent nodes the objects parents
-  posess. If no nodes are returned, then the object should have it's
-  local transformation applied."""
+def build_animation_node(obj):
+  """Inspects an object's actions to build a parent transform node."""
 
-  # If the object has no animation data, it is static and so just embedded
-  if not obj.animation_data:
-    return [create_animation_base(obj)]
-
-  actions = set()
-  if obj.animation_data.action and obj.animation_data.action.argument != -1:
-    actions.add(obj.animation_data.action)
-  for track in obj.animation_data.nla_tracks:
-    for strip in track.strips:
-      if strip.action.argument != -1:
-        actions.add(strip.action)
-
-  # Verify each action handles a separate argument, otherwise - who knows -
-  # if this becomes a problem we may need to merge actions (ouch)
-  arguments = set()
-  for action in actions:
-    if action.argument in arguments:
-      raise RuntimeError("More than one action on an object share arguments. Not sure how to deal with this")
-    arguments.add(action.argument)
-
-  if not actions:
-    return [create_animation_base(obj)]
-
-  # No multiple animations for now - get simple right first
+  actions = set(get_all_actions(obj))
   assert len(actions) <= 1, "Do not support multiple actions on object export at this time"
+
+  # If no animation data, return an animation node without keys
+  if not actions:
+    return create_animation_base(obj)
+
+  # Verify each action handles a separate argument, otherwise merges need to happen
+  arguments = Counter(action.argument for action in actions)
+  if any(x > 1 for x in arguments.values()):
+    raise RuntimeError("More than one action on an object share arguments. Not sure how to deal with this")
+
   action = next(iter(actions))
 
-  nodes = []
-
-  # All keyframe types we know how to handle
-  ALL_KNOWN = {"location", "rotation_quaternion", "scale", "hide_render"}
-  # Keyframe types that are handled by ArgAnimationNode
-  AAN_KNOWN = {"location", "rotation_quaternion", "scale"}
-
+  # Check that all the keyframe data is known
+  ALL_KNOWN = {"location", "rotation_quaternion"} # "scale", "hide_render"
   data_categories = set(x.data_path for x in action.fcurves)
   if not data_categories <= ALL_KNOWN:
     print("WARNING: Action has animated keys ({}) that ioEDM can not translate yet!".format(data_categories-ALL_KNOWN))
+  
   # do we need to make an ArgAnimationNode?
   if data_categories & {"location", "rotation_quaternion", "scale"}:
-    # print("Creating ArgAnimationNode for {}".format(obj.name))
-    nodes.append(create_arganimation_node(obj, [action]))
-  return nodes
+    return create_arganimation_node(obj, [action])
 
 def create_animation_base(object):
   node = ArgAnimationNodeBuilder(name=object.name)
@@ -491,30 +574,15 @@ class RenderNodeWriter(RenderNode):
     super(RenderNodeWriter, self).__init__(name=obj.name)
     self.source = obj
     self.parent = None
-    # An additional transform to apply to our local space to transform
-    # ourselves through any static parent spaces (to the next edm 
-    # tranformation node)
-    self.additional_transform = Matrix()
-    self.apply_transform = False
+    self.material = obj.material_slots[0].material if obj.material_slots else None
 
   def calculate_mesh(self, options):
     assert self.material
     assert self.source
     opt = dict(options)
-    # If we have any kind of parent (OTHER than an ArgVisibilityNode), then 
-    # we don't want to apply transformations
     opt["apply_transform"] = self.apply_transform
-    # ArgAnimationNode-based parents don't have axis-shifted data
-    opt["convert_axis"] = self.apply_transform #not isinstance(self.parent, ArgAnimationNode)
+    opt["convert_axis"] = self.convert_axis
     self.vertexData, self.indexData = create_mesh_data(self.source, material=self.material, options=opt)
-
-  def convert_references_to_index(self):
-    """Convert all stored references into their index equivalent"""
-    self.material = self.material.index
-    if not self.parent:
-      self.parent = 0
-    else:
-      self.parent = self.parent.index
 
 class ShellNodeWriter(ShellNode):
   def __init__(self, obj):
@@ -526,12 +594,9 @@ class ShellNodeWriter(ShellNode):
     assert self.source
     opt = dict(options)
     opt["apply_transform"] = self.apply_transform
-    opt["convert_axis"] = self.apply_transform
+    opt["convert_axis"] = self.convert_axis
     self.vertex_format = VertexFormat({"position":3})
     self.vertexData, self.indexData = create_mesh_data(self.source, vertex_format=self.vertex_format, options=opt)
-
-
-
 
 class RootNodeWriter(RootNode):
   def __init__(self, *args, **kwargs):

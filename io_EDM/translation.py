@@ -102,7 +102,7 @@ class TranslationGraph(object):
     if self.root:
       _printNode(self.root)
 
-  def walk_tree(self, walker, include_root=False):
+  def walk_tree(self, walker, include_root=True):
     """Accepts a function, and calls it for every node in the tree depth first.
     The parent is guaranteed to be initialised before the child. Any changes
     to the collection of children of the active node are respected, and the
