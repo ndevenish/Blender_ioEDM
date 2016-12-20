@@ -83,6 +83,14 @@ def _write_index(writer, data):
     writer.write_uint(data[key])
 
 
+def _read_main_object_dictionary(stream):
+  count = stream.read_uint()
+  objects = {}
+  for _ in range(count):
+    name = stream.read_string()
+    objects[name] = stream.read_list(stream.read_named_type)
+  return objects
+
 class EDMFile(object):
   def __init__(self, filename=None):
     if filename:
@@ -124,6 +132,7 @@ class EDMFile(object):
     self.root = reader.read_named_type()
 
     self.nodes = reader.read_list(reader.read_named_type)
+    self.transformRoot = self.nodes[0]
 
     # Read the node parenting data
     for (node, parent) in zip(self.nodes, reader.read_ints(len(self.nodes))):
@@ -132,31 +141,37 @@ class EDMFile(object):
         continue
       if parent > len(self.nodes):
         raise IOError("Invalid node parent data")
-      node.parent = self.nodes[parent]
-
-    def _read_object_dictionary(stream):
-      count = stream.read_uint()
-      objects = {}
-      for _ in range(count):
-        name = stream.read_string()
-        objects[name] = stream.read_list(reader.read_named_type)
-      return objects
+      node.set_parent(self.nodes[parent])
 
     # Read the renderable objects
-    objects = _read_object_dictionary(reader)
+    objects = _read_main_object_dictionary(reader)
     self.connectors = objects.get("CONNECTORS", [])
-    self.renderNodes = objects.get("RENDER_NODES", [])
     self.shellNodes = objects.get("SHELL_NODES", [])
     self.lightNodes = objects.get("LIGHT_NODES", [])
+    self.renderNodes = []
+    # Split any renderNodes as one may contain several objects
+    for node in objects.get("RENDER_NODES", []):
+      if not isinstance(node, RenderNode):
+        self.renderNodes.append(node)
+      for splitNode in node.split():
+        self.renderNodes.append(splitNode)
 
-    # Tie each of the connectors to it's parent node
-    for conn in self.connectors:
-      conn.parent = self.nodes[conn.parent]
+    # Verify we are at the end of the file without unconsumed data.
+    endPos = reader.tell()
+    if len(reader.read(1)) != 0:
+      print("Warning: Ended parse at {} but still have data remaining".format(endPos))
+    reader.close()
 
-    # Assign the parent cross-references
-    for node in self.shellNodes:
+    # Set up parents and other links (e.g. material, bone...)
+    for node in itertools.chain(self.connectors, self.shellNodes, self.lightNodes, self.renderNodes):
       if hasattr(node, "parent"):
-        node.parent = self.nodes[node.parent]
+        node.set_parent(self.nodes[node.parent])
+      if hasattr(node, "material"):
+        node.material = self.root.materials[node.material]
+      if hasattr(node, "bones"):
+        node.bones = [self.nodes[x] for x in node.bones]
+        # If we have bones we have no single 'parent'. Stick it on the root.
+        node.set_parent(self.nodes[0])
 
     # Validate against the index
     self.selfCount = self.audit()
@@ -174,18 +189,6 @@ class EDMFile(object):
       del remBs[k]
     if remBs:
       print("IndexB items remaining before RENDER_NODES/CONNECTORS: {}".format(remBs))
-
-    # Verify we are at the end of the file without unconsumed data.
-    endPos = reader.tell()
-    if len(reader.read(1)) != 0:
-      print("Warning: Ended parse at {} but still have data remaining".format(endPos))
-
-  def postprocess(self):
-    """Go through, and crosslink and process all data for consumption"""
-
-    # Finalize all the render nodes (link, split etc)
-    for node in self.renderNodes:
-      node.prepare(nodes=self.nodes, materials=self.root.materials)
 
   def audit(self):
     _index = Counter()
@@ -252,10 +255,33 @@ class EDMFile(object):
       for node in nodes:
         writer.write_named_type(node)
 
+class GraphNode(object):
+  def __init__(self):
+    self.parent = None
+    self.children = []
+
+  def set_parent(self, parent):
+    if self.parent is parent:
+      return
+    # If we have a parent, unregister from it (special case: Reassigning an indexed parent value)
+    if self.parent and not isinstance(self.parent, int):
+      self.parent.children.remove(self)
+    self.parent = parent
+    self.parent.children.append(self)
+
+  def add_child(self, child):
+    if child in self.children:
+      return
+    if child.parent:
+      child.parent.children.remove(child)
+    child.parent = self
+    self.children.append(child)
 
 @reads_type("model::BaseNode")
-class BaseNode(object):
+class BaseNode(GraphNode):
   def __init__(self, name=None):
+    super(BaseNode, self).__init__()
+
     self.name = name or ""
     self.version = 0
     self.props = PropertiesSet()
@@ -759,40 +785,42 @@ class RenderNode(BaseNode):
       c["model::RNControlNode"] += len(self.parentData)-1
     return c
 
-  def prepare(self, nodes, materials):
-    """Prepare data, aliases and content. Context is a RootNode"""
+  def split(self):
+    """Returns an array of renderNode objects. If there is no splitting to be
+    done, it will just return [self]. Otherwise, each entry is to be counted
+    as a separate renderNode object. Attempting to resplit is undefined."""
 
-    # Reference the material
-    self.material = materials[self.material]
-
-    # Check if the parenting is simple or not handled
-    if len(self.parentData) == 0:
-      self.parent = None
-      return
+    if self.parentData is None:
+      raise RuntimeError("Attempting to split renderNode without parent data - has it already been split?")
+    assert len(self.parentData) >= 1, "Should never have a RenderNode without parent data"
+    
+    # If one parent, no splitting to be done. Just assign our parent index.
     if len(self.parentData) == 1:
-      self.parent = nodes[self.parentData[0][0]]
+      self.parent = self.parentData[0][0]
       if self.parentData[0][1] != -1:
-        logger.warning("Not sure how to split single-parent, indexed rendernodes")
-      return
+        print("Warning: Not sure how to split single-parent, indexed rendernodes")
+      return [self]
 
-    # If here, we have parents to split off with
+    # We have more than one parent object. Do some splitting.
     # Make sure we cover the full length of the index array
-    assert self.parentData[-1][-2] == len(self.indexData)
+    assert self.parentData[-1][-2] == len(self.indexData), "Split does not cover whole index range"
+
     start = 0
-    self.children = []
+    children = []
     for i, (parent, idxTo, idxIDK) in enumerate(self.parentData):
       node = RenderNode()
       node.version = self.version
       node.name = "{}_{}".format(self.name, i)
       node.props = self.props
       node.material = self.material
-      node.parent = nodes[parent]
+      node.parent = parent
       node.indexData = self.indexData[start:idxTo]
+      # Give them all the whole vertex subarray for now
       node.vertexData = self.vertexData
       start = idxTo
-      self.children.append(node)
+      children.append(node)
 
-    return
+    return children
 
 @reads_type("model::ShellNode")
 class ShellNode(BaseNode):
