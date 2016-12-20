@@ -7,7 +7,7 @@ Contains the central EDM->Blender conversion code
 import bpy
 import bmesh
 
-from .utils import chdir
+from .utils import chdir, print_edm_graph
 from .edm import EDMFile
 from .edm.mathtypes import *
 from .edm.types import *
@@ -157,7 +157,9 @@ def process_node(node):
 def read_file(filename, options={}):
   # Parse the EDM file
   edm = EDMFile(filename)
-  edm.postprocess()
+
+  print("Raw file graph:")
+  print_edm_graph(edm.transformRoot)
 
   # Set the required blender preferences
   bpy.context.user_preferences.edit.use_negative_frames = True
