@@ -76,12 +76,12 @@ def build_graph(edmFile):
     # rendernode, where this node is ONLY a transformnode, and has no other data
     # - some of these might be automatic, but we might have done other tree
     # work between construction and now, so better to be safe
-    # if node.transform and node.transform.name == "indicator_warning":
-    #   import pdb
-    #   pdb.set_trace()
-    if not node.type == "TRANSFORM" or len(node.children) != 1:
+
+    # Addition: Only count Render children in child count
+    renderChildren = [x for x in node.children if x.type == "RENDER"]
+    if not node.type == "TRANSFORM" or len(renderChildren) != 1:
       return
-    child = node.children[0]
+    child = renderChildren[0]
     if not child.type == "RENDER" or child.children:
       return
     node.render = child.render
