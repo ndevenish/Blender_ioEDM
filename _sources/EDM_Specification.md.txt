@@ -761,13 +761,14 @@ The `materialId` is the index of the material to be applied to this data -
 the index in the `RootNode.materials` list. The `VERTEXDATA` and `INDEXDATA`
 types are shared with the `model::ShellNode` and `model::SkinNode` types.
 
-Let's start with the par§ent data, which is slightly unusual - the exact layout
-depends on the value of the first count entry:
+Let's start with the parent data, which is slightly unusual - the exact layout
+depends on the value of the first count entry. If there is only one parent
+entry:
 
     PARENTDATA :=
       const uint count = 1;
       uint  parent;
-      int   unknown;
+      int   damageArgument;
 
 Or, if `count` > 1:
 
@@ -777,22 +778,23 @@ Or, if `count` > 1:
 
     PARENT_ENTRY :=
       uint  parent;
-      int   unknownA;
-      int   unknownB;
+      int   indexStart;
+      int   damageArgument;
 
-Along with the parent reference ID, which refers to the index in the
-`RenderNode.nodes` array, the exact interpretation of the unknown fields is
-not completely unknown, we do have some idea - the unknown fields *appear* to
-relate to sections of the vertex data in the node.
+This multiple-parent structure allows objects with identical materials to be
+merged into a single rendernode, presumably allowing some render-time
+optimisation in DCS. For nodes with multiple entries, the node can be
+effectively split into multiple objects, the `indexStart` field determines the
+entry in the index table which  starts defining the faces of the objects.
 
-However, the vertex data itself has four entries for it's 'position' field -
-and the fourth entry definitely refers to the index in this
-`PARENTDATA.parents` array. Thus, having range information here would appear
-to be redundant.
+In addition, each object entry has a `damageArgument` field. This is used to
+determine part visibility as the damage to the object in the game progresses.
+For objects unrelated to damage modelling, this is set to `-1`.
 
-This layout is required because, for efficiency reasons; many separate objects
-with identical materials are often merged into a single `RenderNode`, and the
-associated data used for separation.
+One unknown, however, is that the vertex data itself has four entries for
+it's 'position' field - and the fourth entry seems to refer to the index in
+this `PARENTDATA.parents` array. Thus, it appears that this information is
+duplicated, so some uncertainty remains.
 
 This structure also appears to be related to the index count of
 `model::RNControlNode`. In particular: there appears to be one `RNControlNode`
@@ -803,8 +805,7 @@ in the .edm file.
 This link was derived by observing numeric correlation and testing the
 hypothesis on every existing .edm file. It appears to be correct.
 
-Let's move away from this unhappy state of affairs and examine the vertex
-data:
+Let's examine the vertex data:
 
     VERTEXDATA :=
       uint    count;

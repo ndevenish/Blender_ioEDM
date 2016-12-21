@@ -878,12 +878,13 @@ data, the actual renderable geometry of the edm file:</p>
 <p>The <code class="docutils literal"><span class="pre">materialId</span></code> is the index of the material to be applied to this data -
 the index in the <code class="docutils literal"><span class="pre">RootNode.materials</span></code> list. The <code class="docutils literal"><span class="pre">VERTEXDATA</span></code> and <code class="docutils literal"><span class="pre">INDEXDATA</span></code>
 types are shared with the <code class="docutils literal"><span class="pre">model::ShellNode</span></code> and <code class="docutils literal"><span class="pre">model::SkinNode</span></code> types.</p>
-<p>Let&#8217;s start with the par§ent data, which is slightly unusual - the exact layout
-depends on the value of the first count entry:</p>
+<p>Let&#8217;s start with the parent data, which is slightly unusual - the exact layout
+depends on the value of the first count entry. If there is only one parent
+entry:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">PARENTDATA</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">const</span> <span class="n">uint</span> <span class="n">count</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
   <span class="n">uint</span>  <span class="n">parent</span><span class="p">;</span>
-  <span class="nb">int</span>   <span class="n">unknown</span><span class="p">;</span>
+  <span class="nb">int</span>   <span class="n">damageArgument</span><span class="p">;</span>
 </pre></div>
 </div>
 <p>Or, if <code class="docutils literal"><span class="pre">count</span></code> &gt; 1:</p>
@@ -893,21 +894,22 @@ depends on the value of the first count entry:</p>
 
 <span class="n">PARENT_ENTRY</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">uint</span>  <span class="n">parent</span><span class="p">;</span>
-  <span class="nb">int</span>   <span class="n">unknownA</span><span class="p">;</span>
-  <span class="nb">int</span>   <span class="n">unknownB</span><span class="p">;</span>
+  <span class="nb">int</span>   <span class="n">indexStart</span><span class="p">;</span>
+  <span class="nb">int</span>   <span class="n">damageArgument</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>Along with the parent reference ID, which refers to the index in the
-<code class="docutils literal"><span class="pre">RenderNode.nodes</span></code> array, the exact interpretation of the unknown fields is
-not completely unknown, we do have some idea - the unknown fields <em>appear</em> to
-relate to sections of the vertex data in the node.</p>
-<p>However, the vertex data itself has four entries for it&#8217;s &#8216;position&#8217; field -
-and the fourth entry definitely refers to the index in this
-<code class="docutils literal"><span class="pre">PARENTDATA.parents</span></code> array. Thus, having range information here would appear
-to be redundant.</p>
-<p>This layout is required because, for efficiency reasons; many separate objects
-with identical materials are often merged into a single <code class="docutils literal"><span class="pre">RenderNode</span></code>, and the
-associated data used for separation.</p>
+<p>This multiple-parent structure allows objects with identical materials to be
+merged into a single rendernode, presumably allowing some render-time
+optimisation in DCS. For nodes with multiple entries, the node can be
+effectively split into multiple objects, the <code class="docutils literal"><span class="pre">indexStart</span></code> field determines the
+entry in the index table which  starts defining the faces of the objects.</p>
+<p>In addition, each object entry has a <code class="docutils literal"><span class="pre">damageArgument</span></code> field. This is used to
+determine part visibility as the damage to the object in the game progresses.
+For objects unrelated to damage modelling, this is set to <code class="docutils literal"><span class="pre">-1</span></code>.</p>
+<p>One unknown, however, is that the vertex data itself has four entries for
+it&#8217;s &#8216;position&#8217; field - and the fourth entry seems to refer to the index in
+this <code class="docutils literal"><span class="pre">PARENTDATA.parents</span></code> array. Thus, it appears that this information is
+duplicated, so some uncertainty remains.</p>
 <p>This structure also appears to be related to the index count of
 <code class="docutils literal"><span class="pre">model::RNControlNode</span></code>. In particular: there appears to be one <code class="docutils literal"><span class="pre">RNControlNode</span></code>
 in the index for each <em>additional</em> parent data entry - that is, the sum of
@@ -915,8 +917,7 @@ in the index for each <em>additional</em> parent data entry - that is, the sum o
 in the .edm file.</p>
 <p>This link was derived by observing numeric correlation and testing the
 hypothesis on every existing .edm file. It appears to be correct.</p>
-<p>Let&#8217;s move away from this unhappy state of affairs and examine the vertex
-data:</p>
+<p>Let&#8217;s examine the vertex data:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">VERTEXDATA</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">uint</span>    <span class="n">count</span><span class="p">;</span>
   <span class="n">uint</span>    <span class="n">stride</span><span class="p">;</span>
