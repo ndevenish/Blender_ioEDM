@@ -130,6 +130,10 @@ def process_node(node):
   if node.parent.blender:
     node.blender.parent = node.parent.blender
 
+  # Apply any material
+  if hasattr(node.render, "material"):
+    node.blender.data.materials.append(node.render.material.blender_material)
+
   if node.transform:
     # Now, apply the animation, if there is one
     if isinstance(node.transform, AnimatingNode):
