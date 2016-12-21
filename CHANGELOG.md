@@ -4,9 +4,11 @@
 ### Added
 - Reading of collision shells
 - Reading and Writing of LOD nodes
+- Reading and Writing of per-object Damage Arguments
 
 ### Changed
 - (Internal) Streamlining, meaning it's easier to add features to the importer
+- Switched to new documentation; see https://ndevenish.github.io/Blender_ioEDM
 
 ## [0.2.0] - 2016-12-14
 ### Added
