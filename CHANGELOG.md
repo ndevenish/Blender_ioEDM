@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Added
 - Reading of collision shells
+- Reading and Writing of LOD nodes
 
 ### Changed
 - (Internal) Streamlining, meaning it's easier to add features to the importer

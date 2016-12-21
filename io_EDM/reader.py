@@ -142,6 +142,17 @@ def process_node(node):
     # Apply the transformation base
     apply_node_transform(node.transform, node.blender)
 
+  # If this is an LOD node, we will need to adjust the properties of our
+  # children
+  if isinstance(node.transform, LodNode):
+    yield
+    # We are now AFTER the children are processed
+    assert node.blender.type == "EMPTY"
+    node.blender.edm.is_lod_root = True
+    for (start, end), child in zip(node.transform.level, node.children):
+      child.blender.edm.lod_min_distance = start
+      child.blender.edm.lod_max_distance = end
+      child.blender.edm.nouse_lod_distance = end > 1e6
 
 def read_file(filename, options={}):
   # Parse the EDM file

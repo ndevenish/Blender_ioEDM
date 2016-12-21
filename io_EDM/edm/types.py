@@ -18,6 +18,7 @@ from .mathtypes import Vector, sequence_to_matrix, Matrix, Quaternion
 
 from abc import ABC
 from enum import Enum
+import math
 
 import logging
 logger = logging.getLogger(__name__)
@@ -589,13 +590,19 @@ class LodNode(Node):
   def read(cls, stream):
     self = super(LodNode, cls).read(stream)
     count = stream.read_uint()
-    self.level = [stream.read_floats(4) for x in range(count)]
+    self.level = [tuple(math.sqrt(x) for x in stream.read_doubles(2)) for x in range(count)]
     stream.mark_type_read("model::LodNode::Level", count)
     return self
   def audit(self):
     c = super(LodNode, self).audit()
     c["model::LodNode::Level"] += len(self.level)
     return c
+  def write(self, stream):
+    super(LodNode, self).write(stream)
+    stream.write_uint(len(self.level))
+    for low, high in self.level:
+      stream.write_double(low**2)
+      stream.write_double(high**2)
 
 @reads_type("model::Connector")
 class Connector(BaseNode):

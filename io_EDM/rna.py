@@ -41,12 +41,26 @@ def _updateIsCollision(self, context):
   if self.is_renderable and self.is_collision_shell:
     self.is_renderable = False
 
+def _updateIsConnector(self, context):
+  if self.is_connector and self.is_lod_root:
+    self.is_lod_root = False
+
+def _updateIsLOD(self, context):
+  if self.is_connector and self.is_lod_root:
+    self.is_connector = False
+
 class EDMObjectSettings(bpy.types.PropertyGroup):
   # Only for empty objects: Is this a connector
   is_connector = bpy.props.BoolProperty(
       default=False, 
       name="Is Connector?", 
-      description="Is this empty a connector object?")
+      description="Is this empty a connector object?",
+      update=_updateIsConnector)
+  is_lod_root = bpy.props.BoolProperty(
+      default=False, 
+      name="Is LOD Root?", 
+      description="Does this object control child LOD visibility?",
+      update=_updateIsLOD)
   is_renderable = bpy.props.BoolProperty(
       default=True, 
       name="Renderable", 
@@ -61,6 +75,20 @@ class EDMObjectSettings(bpy.types.PropertyGroup):
       default=-1, 
       name="Damage Argument", 
       description="The damage argument affecting this object")
+  # LOD Control
+  lod_min_distance = bpy.props.FloatProperty(
+    default=0, min=0, soft_max=10000, step=10, unit="LENGTH",
+    name="LOD Min Distance",
+    description="The minimum distance this object should be visible")
+  lod_max_distance = bpy.props.FloatProperty(
+    default=10000, min=0, soft_max=10000, step=10, unit="LENGTH",
+    name="LOD Max Distance",
+    description="The maximum distance this object should be visible")
+  nouse_lod_distance = bpy.props.BoolProperty(
+    default=True,
+    name="No Max",
+    description="Should there be no maximum view distance?")
+
 
 def updateSceneArgument(self, context):
   print(self, context)
