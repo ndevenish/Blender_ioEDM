@@ -40,11 +40,6 @@ Unanswered Questions about the EDM files
 ----------------------------------------
 - Exactly how are the animation transformations applied, and the purpose of
   the 'second quaternion' in the `ArgAnimationNode` common base data
-- The `model::RenderNode` objects have a structure mapping vertex data to
-  parent data, via `RNControlNode` objects - but there are situations where
-  this is not understood (e.g. single-parent but a value in the second field,
-  meaning of third field for multi-parent objects, why single-parent objects are
-  not counted as control nodes...)
 - The interpretation of the material "TEXTURE_COORDINATES_CHANNELS"
 - Lots of other details needed on the occasional unknown datablock
 

@@ -797,8 +797,7 @@ class RenderNode(BaseNode):
     # If one parent, no splitting to be done. Just assign our parent index.
     if len(self.parentData) == 1:
       self.parent = self.parentData[0][0]
-      if self.parentData[0][1] != -1:
-        print("Warning: Not sure how to split single-parent, indexed rendernodes")
+      self.damage_argument = self.parentData[0][1]
       return [self]
 
     # We have more than one parent object. Do some splitting.
@@ -807,7 +806,7 @@ class RenderNode(BaseNode):
 
     start = 0
     children = []
-    for i, (parent, idxTo, idxIDK) in enumerate(self.parentData):
+    for i, (parent, idxTo, damageArg) in enumerate(self.parentData):
       node = RenderNode()
       node.version = self.version
       node.name = "{}_{}".format(self.name, i)
@@ -815,6 +814,7 @@ class RenderNode(BaseNode):
       node.material = self.material
       node.parent = parent
       node.indexData = self.indexData[start:idxTo]
+      node.damage_argument = damageArg
       # Give them all the whole vertex subarray for now
       node.vertexData = self.vertexData
       start = idxTo

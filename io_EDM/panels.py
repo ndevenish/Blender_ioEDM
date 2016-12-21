@@ -26,7 +26,9 @@ class EDMDataPanel(DataPanel, bpy.types.Panel):
     elif context.object.type == "MESH":
       self.layout.prop(context.object.edm, "is_renderable")
       self.layout.prop(context.object.edm, "is_collision_shell")
-      # self.layout.prop(context.object.edm, "damage_argument")
+      row = self.layout.row()
+      row.active = context.object.edm.is_renderable
+      row.prop(context.object.edm, "damage_argument")
 
 class EDMEmptyLODPanel(DataPanel, bpy.types.Panel):
   bl_idname = "OBJECT_PT_edmLOD"

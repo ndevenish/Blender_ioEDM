@@ -554,6 +554,7 @@ def create_object(node):
   ob = bpy.data.objects.new(node.name, mesh)
   ob.edm.is_collision_shell = isinstance(node, ShellNode)
   ob.edm.is_renderable      = isinstance(node, RenderNode)
+  ob.edm.damage_argument = -1 if not isinstance(node, RenderNode) else node.damage_argument
   bpy.context.scene.objects.link(ob)
 
   return ob
