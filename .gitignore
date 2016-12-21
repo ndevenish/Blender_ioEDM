@@ -7,3 +7,4 @@ EDMENV
 tests/*.png
 *.blend1
 io_EDM.zip
+docs/_build
