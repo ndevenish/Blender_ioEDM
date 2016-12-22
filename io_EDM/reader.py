@@ -134,17 +134,17 @@ def process_node(node):
   if hasattr(node.render, "material"):
     node.blender.data.materials.append(node.render.material.blender_material)
 
-  if node.transform:
-    # Now, apply the animation, if there is one
-    if isinstance(node.transform, AnimatingNode):
-      actions = get_actions_for_node(node.transform)
-      if len(actions) > 1:
-        print("Warning: More than one action for node not yet integrated")
-      if actions:
-        node.blender.animation_data_create()
-        node.blender.animation_data.action = actions[0]
-    # Apply the transformation base
-    apply_node_transform(node.transform, node.blender)
+  # if node.transform:
+  #   # Now, apply the animation, if there is one
+  #   if isinstance(node.transform, AnimatingNode):
+  #     actions = get_actions_for_node(node.transform)
+  #     if len(actions) > 1:
+  #       print("Warning: More than one action for node not yet integrated")
+  #     if actions:
+  #       node.blender.animation_data_create()
+  #       node.blender.animation_data.action = actions[0]
+  #   # Apply the transformation base
+  #   apply_node_transform(node.transform, node.blender)
 
   # If this is an LOD node, we will need to adjust the properties of our
   # children
@@ -301,39 +301,23 @@ def create_arganimation_actions(node):
   #   mat  = argNode.base.matrix
   #   m2b  = matrix_to_blender e.g. swapping Z -> -Y
 
-  # Initial tests had supposed that the transformation was:
-  #    baseTransform = aabT * q1m * q2m * aabS * mat
-  # However the correct partial transform for e.g. kpp_baraban_0 is the following
-  #    C.object.location = (m2b(mat)*aabT*q1m).decompose()[0]
-  # For which case where q2m, aabS are identity. Need more verification from
-  # other items. Still confused as to why axis swapping doesn't always work?  
-  #
-  # For stick_base_1 the scale-expanded:
-  #     loc, scale <<= m2b(mat) * aabT * q1m * aabS
-  # works, however rotation is off by 90 degrees in y
-  # 
-  # For Cylinder55_13 with RXm as a rotation -90 degrees in X,
-  # and Ar as the rotation from animation:
-  # 
-  #   l, r, s <<= m2b(mat) * aabT * q1m * Ar * aabS * RXm
-  #
-  # Wondering if animation vertex data is unshifted in coordinate
-  # space, and so the correction when importing needs to be
-  # uncorrected when applying rotations
-
   # Save the 'null' transform onto the node, because we will need to
-  # apply it to any object using this node's animation. This is independant
-  # of any argument-based animation
-  # baseTransform = aabT * q1m * q2m * aabS * mat
+  # apply it to any object using this node's animation.
 
+  #               Geometry is in Blender-space in-file already, and the import
+  #                  procedure over-rotated it into an undefined space. Rotate 
+  #                                                    back into Blender-space
+  #                                                                      |
+  #                                Transforms SAVED in blender-space     |
+  #                                                   |     |      |     |
+  #             Rotates geometry into file-space      |     |      |     |
+  #                                           |       |     |      |     |
+  # Neutralizes rotation into file-space,     |       |     |      |     |
+  # keeping other transforms in blender       |       |     |      |     |
+  #                               |           |       |     |      |     |
   dcLoc, dcRot, dcScale = (matrix_to_blender(mat) * aabT * q1m * aabS * RXm).decompose()
   node.zero_transform = dcLoc, dcRot, dcScale
-  # ob.location, ob.rotation_quaternion, ob.scale = baseTransform.decompose()
-  # Manually combine without decomposing
-
-
-
-
+  
   # Split a single node into separate actions based on the argument
   for arg in node.get_all_args():
     # Filter the animation data for this node to just this action
