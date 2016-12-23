@@ -7,7 +7,7 @@ Contains the central EDM->Blender conversion code
 import bpy
 import bmesh
 
-from .utils import chdir, print_edm_graph
+from .utils import chdir, print_edm_graph, vector_string, matrix_string
 from .edm import EDMFile
 from .edm.mathtypes import *
 from .edm.types import *
@@ -86,8 +86,11 @@ def build_graph(edmFile):
     # has the same name
     if len(renderChildren) != 1:
       nameMatch = [x for x in renderChildren if x.render.name == node.transform.name]
+      unknowns = [x for x in renderChildren if x.render.name_unknown]
       if node.transform.name and len(nameMatch) == 1:
         child = nameMatch[0]
+      elif len(unknowns) == 1:
+        child = unknowns[0]
       else:
         return
     else:
@@ -173,7 +176,18 @@ def read_file(filename, options={}):
   edm = EDMFile(filename)
 
   print("Raw file graph:")
-  print_edm_graph(edm.transformRoot)
+  def _inspect(node, prefix):
+    if not isinstance(node, ArgAnimationNode):
+      return
+    print(prefix.ljust(9), "Position", vector_string(node.base.position))
+    print(prefix.ljust(9), "Q1      ", vector_string(node.base.quat_1))
+    print(prefix.ljust(9), "Q2      ", vector_string(node.base.quat_2))
+    print(prefix.ljust(9), "Scale   ", vector_string(node.base.scale))
+# print(prefix.ljust(9), "Scale   ", vector_string(node.base.scale))
+    print(matrix_string(node.base.matrix, " Matrix  ", prefix=prefix.ljust(9)))
+
+
+  print_edm_graph(edm.transformRoot, _inspect)
 
   # Set the required blender preferences
   bpy.context.user_preferences.edit.use_negative_frames = True

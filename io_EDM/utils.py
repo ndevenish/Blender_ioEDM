@@ -50,8 +50,9 @@ def matrix_string(mat, title="Matrix", prefix=""):
 
 def vector_string(vec):
   parts = ["{: 6.4f}".format(x) for x in vec]
-  s = ",".join(parts)#.replace("-0.0000", " 0.0000") \
-  #   .replace(".0000", ".    ") \
+  s = ",".join(parts).replace(".0000", ".    ")
+  #.replace("-0.0000", " 0.0000") \
+  #    \
   #   .replace(" 0. ", "  . ")
 
   return "[ " + s + " ]"
