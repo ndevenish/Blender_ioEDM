@@ -134,17 +134,17 @@ def process_node(node):
   if hasattr(node.render, "material"):
     node.blender.data.materials.append(node.render.material.blender_material)
 
-  # if node.transform:
-  #   # Now, apply the animation, if there is one
-  #   if isinstance(node.transform, AnimatingNode):
-  #     actions = get_actions_for_node(node.transform)
-  #     if len(actions) > 1:
-  #       print("Warning: More than one action for node not yet integrated")
-  #     if actions:
-  #       node.blender.animation_data_create()
-  #       node.blender.animation_data.action = actions[0]
-  #   # Apply the transformation base
-  #   apply_node_transform(node.transform, node.blender)
+  if node.transform:
+    # Now, apply the animation, if there is one
+    if isinstance(node.transform, AnimatingNode):
+      actions = get_actions_for_node(node.transform)
+      if len(actions) > 1:
+        print("Warning: More than one action for node not yet integrated")
+      if actions:
+        node.blender.animation_data_create()
+        node.blender.animation_data.action = actions[0]
+    # Apply the transformation base
+    apply_node_transform(node.transform, node.blender)
 
   # If this is an LOD node, we will need to adjust the properties of our
   # children
