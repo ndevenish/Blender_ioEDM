@@ -745,6 +745,8 @@ class RenderNode(BaseNode):
     self.vertexData = []
     self.unknown_indexPrefix = 5
     self.indexData = []
+    # If e.g. split then we don't know the real name
+    self.name_unknown = False
 
   def __repr__(self):
     return "<RenderNode \"{}\">".format(self.name)
@@ -810,6 +812,7 @@ class RenderNode(BaseNode):
       node = RenderNode()
       node.version = self.version
       node.name = "{}_{}".format(self.name, i)
+      node.name_unknown = True
       node.props = self.props
       node.material = self.material
       node.parent = parent
