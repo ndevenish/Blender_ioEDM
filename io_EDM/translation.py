@@ -5,12 +5,17 @@ Holds the translation tree that we use to step to/from blender/edm forms
 """
 
 from inspect import isgenerator
+from enum import Enum
 
 from .utils import get_all_parents, get_root_object
 
 
 _prefixLookup = {"transform": "tf", "CONNECTORS": "cn", "RENDER_NODES": "rn", "SHELL_NODES": "shell", "LIGHT_NODES": "light"}
-      
+
+class Space(Enum):
+  EDM = "EDM"
+  Blender = "Blender"
+
 class TranslationNode(object):
   """Holds a triple of blender object, render node and transform nodes.
   Each TranslationNode maps to maximum ONE blender object maximum ONE renderNode
@@ -47,6 +52,7 @@ class TranslationNode(object):
     self.parent = None
     self.graph = None
     self.children = []
+    self.space = Space.EDM
 
   def insert_parent(self):
     return self.graph.insert_new_parent(self)
@@ -73,6 +79,8 @@ class RootTranslationNode(TranslationNode):
     self.blender = None
     self.children = []
     self.parent = None
+    self.space = Space.EDM
+    
   @property
   def name(self):
     return "<ROOT>"

@@ -10,7 +10,7 @@ from .edm.mathtypes import Matrix, vector_to_edm, matrix_to_edm, Vector, MatrixS
 from .edm.basewriter import BaseWriter
 from .utils import matrix_string, vector_string, print_edm_graph
 
-from .translation import TranslationGraph, TranslationNode
+from .translation import TranslationGraph, TranslationNode, Space
 
 def get_all_actions(obj):
   """Retrieve all actions given a blender object. Includes NLA-actions"""
@@ -55,18 +55,24 @@ def convert_node(node):
     node.transform = build_animation_node(node.blender)
   else:
     pass
+  # Work out the space we want to write this node in
+  if isinstance(node.transform, ArgAnimationNode):
+    node.space = Space.Blender
+  else:
+    node.space = node.parent.space
 
+  # If this node converts spaces, then rotate the world
+  if node.space == Space.Blender and node.parent.space == Space.EDM:
+    node.transform.base.matrix = matrix_to_edm(node.transform.base.matrix)
+  
   # Decide whether to apply object transform or switch axis on writing, now
   if node.render:
     if isinstance(node.transform, ArgAnimationNode) or node.children:
       node.render.apply_transform = False
     else:
       node.render.apply_transform = True
-
-    if isinstance(node.transform, ArgAnimationNode):
-      node.render.convert_axis = False
-    else:
-      node.render.convert_axis = True
+ 
+    node.render.convert_axis = (node.space == Space.EDM)
     
   # Handle LOD nodes and children
   if node.blender.type == "EMPTY" and node.blender.edm.is_lod_root:
@@ -279,7 +285,10 @@ def create_animation_base(object):
   node = ArgAnimationNodeBuilder(name=object.name)
 
   # Build the base transforms.
-  node.base.matrix = matrix_to_edm(object.matrix_parent_inverse)
+  # Do NOT convert with matrix_to_edm yet - we explicitly track the destination
+  # space and will rotate the base matrix of the transform node that converts
+  # from blender-to-edm space
+  node.base.matrix = object.matrix_parent_inverse
   
   sM = MatrixScale(object.scale)
   rM = object.rotation_quaternion.to_matrix().to_4x4()
@@ -339,7 +348,7 @@ def create_arganimation_node(object, actions):
   RX = Quaternion((0.707, -0.707, 0, 0))
   RXm = RX.to_matrix().to_4x4()
   inverse_base_rotation = node.base.quat_1.inverted()
-  matQuat = matrix_to_blender(node.base.matrix).decompose()[1]
+  matQuat = node.base.matrix.decompose()[1]
   invMatQuat = matQuat.inverted()
 
   assert len(actions) == 1
