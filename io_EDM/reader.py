@@ -77,11 +77,21 @@ def build_graph(edmFile):
     # - some of these might be automatic, but we might have done other tree
     # work between construction and now, so better to be safe
 
+    if not node.type == "TRANSFORM":
+      return
+
     # Addition: Only count Render children in child count
     renderChildren = [x for x in node.children if x.type == "RENDER"]
-    if not node.type == "TRANSFORM" or len(renderChildren) != 1:
-      return
-    child = renderChildren[0]
+    # If we have multiple children, allow a merge IF we have a name AND a child
+    # has the same name
+    if len(renderChildren) != 1:
+      nameMatch = [x for x in renderChildren if x.render.name == node.transform.name]
+      if node.transform.name and len(nameMatch) == 1:
+        child = nameMatch[0]
+      else:
+        return
+    else:
+      child = renderChildren[0]
     if not child.type == "RENDER" or child.children:
       return
     node.render = child.render
