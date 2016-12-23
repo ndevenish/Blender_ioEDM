@@ -252,6 +252,8 @@ def build_animation_node(obj):
   actions = set(get_all_actions(obj))
   assert len(actions) <= 1, "Do not support multiple actions on object export at this time"
 
+  return create_animation_base(obj)
+  
   # If no animation data, return an animation node without keys
   if not actions:
     return create_animation_base(obj)
