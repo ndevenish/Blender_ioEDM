@@ -86,7 +86,7 @@ def build_graph(edmFile):
     # has the same name
     if len(renderChildren) != 1:
       nameMatch = [x for x in renderChildren if x.render.name == node.transform.name]
-      unknowns = [x for x in renderChildren if x.render.name_unknown]
+      unknowns = [x for x in renderChildren if hasattr(x.render, "name_unknown") and x.render.name_unknown]
       if node.transform.name and len(nameMatch) == 1:
         child = nameMatch[0]
       elif len(unknowns) == 1:
