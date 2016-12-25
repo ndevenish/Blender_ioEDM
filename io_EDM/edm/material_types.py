@@ -2,6 +2,7 @@
 from collections import OrderedDict, namedtuple, Counter
 
 from .propertiesset import PropertiesSet
+from .mathtypes import Vector
 
 # The known vertex channels
 _vertex_channels = {"position": 0, "normal": 1, "tex0": 4, "bones": 21}
