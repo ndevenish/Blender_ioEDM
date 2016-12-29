@@ -19,8 +19,7 @@ try:
     rna_register()
     panels_register()
     importer_register()
-    bpy.utils.register_module(__name__)
-    
+
   def unregister():
     from .io_operators import unregister as importer_unregister
     from .rna import unregister as rna_unregister
@@ -28,7 +27,6 @@ try:
     importer_unregister()
     panels_unregister()
     rna_unregister()
-    bpy.utils.unregister_module(__name__)
 
   if __name__ == "__main__":
     register()
