@@ -107,10 +107,12 @@ def register():
   bpy.utils.register_class(EDMDataPanel)
   bpy.utils.register_class(EDMEmptyLODPanel)
   bpy.utils.register_class(DopeActionProperties)
+  bpy.utils.register_class(EDMMaterialPanel)
   # bpy.types.TIME_HT_header.append(draw_timeline_argument_property)
 
 def unregister():
   # bpy.types.TIME_HT_header.remove(draw_timeline_argument_property)
+  bpy.utils.unregister_class(EDMMaterialPanel)
   bpy.utils.unregister_class(DopeActionProperties)
   bpy.utils.unregister_class(EDMEmptyLODPanel)
   bpy.utils.unregister_class(EDMDataPanel)
