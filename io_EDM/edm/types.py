@@ -908,7 +908,7 @@ class LightNode(BaseNode):
   def read(cls, stream):
     self = super(LightNode, cls).read(stream)
     self.unknown = [stream.read_uint(), stream.read_uchar()]
-    self.lightProps = read_raw_propertiesset(stream)
+    self.lightProps = PropertiesSet.read(stream, count=False)
     self.unknown.append(stream.read_uchar())
     return self
 
