@@ -1,6 +1,7 @@
 
 from collections import OrderedDict, namedtuple, Counter
 
+from .mathtypes import Vector
 from .propertiesset import PropertiesSet
 
 # The known vertex channels

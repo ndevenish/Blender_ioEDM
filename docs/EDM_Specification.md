@@ -933,13 +933,14 @@ uchar at the end of them. The meaning remains unknown.
 
 ### Light Nodes
 
-The general interpretation of the `model::LightNode` is unknown, however it
-does contain a properties set of light properties - which does _not_ count
-towards the general index count of `propertiesset`:
+The parent reference along with a properties set of light properties is known
+- but the other values (which are assumed to be flags of some sort) have
+unknown interpretation. The light properties do *not* count towards the
+general index count of `propertiesset`:
 
     model::LightNode :=
       model::Node     base;
-      uint            unknownA;
+      uint            parent;
       uchar           unknownB;
       propertiesset   lightProperties;
       uchar           unknownC;
