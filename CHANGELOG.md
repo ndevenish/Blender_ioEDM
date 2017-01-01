@@ -5,6 +5,7 @@
 - Reading of collision shells
 - Reading and Writing of LOD nodes
 - Reading and Writing of per-object Damage Arguments
+- Reading of LightNodes (means A10-C cockpit now works)
 
 ### Changed
 - (Internal) Streamlining, meaning it's easier to add features to the importer

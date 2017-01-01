@@ -125,8 +125,10 @@ def process_node(node):
       node.blender = create_connector(node.render)
     elif isinstance(node.render, (RenderNode, ShellNode)):
       node.blender = create_object(node.render)
+    elif isinstance(node.render, (LightNode)):
+      node.blender = create_lamp(node.render)
     else:
-      print("Warning: No case yet for object node {}".format(node))
+      print("Warning: No case yet for object node {}".format(node.render))
   else:
     # In cases where we have a transformation node, but no directly associated
     # render object, we are probably at the root of a tree of other items.
@@ -556,3 +558,11 @@ def create_object(node):
   bpy.context.scene.objects.link(ob)
 
   return ob
+
+def create_lamp(node):
+  """Creates a blender lamp from an edm renderable LampNode"""
+  data = bpy.data.lamps.new(name=node.name, type='POINT')
+  obj = bpy.data.objects.new(name=node.name, object_data=data)
+  print("Warning: Light nodes created, but not populated from edm data")
+  bpy.context.scene.objects.link(obj)
+  return obj
