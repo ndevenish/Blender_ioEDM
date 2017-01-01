@@ -89,9 +89,15 @@ def menu_import(self, context):
   self.layout.operator(ImportEDM.bl_idname, text="DCS World (.edm)")
 
 def register():
+  bpy.utils.register_class(ImportEDM)
+  bpy.utils.register_class(ExportEDM)
+  
   bpy.types.INFO_MT_file_import.append(menu_import)
   bpy.types.INFO_MT_file_export.append(menu_export)
 
 def unregister():
   bpy.types.INFO_MT_file_export.remove(menu_export)
   bpy.types.INFO_MT_file_import.remove(menu_import)
+
+  bpy.utils.unregister_class(ImportEDM)
+  bpy.utils.unregister_class(ExportEDM)
