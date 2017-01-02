@@ -158,6 +158,14 @@ def process_node(node):
     # Apply the transformation base
     apply_node_transform(node.transform, node.blender)
 
+    # Look at the empty scale here, and if it == 1 then make the empty_draw_size smaller
+    # This tends to make "dummy" connectors not take a huge volume, whilst leaving smaller
+    # connectors used for e.g. button volumes
+    if node.blender.type == "EMPTY":
+      distFromScale = node.blender.scale - Vector((1,1,1))
+      if distFromScale.length < 0.01:
+        node.blender.empty_draw_size = 0.01
+
   # If this is an LOD node, we will need to adjust the properties of our
   # children
   if isinstance(node.transform, LodNode):
@@ -457,7 +465,6 @@ def create_connector(connector):
   """Create an empty object representing a connector"""
   ob = bpy.data.objects.new(connector.name, None)
   ob.empty_draw_type = "CUBE"
-  ob.empty_draw_size = 0.1
   ob.edm.is_connector = True
   bpy.context.scene.objects.link(ob)
   return ob

@@ -10,6 +10,7 @@
 ### Changed
 - (Internal) Streamlining, meaning it's easier to add features to the importer
 - Switched to new documentation; see https://ndevenish.github.io/Blender_ioEDM
+- Imported Connectors should now have more sensible sizes
 
 ## [0.2.0] - 2016-12-14
 ### Added
