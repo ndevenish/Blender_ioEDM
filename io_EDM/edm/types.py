@@ -165,7 +165,7 @@ class EDMFile(object):
 
     # Set up parents and other links (e.g. material, bone...)
     for node in itertools.chain(self.connectors, self.shellNodes, self.lightNodes, self.renderNodes):
-      if hasattr(node, "parent"):
+      if hasattr(node, "parent") and node.parent is not None:
         node.set_parent(self.nodes[node.parent])
       if hasattr(node, "material"):
         node.material = self.root.materials[node.material]
