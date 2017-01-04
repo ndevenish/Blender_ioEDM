@@ -1,6 +1,8 @@
 
 from collections import OrderedDict, namedtuple, Counter
 
+from .typereader import AnimatedProperty, ArgumentProperty
+
 from .mathtypes import Vector
 from .propertiesset import PropertiesSet
 
@@ -208,14 +210,17 @@ class Material(object):
       c += self.uniforms.audit()
     if self.animated_uniforms:
       for entry in self.animated_uniforms.values():
-        typeEntry = entry.keys[0].value
-        if isinstance(typeEntry, float):
-          c["model::AnimatedProperty<float>"] += 1
-          c["model::Key<key::FLOAT>"] += len(entry.keys)
-        elif isinstance(typeEntry, Vector):
-          vLen = len(typeEntry)
-          c["model::AnimatedProperty<osg::Vec{}f>".format(vLen)] += 1
-          c["model::Key<key::VEC{}F>".format(vLen)] += len(entry.keys)
-        else:
-          raise IOError("Have not encountered writing animated property of type {}/{}".format(entry, type(entry)))          
+        if isinstance(entry, AnimatedProperty):
+          typeEntry = entry.keys[0].value
+          if isinstance(typeEntry, float):
+            c["model::AnimatedProperty<float>"] += 1
+            c["model::Key<key::FLOAT>"] += len(entry.keys)
+          elif isinstance(typeEntry, Vector):
+            vLen = len(typeEntry)
+            c["model::AnimatedProperty<osg::Vec{}f>".format(vLen)] += 1
+            c["model::Key<key::VEC{}F>".format(vLen)] += len(entry.keys)
+          else:
+            raise IOError("Have not encountered writing animated property of type {}/{}".format(entry, type(entry)))          
+        elif isinstance(entry, ArgumentProperty):
+          c["model::ArgumentProperty"] += 1
     return c

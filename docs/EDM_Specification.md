@@ -203,6 +203,15 @@ simple, however:
 So e.g. an `model::AnimatedProperty<osg::Vec2f>` contains a type of 
 `model::Key<key::VEC2F>`.
 
+Finally, there is another kind of animated property, the `ArgumentProperty`:
+
+    model::ArgumentProperty :=
+      string  name;
+      uint    argument;
+
+The interpretation appears to be: Use the argument animation value as the 
+value for this property.
+
 File-level Structure
 --------------------
 

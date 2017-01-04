@@ -13,6 +13,7 @@ _typeReaders = {}
 
 Property = namedtuple("Property", ["name", "value"])
 AnimatedProperty = namedtuple("AnimatedProperty", ["name", "argument", "keys"])
+ArgumentProperty = namedtuple("ArgumentProperty", ["name", "argument"])
 Keyframe = namedtuple("Keyframe", ("frame", "value"))
 
 def get_type_reader(typeName):
@@ -120,3 +121,9 @@ def readQuaternion(stream):
 def readConstChar(stream):
   assert stream.version != 10, "Need manual verification as to how v10 string properties are written"
   return stream.read_string()
+
+@reads_type("model::ArgumentProperty")
+def read_argproperty(stream):
+  name = stream.read_string()
+  arg = stream.read_uint()
+  return ArgumentProperty(name, arg)
