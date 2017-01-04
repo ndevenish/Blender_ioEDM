@@ -151,10 +151,11 @@ class EDMFile(object):
     self.renderNodes = []
     # Split any renderNodes as one may contain several objects
     for node in objects.get("RENDER_NODES", []):
-      if not isinstance(node, RenderNode):
+      if isinstance(node, RenderNode):
+        for splitNode in node.split():
+          self.renderNodes.append(splitNode)
+      else:
         self.renderNodes.append(node)
-      for splitNode in node.split():
-        self.renderNodes.append(splitNode)
 
     # Verify we are at the end of the file without unconsumed data.
     endPos = reader.tell()
@@ -804,7 +805,7 @@ class RenderNode(BaseNode):
 
     # We have more than one parent object. Do some splitting.
     # Make sure we cover the full length of the index array
-    assert self.parentData[-1][-2] == len(self.indexData), "Split does not cover whole index range"
+    assert self.parentData[-1][-2] == len(self.indexData), "Split rendernode does not cover whole index range"
 
     start = 0
     children = []

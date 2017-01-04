@@ -6,6 +6,7 @@ Usage:
   read_all [<start> [<end>]]
 """
 from io_EDM.edm import EDMFile
+from traceback import print_exc
 
 import itertools
 import glob
@@ -42,6 +43,7 @@ for i, filename in enumerate(all_files):
     raise
   except Exception as e:
     print("Error processing file;")
+    print_exc()
     errors.append((filename, str(e)))
 
 print("Writing to dump file")
