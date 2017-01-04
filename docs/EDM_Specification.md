@@ -742,7 +742,12 @@ And will always have a `name` entry in the base node reading. The parent field
 is the index of the parent transformation node - that is, the index in the
 `RootNode.nodes` list that was read earlier in the file. The last entry
 remains unknown - all known examples of .edm files have this field zero, so
-does not appear to be important. The parent is simply the index
+does not appear to be important.
+
+Properties have been observed in the `base.props` field e.g. {"Type":
+"bounding_box"}. It is unknown if this is merely commentary or holds some
+significance.
+
 
 ### Render Nodes
 

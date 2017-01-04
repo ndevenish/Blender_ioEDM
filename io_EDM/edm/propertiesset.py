@@ -49,6 +49,8 @@ class PropertiesSet(OrderedDict):
         c["model::Property<unsigned int>"] += 1
       elif isinstance(entry, float):
         c["model::Property<float>"] += 1
+      elif isinstance(entry, str):
+        c["model::Property<const char*>"] += 1
       else:
-        raise IOError("Do not know how to write uniform property {}".format(entry))
+        raise IOError("Do not know how to audit uniform property {}".format(entry))
     return c
