@@ -674,7 +674,7 @@ def _write_index_data(indexData, vertexDataLength, writer):
     writer.write_uchar(1)
     iWriter = writer.write_ushorts
   elif vertexDataLength < 2**32:
-    writer.write_ucar(2)
+    writer.write_uchar(2)
     iWriter = writer.write_uints
   else:
     raise IOError("Do not know how to write index arrays with {} members".format(vertexDataLength))
