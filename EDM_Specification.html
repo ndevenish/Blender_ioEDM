@@ -91,6 +91,7 @@
 <li class="toctree-l2 current"><a class="current reference internal" href="#">EDM Specification</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#reading-type-definitions">Reading Type definitions</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#basic-types-and-structures">Basic types and Structures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#strings">&nbsp;Strings</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#math-types">Math Types</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#properties">Properties</a></li>
 </ul>
@@ -102,8 +103,13 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#named-types">Named Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#model-rootnode">&nbsp;<code class="docutils literal"><span class="pre">model::RootNode</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#material"><code class="docutils literal"><span class="pre">Material</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#blending">&nbsp;Blending</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#material-name">&nbsp;Material Name</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#uniforms">Uniforms</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#textures-and-texture-coordinate-channels">&nbsp;Textures and Texture Coordinate Channels</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vertex-format">&nbsp;Vertex Format</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#nodes">Nodes</a><ul>
@@ -112,10 +118,18 @@
 <li class="toctree-l4"><a class="reference internal" href="#model-lodnode"><code class="docutils literal"><span class="pre">model::LodNode</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#model-bone"><code class="docutils literal"><span class="pre">model::Bone</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#model-billboardnode"><code class="docutils literal"><span class="pre">model::BillboardNode</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#animation-nodes">&nbsp;Animation Nodes</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#model-arganimationnode-position-rotation-and-scale"><code class="docutils literal"><span class="pre">model::ArgAnimationNode</span></code>, Position, Rotation and Scale</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#model-arganimatedbone"><code class="docutils literal"><span class="pre">model::ArgAnimatedBone</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#model-argvisibilitynode"><code class="docutils literal"><span class="pre">model::ArgVisibilityNode</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#object-nodes">&nbsp;Object Nodes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#connector">&nbsp;Connector</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#render-nodes">Render Nodes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#light-nodes">&nbsp;Light Nodes</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#shell-nodes">Shell Nodes</a></li>
 </ul>
 </li>
@@ -159,7 +173,7 @@
       <li class="wy-breadcrumbs-aside">
         
           
-            <a href="_sources/EDM_Specification.md.txt" rel="nofollow"> View page source</a>
+            <a href="_sources/EDM_Specification.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -170,83 +184,108 @@
            <div itemprop="articleBody">
             
   <div class="section" id="edm-specification">
-<span id="edm-specification"></span><h1>EDM Specification<a class="headerlink" href="#edm-specification" title="Permalink to this headline">¶</a></h1>
-<p>This document defines what is known about the structure of the EDM files and
-the data contained therein. Not everything is known, and some of it is
-guesswork, which will usually be noted. Luckily, the structure is rather
-simple - almost everything has a count prepended, object names are stored as
-character strings, and there are no pointer-references, so everything can be
-read sequentially.</p>
+<h1>EDM Specification<a class="headerlink" href="#edm-specification" title="Permalink to this headline">¶</a></h1>
+<p>This document defines what is known about the structure of the EDM files
+and the data contained therein. Not everything is known, and some of it
+is guesswork, which will usually be noted. Luckily, the structure is
+rather simple - almost everything has a count prepended, object names
+are stored as character strings, and there are no pointer-references, so
+everything can be read sequentially.</p>
 <div class="section" id="reading-type-definitions">
-<span id="reading-type-definitions"></span><h2>Reading Type definitions<a class="headerlink" href="#reading-type-definitions" title="Permalink to this headline">¶</a></h2>
-<p>C-like struct notation is relatively common for defining binary files, but can
-be misleading by e.g. giving the impression that it describes a fixed-size
-length of data, which would be incorrect in the case of this file format.
-Therefore, in this document we will use a list-based description with roughly
-c-style names; in order to define a type, we present it&#8217;s name and then a
-list of fields to be read in order - which may be simple or complex - of fixed
-size or no. For example, the definition of the prefixed string type used is
-duplicated here as:</p>
+<h2>Reading Type definitions<a class="headerlink" href="#reading-type-definitions" title="Permalink to this headline">¶</a></h2>
+<p>C-like struct notation is relatively common for defining binary files,
+but can be misleading by e.g. giving the impression that it describes a
+fixed-size length of data, which would be incorrect in the case of this
+file format. Therefore, in this document we will use a list-based
+description with roughly c-style names; in order to define a type, we
+present it&#8217;s name and then a list of fields to be read in order - which
+may be simple or complex - of fixed size or no. For example, the
+definition of the prefixed string type used is duplicated here as:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">uint_string</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">uint</span>  <span class="n">count</span><span class="p">;</span>
   <span class="n">char</span>  <span class="n">data</span><span class="p">[</span><span class="n">count</span><span class="p">];</span>
 </pre></div>
 </div>
 <p>indicating that an unsigned int is to be read, followed by a sequence of
-characters - of length determined by the previously read number. The size of
-the array could be simple or an expression based on calculation - as in the
-vertex counts of the render nodes.</p>
+characters - of length determined by the previously read number. The
+size of the array could be simple or an expression based on calculation
+- as in the vertex counts of the render nodes.</p>
 <p>Additionally, there may occasionally require reading of exact constants;
-these are indicated by specifying <code class="docutils literal"><span class="pre">const</span></code> followed by either literal python
-bytestrings (in ASCII) e.g. <code class="docutils literal"><span class="pre">const</span> <span class="pre">b'EDM'</span></code>, or typed declarations, without
-names e.g. <code class="docutils literal"><span class="pre">const</span> <span class="pre">uint</span> <span class="pre">=</span> <span class="pre">-1</span></code>, <code class="docutils literal"><span class="pre">const</span> <span class="pre">uint</span> <span class="pre">=</span> <span class="pre">[0,0]</span></code> which would require reading
-one (two) unsigned integers and comparing them.</p>
-<p>It should also be noted that C++ style template syntax will also be used - both
-to represent general instances (in which case <code class="docutils literal"><span class="pre">T</span></code> will usually be used), and
-specific instances - to match exact type names. Improvements for clarity of
-notation are welcome.</p>
-<p>Although progress was initially made describing this as a formal language
-(in the history of the repository the EDM file was actually parsed as such)
-there are exceptions where it may be easier just to describe what is going on.
-This should be reasonably obvious from the context.</p>
+these are indicated by specifying <code class="docutils literal"><span class="pre">const</span></code> followed by either literal
+python bytestrings (in ASCII) e.g. <code class="docutils literal"><span class="pre">const</span> <span class="pre">b'EDM'</span></code>, or typed
+declarations, without names e.g. <code class="docutils literal"><span class="pre">const</span> <span class="pre">uint</span> <span class="pre">=</span> <span class="pre">-1</span></code>,
+<code class="docutils literal"><span class="pre">const</span> <span class="pre">uint</span> <span class="pre">=</span> <span class="pre">[0,0]</span></code> which would require reading one (two) unsigned
+integers and comparing them.</p>
+<p>It should also be noted that C++ style template syntax will also be used
+- both to represent general instances (in which case <code class="docutils literal"><span class="pre">T</span></code> will usually
+be used), and specific instances - to match exact type names.
+Improvements for clarity of notation are welcome.</p>
+<p>Although progress was initially made describing this as a formal
+language (in the history of the repository the EDM file was actually
+parsed as such) there are exceptions where it may be easier just to
+describe what is going on. This should be reasonably obvious from the
+context.</p>
 </div>
 <div class="section" id="basic-types-and-structures">
-<span id="basic-types-and-structures"></span><h2>Basic types and Structures<a class="headerlink" href="#basic-types-and-structures" title="Permalink to this headline">¶</a></h2>
-<p>The .EDM files are all written little-endian, and use the common sizes for the
-basic types in both signed and unsigned variants; indicated by a prefix of <code class="docutils literal"><span class="pre">u</span></code>.
-The most common type in the files are probably <code class="docutils literal"><span class="pre">unsigned</span> <span class="pre">integers</span></code>, or
-&#8216;<code class="docutils literal"><span class="pre">uint</span></code>&#8216;. The lengths are listed here for completeness:</p>
-<p>| Type Name   | Size (bytes) |
-|&#8212;&#8212;&#8212;&#8212;-|&#8212;&#8212;&#8212;&#8212;&#8211;|
-| char        | 1            |
-| short       | 2            |
-| int         | 4            |
-| float       | 4            |
-| double      | 8            |</p>
-<p>In addition to the basic types, there are several fundamental structures that
-are repeated throughout the file. One of these were strings, however newer
-versions of the .edm format have made strings more complicated, so they are
-described below. Strings are particularly important in understanding one of
-the most common patterns in EDM files, the <code class="docutils literal"><span class="pre">named_type</span></code>:</p>
+<h2>Basic types and Structures<a class="headerlink" href="#basic-types-and-structures" title="Permalink to this headline">¶</a></h2>
+<p>The .EDM files are all written little-endian, and use the common sizes
+for the basic types in both signed and unsigned variants; indicated by a
+prefix of <code class="docutils literal"><span class="pre">u</span></code>. The most common type in the files are probably
+<code class="docutils literal"><span class="pre">unsigned</span> <span class="pre">integers</span></code>, or &#8216;<code class="docutils literal"><span class="pre">uint</span></code>&#8216;. The lengths are listed here for
+completeness:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="45%" />
+<col width="55%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Type Name</th>
+<th class="head">Size (bytes)</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>char</td>
+<td>1</td>
+</tr>
+<tr class="row-odd"><td>short</td>
+<td>2</td>
+</tr>
+<tr class="row-even"><td>int</td>
+<td>4</td>
+</tr>
+<tr class="row-odd"><td>float</td>
+<td>4</td>
+</tr>
+<tr class="row-even"><td>double</td>
+<td>8</td>
+</tr>
+</tbody>
+</table>
+<p>In addition to the basic types, there are several fundamental structures
+that are repeated throughout the file. One of these were strings,
+however newer versions of the .edm format have made strings more
+complicated, so they are described below. Strings are particularly
+important in understanding one of the most common patterns in EDM files,
+the <code class="docutils literal"><span class="pre">named_type</span></code>:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">named_type</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">string</span>    <span class="n">typeName</span><span class="p">;</span>
   <span class="n">typeName</span>  <span class="n">value</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>e.g. a string should be read, which tells you the type of the object that needs
-to be read next. Usually there is some subset of types that this can be, but
-that is entirely dependent on the context.</p>
-<p>Lists of some kind are also very common which, here using C++ template syntax
-can be seen to be length-prefixed:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">list</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">:</span><span class="o">=</span> 
+<p>e.g. a string should be read, which tells you the type of the object
+that needs to be read next. Usually there is some subset of types that
+this can be, but that is entirely dependent on the context.</p>
+<p>Lists of some kind are also very common which, here using C++ template
+syntax can be seen to be length-prefixed:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">list</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">uint</span> <span class="n">count</span><span class="p">;</span>
   <span class="n">T</span>    <span class="n">data</span><span class="p">[</span><span class="n">count</span><span class="p">];</span>
 </pre></div>
 </div>
-<p>and can be used with <code class="docutils literal"><span class="pre">named_type</span></code> to represent a generic list of any named
-object - and each entry in the list could potentially be a different type.
-Related, is the mapping/dictionary type, which is written in the file as a
-list of paired keys and values:</p>
+<p>and can be used with <code class="docutils literal"><span class="pre">named_type</span></code> to represent a generic list of any
+named object - and each entry in the list could potentially be a
+different type. Related, is the mapping/dictionary type, which is
+written in the file as a list of paired keys and values:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="nb">map</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="n">Q</span><span class="o">&gt;</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">List</span><span class="o">&lt;</span><span class="n">Pair</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="n">Q</span><span class="o">&gt;&gt;</span>
 
@@ -255,44 +294,48 @@ list of paired keys and values:</p>
   <span class="n">Q</span> <span class="n">value</span>
 </pre></div>
 </div>
-<p>###&nbsp;Strings</p>
-<p>Whilst simple in version 8 files, strings become a little more complicated
-in version 10. Let&#8217;s start with version 8. All strings are length-prefixed,
-<em>without</em> trailing null character:</p>
+<div class="section" id="strings">
+<h3>&nbsp;Strings<a class="headerlink" href="#strings" title="Permalink to this headline">¶</a></h3>
+<p>Whilst simple in version 8 files, strings become a little more
+complicated in version 10. Let&#8217;s start with version 8. All strings are
+length-prefixed, <em>without</em> trailing null character:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">//</span> <span class="n">Strings</span> <span class="ow">in</span> <span class="n">file</span> <span class="nb">format</span> <span class="n">v8</span>
 <span class="n">string</span> <span class="p">:</span><span class="o">=</span> <span class="n">uint_string</span>
 
-<span class="n">uint_string</span> <span class="p">:</span><span class="o">=</span> 
+<span class="n">uint_string</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">unsigned_int</span> <span class="n">count</span>
   <span class="n">char</span>         <span class="n">data</span><span class="p">[</span><span class="n">count</span><span class="p">];</span>
 </pre></div>
 </div>
 <p>And the character data is encoded in <strong>windows-1251</strong> encoding.</p>
-<p>For version 10 files, they are a little different. Most of the string data
-is encoded in a lookup table at the beginning of the file (see <code class="docutils literal"><span class="pre">EDMFile</span></code>).
-So a string now looks like:</p>
+<p>For version 10 files, they are a little different. Most of the string
+data is encoded in a lookup table at the beginning of the file (see
+<code class="docutils literal"><span class="pre">EDMFile</span></code>). So a string now looks like:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">//</span> <span class="n">Strings</span> <span class="ow">in</span> <span class="n">file</span> <span class="nb">format</span> <span class="n">v10</span>
-<span class="n">string</span> <span class="p">:</span><span class="o">=</span> 
+<span class="n">string</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">uint</span> <span class="n">index</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>and the actual value is subsequently found in <code class="docutils literal"><span class="pre">lookupTable[index]</span></code>. There are
-also instances of <code class="docutils literal"><span class="pre">uint_string</span></code>, used for the node base names. (these will mostly be unique, so not much point in moving them to a lookup table).</p>
+<p>and the actual value is subsequently found in <code class="docutils literal"><span class="pre">lookupTable[index]</span></code>.
+There are also instances of <code class="docutils literal"><span class="pre">uint_string</span></code>, used for the node base
+names. (these will mostly be unique, so not much point in moving them to
+a lookup table).</p>
 <p>In absence of further evidence, the character data is assumed to also be
 encoded in <strong>windows-1251</strong> encoding.</p>
+</div>
 <div class="section" id="math-types">
-<span id="math-types"></span><h3>Math Types<a class="headerlink" href="#math-types" title="Permalink to this headline">¶</a></h3>
-<p>Before moving on to the primary structure of the file, it&#8217;s helpful to look at
-some of the compound math types that are used. The EDM math types are based on
-the OpenSceneGraph library, and named accordingly.</p>
+<h3>Math Types<a class="headerlink" href="#math-types" title="Permalink to this headline">¶</a></h3>
+<p>Before moving on to the primary structure of the file, it&#8217;s helpful to
+look at some of the compound math types that are used. The EDM math
+types are based on the OpenSceneGraph library, and named accordingly.</p>
 <p>Vector types encode both the count and type of the data into their name:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">osg</span><span class="p">::</span><span class="n">Vec2f</span> <span class="p">:</span><span class="o">=</span> 
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">osg</span><span class="p">::</span><span class="n">Vec2f</span> <span class="p">:</span><span class="o">=</span>
   <span class="nb">float</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">;</span>
 
-<span class="n">osg</span><span class="p">::</span><span class="n">Vec2d</span> <span class="p">:</span><span class="o">=</span> 
+<span class="n">osg</span><span class="p">::</span><span class="n">Vec2d</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">double</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">;</span>
 
-<span class="n">osg</span><span class="p">::</span><span class="n">Vec3f</span> <span class="p">:</span><span class="o">=</span> 
+<span class="n">osg</span><span class="p">::</span><span class="n">Vec3f</span> <span class="p">:</span><span class="o">=</span>
   <span class="nb">float</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">;</span>
 
 <span class="n">osg</span><span class="p">::</span><span class="n">Vec3d</span> <span class="p">:</span><span class="o">=</span>
@@ -307,31 +350,33 @@ the OpenSceneGraph library, and named accordingly.</p>
   <span class="n">double</span> <span class="n">data</span><span class="p">[</span><span class="mi">16</span><span class="p">]</span>
 </pre></div>
 </div>
-<p>Matrices are written in column-major order, for OpenGL, so may need to be
-transposed if desired in row-major. Finally, Quaternions might need to be
-read, and the components are in this order:</p>
+<p>Matrices are written in column-major order, for OpenGL, so may need to
+be transposed if desired in row-major. Finally, Quaternions might need
+to be read, and the components are in this order:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">osg</span><span class="p">:</span><span class="n">Quaternion</span> <span class="p">:</span><span class="o">=</span>
   <span class="nb">float</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">w</span><span class="p">;</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="properties">
-<span id="properties"></span><h3>Properties<a class="headerlink" href="#properties" title="Permalink to this headline">¶</a></h3>
+<h3>Properties<a class="headerlink" href="#properties" title="Permalink to this headline">¶</a></h3>
 <p>Finally, another relatively common meta-pattern is that of properties:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">Property</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">string</span> <span class="n">name</span>
   <span class="n">T</span>      <span class="n">value</span>
 </pre></div>
 </div>
-<p>They function in a similar way to the <code class="docutils literal"><span class="pre">map</span></code> structure <code class="docutils literal"><span class="pre">pair</span></code>, except that
-being named types can hold values for anything. Related, as a parent structure
-very similar in purpose to a <code class="docutils literal"><span class="pre">map</span></code> is the <code class="docutils literal"><span class="pre">PropertiesSet</span></code>:</p>
+<p>They function in a similar way to the <code class="docutils literal"><span class="pre">map</span></code> structure <code class="docutils literal"><span class="pre">pair</span></code>, except
+that being named types can hold values for anything. Related, as a
+parent structure very similar in purpose to a <code class="docutils literal"><span class="pre">map</span></code> is the
+<code class="docutils literal"><span class="pre">PropertiesSet</span></code>:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">PropertiesSet</span> <span class="p">:</span><span class="o">=</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">named_type</span><span class="o">&gt;</span>
 </pre></div>
 </div>
-<p>Where the <code class="docutils literal"><span class="pre">named_type</span></code> is restricted to instances of <code class="docutils literal"><span class="pre">model::Property&lt;T&gt;</span></code>
-(and that includes subtypes e.g. <code class="docutils literal"><span class="pre">model::AnimatedProperty</span></code>). This type is
-tracked separately as a &#8216;named&#8217; type in the main file index.</p>
+<p>Where the <code class="docutils literal"><span class="pre">named_type</span></code> is restricted to instances of
+<code class="docutils literal"><span class="pre">model::Property&lt;T&gt;</span></code> (and that includes subtypes e.g.
+<code class="docutils literal"><span class="pre">model::AnimatedProperty</span></code>). This type is tracked separately as a
+&#8216;named&#8217; type in the main file index.</p>
 <p>Animated properties are similar, but hold keyframe data for a specific
 animation number (<code class="docutils literal"><span class="pre">argument</span></code>):</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">AnimatedProperty</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">:</span><span class="o">=</span>
@@ -345,21 +390,48 @@ animation number (<code class="docutils literal"><span class="pre">argument</spa
   <span class="n">T</span>        <span class="n">value</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>The keyframe type, as appears in the main file index, does not
-directly correspond to the exact type name. The translation is relatively
-simple, however:</p>
-<p>| Animated Property Type | Keyframe Type |
-|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;|&#8212;&#8212;&#8212;&#8212;&#8212;|
-| <code class="docutils literal"><span class="pre">float</span></code>                | <code class="docutils literal"><span class="pre">key::FLOAT</span></code>  |
-| <code class="docutils literal"><span class="pre">osg::Vec2f</span></code>           | <code class="docutils literal"><span class="pre">key::VEC2F</span></code>  |
-| <code class="docutils literal"><span class="pre">osc::Vec3f</span></code>           | <code class="docutils literal"><span class="pre">key::VEC3F</span></code>  |</p>
+<p>The keyframe type, as appears in the main file index, does not directly
+correspond to the exact type name. The translation is relatively simple,
+however:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="59%" />
+<col width="41%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Animated Property Type</th>
+<th class="head">Keyframe Type</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">float</span></code></td>
+<td><code class="docutils literal"><span class="pre">key::FLOAT</span></code></td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">osg::Vec2f</span></code></td>
+<td><code class="docutils literal"><span class="pre">key::VEC2F</span></code></td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">osc::Vec3f</span></code></td>
+<td><code class="docutils literal"><span class="pre">key::VEC3F</span></code></td>
+</tr>
+</tbody>
+</table>
 <p>So e.g. an <code class="docutils literal"><span class="pre">model::AnimatedProperty&lt;osg::Vec2f&gt;</span></code> contains a type of
 <code class="docutils literal"><span class="pre">model::Key&lt;key::VEC2F&gt;</span></code>.</p>
+<p>Finally, there is another kind of animated property, the
+<code class="docutils literal"><span class="pre">ArgumentProperty</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">ArgumentProperty</span> <span class="p">:</span><span class="o">=</span>
+  <span class="n">string</span>  <span class="n">name</span><span class="p">;</span>
+  <span class="n">uint</span>    <span class="n">argument</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>The interpretation appears to be: Use the argument animation value as
+the value for this property.</p>
 </div>
 </div>
 <div class="section" id="file-level-structure">
-<span id="file-level-structure"></span><h2>File-level Structure<a class="headerlink" href="#file-level-structure" title="Permalink to this headline">¶</a></h2>
-<p>We now know enough to parse the EDM file, following type definitions. Let&#8217;s look at what the structure is:</p>
+<h2>File-level Structure<a class="headerlink" href="#file-level-structure" title="Permalink to this headline">¶</a></h2>
+<p>We now know enough to parse the EDM file, following type definitions.
+Let&#8217;s look at what the structure is:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">EDMFile</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">const</span> <span class="n">b</span><span class="s1">&#39;EDM&#39;</span>
   <span class="n">ushort</span>              <span class="n">version</span><span class="p">;</span>    <span class="c1"># 8 or 10 in all current EDM files</span>
@@ -377,32 +449,33 @@ simple, however:</p>
 </pre></div>
 </div>
 <p>followed by an EOF.</p>
-<p>After the file signature and version, If the file version is 8, the indexes
-follow. If version 10, however, the string lookup tables are placed
-immediately. The lookup is in a big block of character data, consisting of a
-number of <strong>null-terminated</strong> strings, one after another. Once split and
-decoded, this data forms the string lookup table described earlier in the
-definition for strings. This is then immediately used by the file indexes...</p>
-<p>They translate as a lookup table of (almost entirely) typename-to-count values
-and seem to act as a crosscheck for the file. <code class="docutils literal"><span class="pre">indexA</span></code> seems to function as a
-tracking index exclusively for direct children of the <code class="docutils literal"><span class="pre">rootNode</span></code> and render
-items (e.g. types that only appear as members of the <code class="docutils literal"><span class="pre">model::RootNode</span></code>, or in
-the <code class="docutils literal"><span class="pre">renderItems</span></code> map). Here is an example of the contents of this index, in
-python dictionary form:</p>
-<div class="highlight-python"><div class="highlight"><pre><span></span><span class="p">{</span>
+<p>After the file signature and version, If the file version is 8, the
+indexes follow. If version 10, however, the string lookup tables are
+placed immediately. The lookup is in a big block of character data,
+consisting of a number of <strong>null-terminated</strong> strings, one after
+another. Once split and decoded, this data forms the string lookup table
+described earlier in the definition for strings. This is then
+immediately used by the file indexes...</p>
+<p>They translate as a lookup table of (almost entirely) typename-to-count
+values and seem to act as a crosscheck for the file. <code class="docutils literal"><span class="pre">indexA</span></code> seems to
+function as a tracking index exclusively for direct children of the
+<code class="docutils literal"><span class="pre">rootNode</span></code> and render items (e.g. types that only appear as members of
+the <code class="docutils literal"><span class="pre">model::RootNode</span></code>, or in the <code class="docutils literal"><span class="pre">renderItems</span></code> map). Here is an
+example of the contents of this index, in python dictionary form:</p>
+<div class="code python highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span>
   <span class="s1">&#39;model::ArgAnimationNode&#39;</span><span class="p">:</span> <span class="mi">216</span><span class="p">,</span>
   <span class="s1">&#39;model::RenderNode&#39;</span><span class="p">:</span>       <span class="mi">200</span><span class="p">,</span>
   <span class="s1">&#39;model::RootNode&#39;</span><span class="p">:</span>           <span class="mi">1</span><span class="p">,</span>
-  <span class="s1">&#39;model::ArgVisibilityNode&#39;</span><span class="p">:</span><span class="mi">168</span><span class="p">,</span> 
+  <span class="s1">&#39;model::ArgVisibilityNode&#39;</span><span class="p">:</span><span class="mi">168</span><span class="p">,</span>
   <span class="s1">&#39;model::Connector&#39;</span><span class="p">:</span>         <span class="mi">28</span><span class="p">,</span>
-  <span class="s1">&#39;model::TransformNode&#39;</span><span class="p">:</span>     <span class="mi">28</span><span class="p">,</span> 
+  <span class="s1">&#39;model::TransformNode&#39;</span><span class="p">:</span>     <span class="mi">28</span><span class="p">,</span>
   <span class="s1">&#39;model::Node&#39;</span><span class="p">:</span>               <span class="mi">1</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>The second index seems to function in a similar way, except listing named
-types that appear elsewhere, as members of the node objects:</p>
-<div class="highlight-python"><div class="highlight"><pre><span></span><span class="p">{</span><span class="s1">&#39;__gi_bytes&#39;</span><span class="p">:</span> <span class="mi">906501</span><span class="p">,</span>
+<p>The second index seems to function in a similar way, except listing
+named types that appear elsewhere, as members of the node objects:</p>
+<div class="code python highlight-default"><div class="highlight"><pre><span></span><span class="p">{</span><span class="s1">&#39;__gi_bytes&#39;</span><span class="p">:</span> <span class="mi">906501</span><span class="p">,</span>
  <span class="s1">&#39;__gv_bytes&#39;</span><span class="p">:</span> <span class="mi">5599044</span><span class="p">,</span>
  <span class="s1">&#39;model::AnimatedProperty&lt;float&gt;&#39;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
  <span class="s1">&#39;model::ArgAnimationNode::Position&#39;</span><span class="p">:</span> <span class="mi">111</span><span class="p">,</span>
@@ -420,24 +493,25 @@ types that appear elsewhere, as members of the node objects:</p>
  <span class="s1">&#39;model::RNControlNode&#39;</span><span class="p">:</span> <span class="mi">203</span><span class="p">}</span>
 </pre></div>
 </div>
-<p>With the addition of the first two fields; <code class="docutils literal"><span class="pre">__gi_bytes</span></code>, which is a count of
-the number of raw bytes of vertex indexing data, and <code class="docutils literal"><span class="pre">__gv_bytes</span></code> which is
-the number of raw vertex data bytes. Presumably this is used as a quick
-evaluation of how much video memory is required to load the model.</p>
-<p>These can be useful whilst parsing the data, because they provide a cross-
-check that you have properly read objects, and also provided clues as to how
-certain objects were broken down. Presumably building them is critically
-important for writing new EDM files.</p>
+<p>With the addition of the first two fields; <code class="docutils literal"><span class="pre">__gi_bytes</span></code>, which is a
+count of the number of raw bytes of vertex indexing data, and
+<code class="docutils literal"><span class="pre">__gv_bytes</span></code> which is the number of raw vertex data bytes. Presumably
+this is used as a quick evaluation of how much video memory is required
+to load the model.</p>
+<p>These can be useful whilst parsing the data, because they provide a
+cross- check that you have properly read objects, and also provided
+clues as to how certain objects were broken down. Presumably building
+them is critically important for writing new EDM files.</p>
 <div class="section" id="the-root-node">
-<span id="the-root-node"></span><h3>The Root Node<a class="headerlink" href="#the-root-node" title="Permalink to this headline">¶</a></h3>
+<h3>The Root Node<a class="headerlink" href="#the-root-node" title="Permalink to this headline">¶</a></h3>
 <p>The next entry is a <code class="docutils literal"><span class="pre">named_type</span></code> - but is always a named instance of
 <code class="docutils literal"><span class="pre">model::RootNode</span></code>.</p>
 </div>
 <div class="section" id="transformation-nodes">
-<span id="transformation-nodes"></span><h3>Transformation Nodes<a class="headerlink" href="#transformation-nodes" title="Permalink to this headline">¶</a></h3>
+<h3>Transformation Nodes<a class="headerlink" href="#transformation-nodes" title="Permalink to this headline">¶</a></h3>
 <p>There is then a list of named transformation and animation nodes, always
-starting with an empty <code class="docutils literal"><span class="pre">model::Node</span></code>. The types of node that appear in this
-list are:</p>
+starting with an empty <code class="docutils literal"><span class="pre">model::Node</span></code>. The types of node that appear in
+this list are:</p>
 <ul class="simple">
 <li><code class="docutils literal"><span class="pre">model::Node</span></code></li>
 <li><code class="docutils literal"><span class="pre">model::TransformNode</span></code></li>
@@ -452,40 +526,67 @@ list are:</p>
 <li><code class="docutils literal"><span class="pre">model::ArgVisibilityNode</span></code></li>
 </ul>
 <p>Following this list is a rather opaque block of data - on the surface it
-appears to be a <code class="docutils literal"><span class="pre">-1</span></code> followed by a large block of mostly zeros, with only
-occasional data. This block is simply an array of transformation node
-references - each <code class="docutils literal"><span class="pre">uint</span></code> holds the transformation node index of the parent
-in it&#8217;s transformation chain, with <code class="docutils literal"><span class="pre">-1</span></code> indicating that the node has no
-parent - the reason most of the data is zero is that mostly there is no
-need for a complex chain of parent transformation.</p>
-<p>This tree of parenting allows for complex animations and skeletal structures
-that allow multiple animations to be applied to each render item.</p>
+appears to be a <code class="docutils literal"><span class="pre">-1</span></code> followed by a large block of mostly zeros, with
+only occasional data. This block is simply an array of transformation
+node references - each <code class="docutils literal"><span class="pre">uint</span></code> holds the transformation node index of
+the parent in it&#8217;s transformation chain, with <code class="docutils literal"><span class="pre">-1</span></code> indicating that the
+node has no parent - the reason most of the data is zero is that mostly
+there is no need for a complex chain of parent transformation.</p>
+<p>This tree of parenting allows for complex animations and skeletal
+structures that allow multiple animations to be applied to each render
+item.</p>
 </div>
 <div class="section" id="render-items">
-<span id="render-items"></span><h3>Render Items<a class="headerlink" href="#render-items" title="Permalink to this headline">¶</a></h3>
-<p>Finally, after the unknown data block comes the world-placed objects - a string
-identifier followed by a typed list. This can have up to four entries, though
-any (or all) may be missing:</p>
-<p>| String         | Node types                                |
-|&#8212;&#8212;&#8212;&#8212;&#8212;-|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;-|
-| <code class="docutils literal"><span class="pre">CONNECTORS</span></code>   | <code class="docutils literal"><span class="pre">model::Connector</span></code>                        |
-| <code class="docutils literal"><span class="pre">RENDER_NODES</span></code> | <code class="docutils literal"><span class="pre">model::RenderNode</span></code>, <code class="docutils literal"><span class="pre">model::SkinNode</span></code>, <code class="docutils literal"><span class="pre">model::FakeOmniLightsNode</span></code>, <code class="docutils literal"><span class="pre">model::FakeSpotLightsNode</span></code>, <code class="docutils literal"><span class="pre">model::FakeALSNode</span></code> |
-| <code class="docutils literal"><span class="pre">SHELL_NODES</span></code>  | <code class="docutils literal"><span class="pre">model::ShellNode</span></code>, <code class="docutils literal"><span class="pre">model::SegmentsNode</span></code> |
-| <code class="docutils literal"><span class="pre">LIGHT_NODES</span></code>  | <code class="docutils literal"><span class="pre">model::LightNode</span></code>                        |</p>
+<h3>Render Items<a class="headerlink" href="#render-items" title="Permalink to this headline">¶</a></h3>
+<p>Finally, after the unknown data block comes the world-placed objects - a
+string identifier followed by a typed list. This can have up to four
+entries, though any (or all) may be missing:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="29%" />
+<col width="71%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">String</th>
+<th class="head">Node types</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">CONNECTORS</span></code></td>
+<td><code class="docutils literal"><span class="pre">model::Connector</span></code></td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">RENDER_NODES</span></code></td>
+<td><code class="docutils literal"><span class="pre">model::RenderNode</span></code>, <code class="docutils literal"><span class="pre">model::SkinNode</span></code>,
+<code class="docutils literal"><span class="pre">model::FakeOmniLightsNode</span></code>,
+<code class="docutils literal"><span class="pre">model::FakeSpotLightsNode</span></code>,
+<code class="docutils literal"><span class="pre">model::FakeALSNode</span></code></td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">SHELL_NODES</span></code></td>
+<td><code class="docutils literal"><span class="pre">model::ShellNode</span></code>,
+<code class="docutils literal"><span class="pre">model::SegmentsNode</span></code></td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">LIGHT_NODES</span></code></td>
+<td><code class="docutils literal"><span class="pre">model::LightNode</span></code></td>
+</tr>
+</tbody>
+</table>
 <p>with the contents described in the sections for those types.</p>
-<p>It is at this point that the file should have reached it&#8217;s end - with <code class="docutils literal"><span class="pre">0</span></code>
-bytes left to read, and being fully completed all final cross-checks and
-cross-links can be made, ready for interpretation however one wishes.</p>
+<p>It is at this point that the file should have reached it&#8217;s end - with
+<code class="docutils literal"><span class="pre">0</span></code> bytes left to read, and being fully completed all final
+cross-checks and cross-links can be made, ready for interpretation
+however one wishes.</p>
 </div>
 </div>
 <div class="section" id="named-types">
-<span id="named-types"></span><h2>Named Types<a class="headerlink" href="#named-types" title="Permalink to this headline">¶</a></h2>
-<p>At this point &#8216;all that is left&#8217; is to define specific types, and allow the
-chain to be followed. Let&#8217;s start with the first major node we are interested
-in reading, the root node.</p>
-<p>##&nbsp;<code class="docutils literal"><span class="pre">model::RootNode</span></code></p>
-<p>The <code class="docutils literal"><span class="pre">RootNode</span></code> object holds information about all of the materials in the
-scene, and a chunk of vector data that is not well understood.</p>
+<h2>Named Types<a class="headerlink" href="#named-types" title="Permalink to this headline">¶</a></h2>
+<p>At this point &#8216;all that is left&#8217; is to define specific types, and allow
+the chain to be followed. Let&#8217;s start with the first major node we are
+interested in reading, the root node.</p>
+</div>
+<div class="section" id="model-rootnode">
+<h2>&nbsp;<code class="docutils literal"><span class="pre">model::RootNode</span></code><a class="headerlink" href="#model-rootnode" title="Permalink to this headline">¶</a></h2>
+<p>The <code class="docutils literal"><span class="pre">RootNode</span></code> object holds information about all of the materials in
+the scene, and a chunk of vector data that is not well understood.</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">RootNode</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">uint_string</span>       <span class="n">name</span><span class="p">;</span>
   <span class="n">uint</span>              <span class="n">version</span><span class="p">;</span>      <span class="c1"># Asssumed</span>
@@ -499,197 +600,510 @@ scene, and a chunk of vector data that is not well understood.</p>
 </pre></div>
 </div>
 <p>The object begins like all other <code class="docutils literal"><span class="pre">Node</span></code>-derived objects, with the name
-(although in v10 files, this is explicitly a <code class="docutils literal"><span class="pre">uint_string</span></code>, not in the lookup
-table), class version and properties dictionary. Although the properties are
-often empty for <code class="docutils literal"><span class="pre">Node</span></code>-derived objects, in the <code class="docutils literal"><span class="pre">RootNode</span></code> this always has the
-contents <code class="docutils literal"><span class="pre">{&quot;__VERSION__&quot;:</span> <span class="pre">2}</span></code> - a value which appears to be important when
-writing (it changes the layout of the unknown areas of the class?)</p>
-<p>After a single char which is not understood, We then have two <code class="docutils literal"><span class="pre">Vector3d</span></code>
-objects. These define the bounding box of the model - the first being the
-lower corner of the box, the second the upper corner. In the model viewer,
-this defines the range that the axes are displayed (e.g. the X axis is shown
-from <code class="docutils literal"><span class="pre">boundingBoxMin.x</span></code> to <code class="docutils literal"><span class="pre">boundingBoxMax.x</span></code>.</p>
+(although in v10 files, this is explicitly a <code class="docutils literal"><span class="pre">uint_string</span></code>, not in the
+lookup table), class version and properties dictionary. Although the
+properties are often empty for <code class="docutils literal"><span class="pre">Node</span></code>-derived objects, in the
+<code class="docutils literal"><span class="pre">RootNode</span></code> this always has the contents <code class="docutils literal"><span class="pre">{&quot;__VERSION__&quot;:</span> <span class="pre">2}</span></code> - a
+value which appears to be important when writing (it changes the layout
+of the unknown areas of the class?)</p>
+<p>After a single char which is not understood, We then have two
+<code class="docutils literal"><span class="pre">Vector3d</span></code> objects. These define the bounding box of the model - the
+first being the lower corner of the box, the second the upper corner. In
+the model viewer, this defines the range that the axes are displayed
+(e.g. the X axis is shown from <code class="docutils literal"><span class="pre">boundingBoxMin.x</span></code> to
+<code class="docutils literal"><span class="pre">boundingBoxMax.x</span></code>.</p>
 <p>After this is another chunk of unknown double data, <code class="docutils literal"><span class="pre">unknownB</span></code>.</p>
-<p>The list of materials contains the bulk of the contents of the class - in
-an easy-to-read list format. After these, there is a small
-unknown block - that seems to always consist of a single <code class="docutils literal"><span class="pre">uint</span> <span class="pre">=</span> <span class="pre">0</span></code>, followed
+<p>The list of materials contains the bulk of the contents of the class -
+in an easy-to-read list format. After these, there is a small unknown
+block - that seems to always consist of a single <code class="docutils literal"><span class="pre">uint</span> <span class="pre">=</span> <span class="pre">0</span></code>, followed
 by another number.</p>
 </div>
 <div class="section" id="material">
-<span id="material"></span><h2><code class="docutils literal"><span class="pre">Material</span></code><a class="headerlink" href="#material" title="Permalink to this headline">¶</a></h2>
+<h2><code class="docutils literal"><span class="pre">Material</span></code><a class="headerlink" href="#material" title="Permalink to this headline">¶</a></h2>
 <p>Material objects are entirely constructed as a single <code class="docutils literal"><span class="pre">map</span></code>:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Material</span> <span class="p">:</span><span class="o">=</span>
   <span class="nb">map</span><span class="o">&lt;</span><span class="n">string</span><span class="p">,</span> <span class="n">X</span><span class="o">&gt;</span>
 </pre></div>
 </div>
-<p>However, the type, labelled <code class="docutils literal"><span class="pre">X</span></code> of the value corresponding to the string
-depends on that string e.g. if the string is <code class="docutils literal"><span class="pre">UNIFORMS</span></code> then <code class="docutils literal"><span class="pre">X</span></code> is a
-<code class="docutils literal"><span class="pre">model::PropertiesSet</span></code>. If the string is <code class="docutils literal"><span class="pre">BLENDING</span></code> then <code class="docutils literal"><span class="pre">X</span></code> is a single
-<code class="docutils literal"><span class="pre">uchar</span></code>.</p>
+<p>However, the type, labelled <code class="docutils literal"><span class="pre">X</span></code> of the value corresponding to the
+string depends on that string e.g. if the string is <code class="docutils literal"><span class="pre">UNIFORMS</span></code> then
+<code class="docutils literal"><span class="pre">X</span></code> is a <code class="docutils literal"><span class="pre">model::PropertiesSet</span></code>. If the string is <code class="docutils literal"><span class="pre">BLENDING</span></code> then
+<code class="docutils literal"><span class="pre">X</span></code> is a single <code class="docutils literal"><span class="pre">uchar</span></code>.</p>
 <p>The possible entries in the material map are:</p>
-<p>| Key <code class="docutils literal"><span class="pre">string</span></code>         | Entry type              | Interpretation            |
-|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;-|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;-|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;|
-| BLENDING             | <code class="docutils literal"><span class="pre">uchar</span></code>                 | Opacity mode enum         |
-| CULLING              | <code class="docutils literal"><span class="pre">uchar</span></code>                 | <em>Unknown</em> (0 or 1)        |
-| DEPTH_BIAS           | <code class="docutils literal"><span class="pre">uint</span></code>                  | <em>Unknown</em> (0 or 1)        |
-| MATERIAL_NAME        | <code class="docutils literal"><span class="pre">string</span></code>                | The base edm Material     |
-| NAME                 | <code class="docutils literal"><span class="pre">string</span></code>                | Material name             |
-| SHADOWS              | <code class="docutils literal"><span class="pre">uchar</span></code>                 | <em>Unknown</em> (0, 2 or 3)     |
-| TEXTURES             | See Below               |                           |
-| TEXTURE_COORDINATE_CHANNELS | <code class="docutils literal"><span class="pre">uint</span> <span class="pre">count</span></code> + <code class="docutils literal"><span class="pre">count</span></code> ints | <em>Unknown</em> (10, 11 or 12 counts) |
-| UNIFORMS             | <code class="docutils literal"><span class="pre">model::PropertiesSet</span></code>  | Shader uniform parameters |
-| ANIMATED_UNIFORMS    | <code class="docutils literal"><span class="pre">model::PropertiesSet</span></code>  | Animated shader parameters|
-| VERTEX_FORMAT        | <code class="docutils literal"><span class="pre">uint</span> <span class="pre">count</span></code> + <code class="docutils literal"><span class="pre">count</span></code> bytes | Layout of vertex data     |</p>
-<p>###&nbsp;Blending</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="30%" />
+<col width="34%" />
+<col width="36%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Key <code class="docutils literal"><span class="pre">string</span></code></th>
+<th class="head">Entry type</th>
+<th class="head">Interpretation</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>BLENDING</td>
+<td><code class="docutils literal"><span class="pre">uchar</span></code></td>
+<td>Opacity mode enum</td>
+</tr>
+<tr class="row-odd"><td>CULLING</td>
+<td><code class="docutils literal"><span class="pre">uchar</span></code></td>
+<td><em>Unknown</em> (0 or 1)</td>
+</tr>
+<tr class="row-even"><td>DEPTH_BIAS</td>
+<td><code class="docutils literal"><span class="pre">uint</span></code></td>
+<td><em>Unknown</em> (0 or 1)</td>
+</tr>
+<tr class="row-odd"><td>MATERIAL_NAME</td>
+<td><code class="docutils literal"><span class="pre">string</span></code></td>
+<td>The base edm Material</td>
+</tr>
+<tr class="row-even"><td>NAME</td>
+<td><code class="docutils literal"><span class="pre">string</span></code></td>
+<td>Material name</td>
+</tr>
+<tr class="row-odd"><td>SHADOWS</td>
+<td><code class="docutils literal"><span class="pre">uchar</span></code></td>
+<td><em>Unknown</em> (0, 2 or 3)</td>
+</tr>
+<tr class="row-even"><td>TEXTURES</td>
+<td>See Below</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td>TEXTURE_COORDINATE_
+CHANNELS</td>
+<td><code class="docutils literal"><span class="pre">uint</span> <span class="pre">count</span></code> +
+<code class="docutils literal"><span class="pre">count</span></code> ints</td>
+<td><em>Unknown</em> (10, 11 or 12
+counts)</td>
+</tr>
+<tr class="row-even"><td>UNIFORMS</td>
+<td><code class="docutils literal"><span class="pre">model::PropertiesSet</span></code></td>
+<td>Shader uniform parameters</td>
+</tr>
+<tr class="row-odd"><td>ANIMATED_UNIFORMS</td>
+<td><code class="docutils literal"><span class="pre">model::PropertiesSet</span></code></td>
+<td>Animated shader parameters</td>
+</tr>
+<tr class="row-even"><td>VERTEX_FORMAT</td>
+<td><code class="docutils literal"><span class="pre">uint</span> <span class="pre">count</span></code> +
+<code class="docutils literal"><span class="pre">count</span></code> bytes</td>
+<td>Layout of vertex data</td>
+</tr>
+</tbody>
+</table>
+<div class="section" id="blending">
+<h3>&nbsp;Blending<a class="headerlink" href="#blending" title="Permalink to this headline">¶</a></h3>
 <p>This describes the opacity mode.</p>
-<p>| Value | Mode setting                    |
-|&#8212;&#8212;-|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;|
-| 0     | None                            |
-| 1     | Blend                           |
-| 2     | Alpha Test                      |
-| 3     | Sum. Blending                   |
-| 4     | Z Written Blending (Unverified, and unused in any .edm file) |</p>
-<p>###&nbsp;Material Name</p>
-<p>This is the internal renderer material that should be used, and modified by
-the material settings saved in the file. It corresponds to the 3DS edm tools
-&#8216;Material&#8217; option, and should expect a unique value for each of those
-settings; the observed values are:</p>
-<p>| value                 | 3DS Material     | Meaning                         |
-|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8211;|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;|
-| <code class="docutils literal"><span class="pre">additive_self_illum_material</span></code>           |                                 |
-| <code class="docutils literal"><span class="pre">bano_material</span></code>       |                  |                                 |
-| <code class="docutils literal"><span class="pre">building_material</span></code>   |                  |                                 |
-| <code class="docutils literal"><span class="pre">chrome_material</span></code>     |                  |                                 |
-| <code class="docutils literal"><span class="pre">color_material</span></code>      |                  |                                 |
-| <code class="docutils literal"><span class="pre">def_material</span></code>        | Default          | Basic, diffuse, textured material |
-| <code class="docutils literal"><span class="pre">fake_als_lights</span></code>     |                  |                                 |
-| <code class="docutils literal"><span class="pre">fake_omni_lights</span></code>    |                  |                                 |
-| <code class="docutils literal"><span class="pre">fake_spot_lights</span></code>    |                  |                                 |
-| <code class="docutils literal"><span class="pre">forest_material</span></code>     |                  |                                 |
-| <code class="docutils literal"><span class="pre">glass_material</span></code>      | Glass            | ?(mostly transparent material with gloss) |
-| <code class="docutils literal"><span class="pre">lines_material</span></code>      |                  |                                 |
-| <code class="docutils literal"><span class="pre">mirror_material</span></code>     |                  |                                 |
-| <code class="docutils literal"><span class="pre">self_illum_material</span></code> | Self-illuminated | Things like panels that need to be lit when there is no light |
-| <code class="docutils literal"><span class="pre">transparent_self_illum_material</span></code> | Transparent Self-illuminated | Used for e.g. indicator bulbs |</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="12%" />
+<col width="88%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Value</th>
+<th class="head">Mode setting</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>0</td>
+<td>None</td>
+</tr>
+<tr class="row-odd"><td>1</td>
+<td>Blend</td>
+</tr>
+<tr class="row-even"><td>2</td>
+<td>Alpha Test</td>
+</tr>
+<tr class="row-odd"><td>3</td>
+<td>Sum. Blending</td>
+</tr>
+<tr class="row-even"><td>4</td>
+<td>Z Written Blending (Unverified, and unused in any .edm file)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="material-name">
+<h3>&nbsp;Material Name<a class="headerlink" href="#material-name" title="Permalink to this headline">¶</a></h3>
+<p>This is the internal renderer material that should be used, and modified
+by the material settings saved in the file. It corresponds to the 3DS
+edm tools &#8216;Material&#8217; option, and should expect a unique value for each
+of those settings; the observed values are:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="42%" />
+<col width="21%" />
+<col width="37%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">value</th>
+<th class="head">3DS Material</th>
+<th class="head">Meaning</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">additive_self_illum_material</span></code></td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">bano_material</span></code></td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">building_material</span></code></td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">chrome_material</span></code></td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">color_material</span></code></td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">def_material</span></code></td>
+<td>Default</td>
+<td>Basic, diffuse, textured
+material</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">fake_als_lights</span></code></td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">fake_omni_lights</span></code></td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">fake_spot_lights</span></code></td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">forest_material</span></code></td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">glass_material</span></code></td>
+<td>Glass</td>
+<td>?(mostly transparent material
+with gloss)</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">lines_material</span></code></td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">mirror_material</span></code></td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">self_illum_material</span></code></td>
+<td>Self-illuminated</td>
+<td>Things like panels that need to
+be lit when there is no light</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">transparent_self_illum_material</span></code></td>
+<td>Transparent
+Self-illuminated</td>
+<td>Used for e.g. indicator bulbs</td>
+</tr>
+</tbody>
+</table>
+</div>
 <div class="section" id="uniforms">
-<span id="uniforms"></span><h3>Uniforms<a class="headerlink" href="#uniforms" title="Permalink to this headline">¶</a></h3>
-<p>Literally the shader <code class="docutils literal"><span class="pre">uniform</span></code> values, these values effectively control the
-parameters of the material. Two sets are present in the file; <code class="docutils literal"><span class="pre">UNIFORMS</span></code> are
-the basic, fixed properties, and <code class="docutils literal"><span class="pre">ANIMATED_UNIFORMS</span></code> are <code class="docutils literal"><span class="pre">AnimatedProperty</span></code>
-types including argument and keyframe information - but applied to the same
-uniform names. A list of all materials/uniforms observed in all <code class="docutils literal"><span class="pre">.edm</span></code> files
-included in DCS World:</p>
-<p>| Base Material Name               | Uniforms                                 |
-|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;-|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;|
-| <code class="docutils literal"><span class="pre">additive_self_illum_material</span></code>   | <code class="docutils literal"><span class="pre">diffuseShift</span></code>, <code class="docutils literal"><span class="pre">multiplyDiffuse</span></code>, <code class="docutils literal"><span class="pre">phosphor</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>, <code class="docutils literal"><span class="pre">selfIlluminationColor</span></code>, <code class="docutils literal"><span class="pre">selfIlluminationValue</span></code>, <code class="docutils literal"><span class="pre">specFactor</span></code>, <code class="docutils literal"><span class="pre">specMapValue</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code> |
-| <code class="docutils literal"><span class="pre">bano_material</span></code>                  | <code class="docutils literal"><span class="pre">banoDistCoefs</span></code>, <code class="docutils literal"><span class="pre">diffuseValue</span></code> |
-| <code class="docutils literal"><span class="pre">building_material</span></code>              | <code class="docutils literal"><span class="pre">diffuseValue</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>, <code class="docutils literal"><span class="pre">selfIlluminationValue</span></code>, <code class="docutils literal"><span class="pre">specFactor</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code> |
-| <code class="docutils literal"><span class="pre">chrome_material</span></code>                | <code class="docutils literal"><span class="pre">diffuseShift</span></code>, <code class="docutils literal"><span class="pre">diffuseValue</span></code>, <code class="docutils literal"><span class="pre">normalMapValue</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>, <code class="docutils literal"><span class="pre">specFactor</span></code>, <code class="docutils literal"><span class="pre">specMapValue</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code> |
-| <code class="docutils literal"><span class="pre">color_material</span></code>                 | <code class="docutils literal"><span class="pre">color</span></code>, <code class="docutils literal"><span class="pre">diffuseValue</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>, <code class="docutils literal"><span class="pre">selfIlluminationValue</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code> |
-| <code class="docutils literal"><span class="pre">def_material</span></code>                   | <code class="docutils literal"><span class="pre">diffuseShift</span></code>, <code class="docutils literal"><span class="pre">diffuseValue</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>, <code class="docutils literal"><span class="pre">specFactor</span></code>, <code class="docutils literal"><span class="pre">specMapValue</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code> |
-| <code class="docutils literal"><span class="pre">fake_omni_lights</span></code>               | <code class="docutils literal"><span class="pre">shiftToCamera</span></code>, <code class="docutils literal"><span class="pre">sizeFactors</span></code> |
-| <code class="docutils literal"><span class="pre">fake_spot_lights</span></code>               | <code class="docutils literal"><span class="pre">coneSetup</span></code>, <code class="docutils literal"><span class="pre">sizeFactors</span></code> |
-| <code class="docutils literal"><span class="pre">forest_material</span></code>                | <code class="docutils literal"><span class="pre">diffuseValue</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>, <code class="docutils literal"><span class="pre">selfIlluminationValue</span></code>, <code class="docutils literal"><span class="pre">specFactor</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code> |
-| <code class="docutils literal"><span class="pre">glass_material</span></code>                 | <code class="docutils literal"><span class="pre">diffuseValue</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>, <code class="docutils literal"><span class="pre">specFactor</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code> |
-| <code class="docutils literal"><span class="pre">lines_material</span></code>                 | <code class="docutils literal"><span class="pre">color</span></code>, <code class="docutils literal"><span class="pre">selfIlluminationValue</span></code> |
-| <code class="docutils literal"><span class="pre">mirror_material</span></code>                | <code class="docutils literal"><span class="pre">diffuseShift</span></code>, <code class="docutils literal"><span class="pre">diffuseValue</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>, <code class="docutils literal"><span class="pre">specFactor</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code> |
-| <code class="docutils literal"><span class="pre">self_illum_material</span></code>            | <code class="docutils literal"><span class="pre">diffuseShift</span></code>, <code class="docutils literal"><span class="pre">multiplyDiffuse</span></code>, <code class="docutils literal"><span class="pre">phosphor</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>, <code class="docutils literal"><span class="pre">selfIlluminationColor</span></code>, <code class="docutils literal"><span class="pre">selfIlluminationValue</span></code>, <code class="docutils literal"><span class="pre">specFactor</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code> |
-| <code class="docutils literal"><span class="pre">transparent_self_illum_material</span></code>|<code class="docutils literal"><span class="pre">diffuseShift</span></code>, <code class="docutils literal"><span class="pre">selfIlluminationValue</span></code> |</p>
-<p>###&nbsp;Textures and Texture Coordinate Channels</p>
-<p>The <code class="docutils literal"><span class="pre">TEXTURES</span></code> entry holds a list of actual texture files used in the model
-as a simple <code class="docutils literal"><span class="pre">uint</span></code>-prefixed list. The full interpretation needs more work to
-be understood. The structure is:</p>
+<h3>Uniforms<a class="headerlink" href="#uniforms" title="Permalink to this headline">¶</a></h3>
+<p>Literally the shader <code class="docutils literal"><span class="pre">uniform</span></code> values, these values effectively
+control the parameters of the material. Two sets are present in the
+file; <code class="docutils literal"><span class="pre">UNIFORMS</span></code> are the basic, fixed properties, and
+<code class="docutils literal"><span class="pre">ANIMATED_UNIFORMS</span></code> are <code class="docutils literal"><span class="pre">AnimatedProperty</span></code> types including argument
+and keyframe information - but applied to the same uniform names. A list
+of all materials/uniforms observed in all <code class="docutils literal"><span class="pre">.edm</span></code> files included in DCS
+World:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="45%" />
+<col width="55%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Base Material Name</th>
+<th class="head">Uniforms</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">additive_self_illum_material</span></code></td>
+<td><code class="docutils literal"><span class="pre">diffuseShift</span></code>, <code class="docutils literal"><span class="pre">multiplyDiffuse</span></code>,
+<code class="docutils literal"><span class="pre">phosphor</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>,
+<code class="docutils literal"><span class="pre">selfIlluminationColor</span></code>,
+<code class="docutils literal"><span class="pre">selfIlluminationValue</span></code>,
+<code class="docutils literal"><span class="pre">specFactor</span></code>, <code class="docutils literal"><span class="pre">specMapValue</span></code>,
+<code class="docutils literal"><span class="pre">specPower</span></code></td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">bano_material</span></code></td>
+<td><code class="docutils literal"><span class="pre">banoDistCoefs</span></code>, <code class="docutils literal"><span class="pre">diffuseValue</span></code></td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">building_material</span></code></td>
+<td><code class="docutils literal"><span class="pre">diffuseValue</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>,
+<code class="docutils literal"><span class="pre">selfIlluminationValue</span></code>,
+<code class="docutils literal"><span class="pre">specFactor</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code></td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">chrome_material</span></code></td>
+<td><code class="docutils literal"><span class="pre">diffuseShift</span></code>, <code class="docutils literal"><span class="pre">diffuseValue</span></code>,
+<code class="docutils literal"><span class="pre">normalMapValue</span></code>,
+<code class="docutils literal"><span class="pre">reflectionValue</span></code>, <code class="docutils literal"><span class="pre">specFactor</span></code>,
+<code class="docutils literal"><span class="pre">specMapValue</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code></td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">color_material</span></code></td>
+<td><code class="docutils literal"><span class="pre">color</span></code>, <code class="docutils literal"><span class="pre">diffuseValue</span></code>,
+<code class="docutils literal"><span class="pre">reflectionValue</span></code>,
+<code class="docutils literal"><span class="pre">selfIlluminationValue</span></code>,
+<code class="docutils literal"><span class="pre">specPower</span></code></td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">def_material</span></code></td>
+<td><code class="docutils literal"><span class="pre">diffuseShift</span></code>, <code class="docutils literal"><span class="pre">diffuseValue</span></code>,
+<code class="docutils literal"><span class="pre">reflectionValue</span></code>, <code class="docutils literal"><span class="pre">specFactor</span></code>,
+<code class="docutils literal"><span class="pre">specMapValue</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code></td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">fake_omni_lights</span></code></td>
+<td><code class="docutils literal"><span class="pre">shiftToCamera</span></code>, <code class="docutils literal"><span class="pre">sizeFactors</span></code></td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">fake_spot_lights</span></code></td>
+<td><code class="docutils literal"><span class="pre">coneSetup</span></code>, <code class="docutils literal"><span class="pre">sizeFactors</span></code></td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">forest_material</span></code></td>
+<td><code class="docutils literal"><span class="pre">diffuseValue</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>,
+<code class="docutils literal"><span class="pre">selfIlluminationValue</span></code>,
+<code class="docutils literal"><span class="pre">specFactor</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code></td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">glass_material</span></code></td>
+<td><code class="docutils literal"><span class="pre">diffuseValue</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>,
+<code class="docutils literal"><span class="pre">specFactor</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code></td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">lines_material</span></code></td>
+<td><code class="docutils literal"><span class="pre">color</span></code>, <code class="docutils literal"><span class="pre">selfIlluminationValue</span></code></td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">mirror_material</span></code></td>
+<td><code class="docutils literal"><span class="pre">diffuseShift</span></code>, <code class="docutils literal"><span class="pre">diffuseValue</span></code>,
+<code class="docutils literal"><span class="pre">reflectionValue</span></code>, <code class="docutils literal"><span class="pre">specFactor</span></code>,
+<code class="docutils literal"><span class="pre">specPower</span></code></td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">self_illum_material</span></code></td>
+<td><code class="docutils literal"><span class="pre">diffuseShift</span></code>, <code class="docutils literal"><span class="pre">multiplyDiffuse</span></code>,
+<code class="docutils literal"><span class="pre">phosphor</span></code>, <code class="docutils literal"><span class="pre">reflectionValue</span></code>,
+<code class="docutils literal"><span class="pre">selfIlluminationColor</span></code>,
+<code class="docutils literal"><span class="pre">selfIlluminationValue</span></code>,
+<code class="docutils literal"><span class="pre">specFactor</span></code>, <code class="docutils literal"><span class="pre">specPower</span></code></td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">transparent_self_illum_materia</span>
+<span class="pre">l</span></code></td>
+<td><code class="docutils literal"><span class="pre">diffuseShift</span></code>,
+<code class="docutils literal"><span class="pre">selfIlluminationValue</span></code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="textures-and-texture-coordinate-channels">
+<h3>&nbsp;Textures and Texture Coordinate Channels<a class="headerlink" href="#textures-and-texture-coordinate-channels" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="docutils literal"><span class="pre">TEXTURES</span></code> entry holds a list of actual texture files used in the
+model as a simple <code class="docutils literal"><span class="pre">uint</span></code>-prefixed list. The full interpretation needs
+more work to be understood. The structure is:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">TEXTURES</span> <span class="p">:</span><span class="o">=</span> <span class="nb">list</span><span class="o">&lt;</span><span class="n">textureDEF</span><span class="o">&gt;</span>
 
-<span class="n">textureDEF</span> <span class="p">:</span><span class="o">=</span> 
+<span class="n">textureDEF</span> <span class="p">:</span><span class="o">=</span>
   <span class="nb">int</span>           <span class="n">index</span><span class="p">;</span>
   <span class="nb">int</span>           <span class="n">unknown</span><span class="p">;</span>     <span class="c1"># ALWAYS -1</span>
   <span class="n">string</span>        <span class="n">filename</span><span class="p">;</span>
   <span class="n">uint</span>          <span class="n">unknown2</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>  <span class="c1"># Some data - ALWAYS [2, 2, 10, 6]</span>
-  <span class="n">osg</span><span class="p">::</span><span class="n">Matrixf</span>  <span class="n">unknown3</span><span class="p">;</span>    <span class="c1"># Assume is a texture transformation matrix. </span>
+  <span class="n">osg</span><span class="p">::</span><span class="n">Matrixf</span>  <span class="n">unknown3</span><span class="p">;</span>    <span class="c1"># Assume is a texture transformation matrix.</span>
                              <span class="c1"># Almost always identity - very rare to not</span>
 </pre></div>
 </div>
-<p>Index seems to indicate the type of texture; this is derived from observation
-of the associated filenames - this possibly affects which UV map/set of vertex
-data is used to map the texture:</p>
-<p>| Index | Role       | Typical texture name examples                         |
-|&#8212;&#8212;-|&#8212;&#8212;&#8212;&#8212;|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;-|
-| 0     | Diffuse    | Wide variety, as would be expected                    |
-| 1     | Normals    | Names tend to include <code class="docutils literal"><span class="pre">_normal</span></code> or <code class="docutils literal"><span class="pre">_nm</span></code>, or sometimes <code class="docutils literal"><span class="pre">_bump</span></code> |
-| 2     | Specular   | <code class="docutils literal"><span class="pre">_spec</span></code>, <code class="docutils literal"><span class="pre">_specular</span></code> makes this also relatively obvious |
-| 3     | Numerals   | <code class="docutils literal"><span class="pre">bf-109k-4_bort_number</span></code>, <code class="docutils literal"><span class="pre">mi_8_bort_number</span></code>, <code class="docutils literal"><span class="pre">su-27_numbers</span></code> |
-| 4     | Glass Dirt | <code class="docutils literal"><span class="pre">tf51d-cpt_glassdirt</span></code>, <code class="docutils literal"><span class="pre">mig-29_cpt_glassdirt</span></code> (only two exist) |
-| 5     | Damage     | <code class="docutils literal"><span class="pre">bulle_dam</span></code>, <code class="docutils literal"><span class="pre">f86f_damage</span></code>, <code class="docutils literal"><span class="pre">tu22m3_damage_konsol_l</span></code>  |
-| 8     | ?          | Lots of <code class="docutils literal"><span class="pre">Flame_*</span></code>, <code class="docutils literal"><span class="pre">BANO</span></code>, <code class="docutils literal"><span class="pre">_light</span></code> - possible emittance? |
-| 9     | ?          | <code class="docutils literal"><span class="pre">mi_8_tex_1_ao</span></code> (only example in all .edm files)      |
-| 10    | Damage Normals | <code class="docutils literal"><span class="pre">mi_8_damage_normal</span></code>, <code class="docutils literal"><span class="pre">f-86f_glass_damage_nm</span></code>     |
-| 11    | ?          | <code class="docutils literal"><span class="pre">tu-22m3_glass_color_spec</span></code>, <code class="docutils literal"><span class="pre">kab_glass_spec_color</span></code> (only two) |
-| 12    | ?          | <code class="docutils literal"><span class="pre">f-86f_chrom</span></code>, <code class="docutils literal"><span class="pre">sa342_int_cpit_glass_reflect</span></code>, <code class="docutils literal"><span class="pre">chromic_blur</span></code> (only three) |</p>
-<p>(Note: <a class="reference external" href="https://forums.eagle.ru/showpost.php?p=2831144&amp;postcount=977">A forum post claims</a>
-3=Decal, 4=Dirt, 5=Damage, 6=Puddles, 7=Snow, 8=Self-Illumination, 9=Ambient Occlusion.
-Also seems to imply exact definitions are dependent on accompanying lua files)</p>
+<p>Index seems to indicate the type of texture; this is derived from
+observation of the associated filenames - this possibly affects which UV
+map/set of vertex data is used to map the texture:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="8%" />
+<col width="16%" />
+<col width="76%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Index</th>
+<th class="head">Role</th>
+<th class="head">Typical texture name examples</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>0</td>
+<td>Diffuse</td>
+<td>Wide variety, as would be expected</td>
+</tr>
+<tr class="row-odd"><td>1</td>
+<td>Normals</td>
+<td>Names tend to include <code class="docutils literal"><span class="pre">_normal</span></code> or <code class="docutils literal"><span class="pre">_nm</span></code>, or sometimes <code class="docutils literal"><span class="pre">_bump</span></code></td>
+</tr>
+<tr class="row-even"><td>2</td>
+<td>Specular</td>
+<td><code class="docutils literal"><span class="pre">_spec</span></code>, <code class="docutils literal"><span class="pre">_specular</span></code> makes this also relatively obvious</td>
+</tr>
+<tr class="row-odd"><td>3</td>
+<td>Numerals</td>
+<td><code class="docutils literal"><span class="pre">bf-109k-4_bort_number</span></code>, <code class="docutils literal"><span class="pre">mi_8_bort_number</span></code>, <code class="docutils literal"><span class="pre">su-27_numbers</span></code></td>
+</tr>
+<tr class="row-even"><td>4</td>
+<td>Glass Dirt</td>
+<td><code class="docutils literal"><span class="pre">tf51d-cpt_glassdirt</span></code>, <code class="docutils literal"><span class="pre">mig-29_cpt_glassdirt</span></code> (only two exist)</td>
+</tr>
+<tr class="row-odd"><td>5</td>
+<td>Damage</td>
+<td><code class="docutils literal"><span class="pre">bulle_dam</span></code>, <code class="docutils literal"><span class="pre">f86f_damage</span></code>, <code class="docutils literal"><span class="pre">tu22m3_damage_konsol_l</span></code></td>
+</tr>
+<tr class="row-even"><td>8</td>
+<td>?</td>
+<td>Lots of <code class="docutils literal"><span class="pre">Flame_*</span></code>, <code class="docutils literal"><span class="pre">BANO</span></code>, <code class="docutils literal"><span class="pre">_light</span></code> - possible emittance?</td>
+</tr>
+<tr class="row-odd"><td>9</td>
+<td>?</td>
+<td><code class="docutils literal"><span class="pre">mi_8_tex_1_ao</span></code> (only example in all .edm files)</td>
+</tr>
+<tr class="row-even"><td>10</td>
+<td>Damage Normals</td>
+<td><code class="docutils literal"><span class="pre">mi_8_damage_normal</span></code>, <code class="docutils literal"><span class="pre">f-86f_glass_damage_nm</span></code></td>
+</tr>
+<tr class="row-odd"><td>11</td>
+<td>?</td>
+<td><code class="docutils literal"><span class="pre">tu-22m3_glass_color_spec</span></code>, <code class="docutils literal"><span class="pre">kab_glass_spec_color</span></code> (only two)</td>
+</tr>
+<tr class="row-even"><td>12</td>
+<td>?</td>
+<td><code class="docutils literal"><span class="pre">f-86f_chrom</span></code>, <code class="docutils literal"><span class="pre">sa342_int_cpit_glass_reflect</span></code>, <code class="docutils literal"><span class="pre">chromic_blur</span></code> (only three)</td>
+</tr>
+</tbody>
+</table>
+<p>(Note: <a class="reference external" href="https://forums.eagle.ru/showpost.php?p=2831144&amp;postcount=977">A forum post
+claims</a>
+3=Decal, 4=Dirt, 5=Damage, 6=Puddles, 7=Snow, 8=Self-Illumination,
+9=Ambient Occlusion. Also seems to imply exact definitions are dependent
+on accompanying lua files)</p>
 <p>The <code class="docutils literal"><span class="pre">TEXTURE_COORDINATE_CHANNELS</span></code> field is defined as:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">TEXTURE_COORDINATE_CHANNELS</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">uint</span> <span class="n">count</span><span class="p">;</span>
   <span class="n">uint</span> <span class="n">channels</span><span class="p">[</span><span class="n">count</span><span class="p">];</span>
 </pre></div>
 </div>
-<p>And remains a mystery for now. There is usually 10, 11 or 12 channels, and
-most of the channels are filled with <code class="docutils literal"><span class="pre">-1</span></code> (e.g. <code class="docutils literal"><span class="pre">0xFFFFFFFF</span></code>). Best guess is
-that it is some kind of mask - an error in writing resulted in one of the
-channels being written with value <code class="docutils literal"><span class="pre">1</span></code>, which led to the model viewer error
-<code class="docutils literal"><span class="pre">Empty</span> <span class="pre">Channel</span></code>. Writing zero for the first channel (by guesswork and
-inspection of other .edm files) seems to work for the simple one-texture case.</p>
-<p>###&nbsp;Vertex Format
-Specifies the format of the vertex data; The render nodes store the total
-count and stride, but is otherwise an opaque block of float values. This
-defines how those floats are used:</p>
+<p>And remains a mystery for now. There is usually 10, 11 or 12 channels,
+and most of the channels are filled with <code class="docutils literal"><span class="pre">-1</span></code> (e.g. <code class="docutils literal"><span class="pre">0xFFFFFFFF</span></code>).
+Best guess is that it is some kind of mask - an error in writing
+resulted in one of the channels being written with value <code class="docutils literal"><span class="pre">1</span></code>, which
+led to the model viewer error <code class="docutils literal"><span class="pre">Empty</span> <span class="pre">Channel</span></code>. Writing zero for the
+first channel (by guesswork and inspection of other .edm files) seems to
+work for the simple one-texture case.</p>
+</div>
+<div class="section" id="vertex-format">
+<h3>&nbsp;Vertex Format<a class="headerlink" href="#vertex-format" title="Permalink to this headline">¶</a></h3>
+<p>Specifies the format of the vertex data; The render nodes store the
+total count and stride, but is otherwise an opaque block of float
+values. This defines how those floats are used:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">VERTEX_FORMAT</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">uint</span>    <span class="n">count</span><span class="p">;</span>
   <span class="n">uchar</span>   <span class="n">channels</span><span class="p">[</span><span class="n">count</span><span class="p">];</span>
 </pre></div>
 </div>
-<p>Most entries have a count of 26 - however a few (possibly older?) models have
-an entry of 24 - so it is not always safe to assume the length. Each of the
-channels counts has a fixed meaning, and observed lengths:</p>
-<p>| Channel | Length | Represents                                              |
-|&#8212;&#8212;&#8212;|&#8212;&#8212;&#8211;|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;|
-| 0       | 4      | Position data. The last of these appears to relate to vertex group for parenting purposes |
-| 1       | 3      | Normals data                                            |
-| 2       | 3      |                                                         |
-| 3       | 3      |                                                         |
-| 4       | 2      | Texture UV                                              |
-| 5       | 2      |                                                         |
-| 6       | 2      |                                                         |
-| 7       | 2      |                                                         |
-| 8       | 2      |                                                         |
-| 20      | 3      |                                                         |
-| 21      | 4      | Bone data related - number of bone references? (appears to be x2 entries in vertex data) |
-| 24      | 3      |                                                         |
-| 25      | 3      |                                                         |</p>
+<p>Most entries have a count of 26 - however a few (possibly older?) models
+have an entry of 24 - so it is not always safe to assume the length.
+Each of the channels counts has a fixed meaning, and observed lengths:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="14%" />
+<col width="13%" />
+<col width="73%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Channel</th>
+<th class="head">Length</th>
+<th class="head">Represents</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>0</td>
+<td>4</td>
+<td>Position data. The last of these appears to relate to
+vertex group for parenting purposes</td>
+</tr>
+<tr class="row-odd"><td>1</td>
+<td>3</td>
+<td>Normals data</td>
+</tr>
+<tr class="row-even"><td>2</td>
+<td>3</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td>3</td>
+<td>3</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td>4</td>
+<td>2</td>
+<td>Texture UV</td>
+</tr>
+<tr class="row-odd"><td>5</td>
+<td>2</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td>6</td>
+<td>2</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td>7</td>
+<td>2</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td>8</td>
+<td>2</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td>20</td>
+<td>3</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td>21</td>
+<td>4</td>
+<td>Bone data related - number of bone references?
+(appears to be x2 entries in vertex data)</td>
+</tr>
+<tr class="row-odd"><td>24</td>
+<td>3</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td>25</td>
+<td>3</td>
+<td>&nbsp;</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div class="section" id="nodes">
-<span id="nodes"></span><h2>Nodes<a class="headerlink" href="#nodes" title="Permalink to this headline">¶</a></h2>
+<h2>Nodes<a class="headerlink" href="#nodes" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="model-node">
-<span id="model-node"></span><h3><code class="docutils literal"><span class="pre">model::Node</span></code><a class="headerlink" href="#model-node" title="Permalink to this headline">¶</a></h3>
-<p>The <code class="docutils literal"><span class="pre">Node</span></code> node is used both as an empty node, and also is the basis for many
-of the other nodes - which all share the identical starting layout:</p>
+<h3><code class="docutils literal"><span class="pre">model::Node</span></code><a class="headerlink" href="#model-node" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="docutils literal"><span class="pre">Node</span></code> node is used both as an empty node, and also is the basis
+for many of the other nodes - which all share the identical starting
+layout:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">Node</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">uint_string</span>   <span class="n">name</span><span class="p">;</span>
   <span class="n">uint</span>          <span class="n">version</span><span class="p">;</span>
   <span class="n">propertiesset</span> <span class="n">props</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>Noting that the name is explicitly a non-lookup string, regardless of file
-version. As with <code class="docutils literal"><span class="pre">RootNode</span></code> (which we can also see matches this exact layout)
-we have assumed that the <code class="docutils literal"><span class="pre">uint</span></code> field is representative of class version -
-this seems to have no other meaning, and makes a lot of sense in terms of
-allowing the schema to evolve over time.</p>
+<p>Noting that the name is explicitly a non-lookup string, regardless of
+file version. As with <code class="docutils literal"><span class="pre">RootNode</span></code> (which we can also see matches this
+exact layout) we have assumed that the <code class="docutils literal"><span class="pre">uint</span></code> field is representative
+of class version - this seems to have no other meaning, and makes a lot
+of sense in terms of allowing the schema to evolve over time.</p>
 </div>
 <div class="section" id="model-transformnode">
-<span id="model-transformnode"></span><h3><code class="docutils literal"><span class="pre">model::TransformNode</span></code><a class="headerlink" href="#model-transformnode" title="Permalink to this headline">¶</a></h3>
+<h3><code class="docutils literal"><span class="pre">model::TransformNode</span></code><a class="headerlink" href="#model-transformnode" title="Permalink to this headline">¶</a></h3>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">TransformNode</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>   <span class="n">base</span><span class="p">;</span>
   <span class="n">osg</span><span class="p">::</span><span class="n">Matrixd</span>  <span class="n">transform</span><span class="p">;</span>
@@ -697,10 +1111,11 @@ allowing the schema to evolve over time.</p>
 </div>
 </div>
 <div class="section" id="model-lodnode">
-<span id="model-lodnode"></span><h3><code class="docutils literal"><span class="pre">model::LodNode</span></code><a class="headerlink" href="#model-lodnode" title="Permalink to this headline">¶</a></h3>
-<p>The <code class="docutils literal"><span class="pre">LodNode</span></code> object is a transform-tree root object - it controls the LOD
-appearance of the node graph underneath it. It appears that <code class="docutils literal"><span class="pre">model::Node</span></code>
-objects always act as &#8216;fake&#8217; roots underneath a <code class="docutils literal"><span class="pre">LodNode</span></code> (untested).</p>
+<h3><code class="docutils literal"><span class="pre">model::LodNode</span></code><a class="headerlink" href="#model-lodnode" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="docutils literal"><span class="pre">LodNode</span></code> object is a transform-tree root object - it controls the
+LOD appearance of the node graph underneath it. It appears that
+<code class="docutils literal"><span class="pre">model::Node</span></code> objects always act as &#8216;fake&#8217; roots underneath a
+<code class="docutils literal"><span class="pre">LodNode</span></code> (untested).</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">LodNode</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>             <span class="n">base</span><span class="p">;</span>
   <span class="n">uint</span>                    <span class="n">count</span><span class="p">;</span>
@@ -711,15 +1126,16 @@ objects always act as &#8216;fake&#8217; roots underneath a <code class="docutil
   <span class="n">double</span> <span class="n">end_sq</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>It appears that the count of <code class="docutils literal"><span class="pre">LodNode::Level</span></code> should always match the number
-of child nodes (also untested globally), and so it seems that the association
-between level to node is purely based on the ordering of the children.</p>
-<p>A <code class="docutils literal"><span class="pre">model::LodNode::Level</span></code> object contains a start and end value, stored as the
-square of the actual LOD distance desired (e.g. an LOD of <code class="docutils literal"><span class="pre">850m</span></code> would be stored
-as <code class="docutils literal"><span class="pre">722500</span></code>).</p>
+<p>It appears that the count of <code class="docutils literal"><span class="pre">LodNode::Level</span></code> should always match the
+number of child nodes (also untested globally), and so it seems that the
+association between level to node is purely based on the ordering of the
+children.</p>
+<p>A <code class="docutils literal"><span class="pre">model::LodNode::Level</span></code> object contains a start and end value,
+stored as the square of the actual LOD distance desired (e.g. an LOD of
+<code class="docutils literal"><span class="pre">850m</span></code> would be stored as <code class="docutils literal"><span class="pre">722500</span></code>).</p>
 </div>
 <div class="section" id="model-bone">
-<span id="model-bone"></span><h3><code class="docutils literal"><span class="pre">model::Bone</span></code><a class="headerlink" href="#model-bone" title="Permalink to this headline">¶</a></h3>
+<h3><code class="docutils literal"><span class="pre">model::Bone</span></code><a class="headerlink" href="#model-bone" title="Permalink to this headline">¶</a></h3>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">Bone</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>   <span class="n">base</span><span class="p">;</span>
   <span class="n">osg</span><span class="p">::</span><span class="n">Matrixd</span>  <span class="n">m1</span><span class="p">;</span>
@@ -728,28 +1144,30 @@ as <code class="docutils literal"><span class="pre">722500</span></code>).</p>
 </div>
 </div>
 <div class="section" id="model-billboardnode">
-<span id="model-billboardnode"></span><h3><code class="docutils literal"><span class="pre">model::BillboardNode</span></code><a class="headerlink" href="#model-billboardnode" title="Permalink to this headline">¶</a></h3>
+<h3><code class="docutils literal"><span class="pre">model::BillboardNode</span></code><a class="headerlink" href="#model-billboardnode" title="Permalink to this headline">¶</a></h3>
 <p>Not much is understood about this node other than the size:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">BillboardNode</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>   <span class="n">base</span><span class="p">;</span>
   <span class="n">uchar</span>         <span class="n">unknown</span><span class="p">[</span><span class="mi">154</span><span class="p">];</span>
 </pre></div>
 </div>
-<p>##&nbsp;Animation Nodes</p>
 </div>
+</div>
+<div class="section" id="animation-nodes">
+<h2>&nbsp;Animation Nodes<a class="headerlink" href="#animation-nodes" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="model-arganimationnode-position-rotation-and-scale">
-<span id="model-arganimationnode-position-rotation-and-scale"></span><h3><code class="docutils literal"><span class="pre">model::ArgAnimationNode</span></code>, Position, Rotation and Scale<a class="headerlink" href="#model-arganimationnode-position-rotation-and-scale" title="Permalink to this headline">¶</a></h3>
+<h3><code class="docutils literal"><span class="pre">model::ArgAnimationNode</span></code>, Position, Rotation and Scale<a class="headerlink" href="#model-arganimationnode-position-rotation-and-scale" title="Permalink to this headline">¶</a></h3>
 <p>This is a special node, as the nodes <code class="docutils literal"><span class="pre">model::ArgPositionNode</span></code>,
-<code class="docutils literal"><span class="pre">model::ArgRotationNode</span></code>, and <code class="docutils literal"><span class="pre">model::ArgScaleNode</span></code> are all parsed exactly the
-same way - but just appear to be written when the animation only has a single
-(position, rotation, scale) channel of animation:</p>
+<code class="docutils literal"><span class="pre">model::ArgRotationNode</span></code>, and <code class="docutils literal"><span class="pre">model::ArgScaleNode</span></code> are all parsed
+exactly the same way - but just appear to be written when the animation
+only has a single (position, rotation, scale) channel of animation:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">ArgRotationNode</span> <span class="p">:</span><span class="o">=</span> <span class="n">model</span><span class="p">::</span><span class="n">ArgAnimationNode</span>
 <span class="n">model</span><span class="p">::</span><span class="n">ArgPositionNode</span> <span class="p">:</span><span class="o">=</span> <span class="n">model</span><span class="p">::</span><span class="n">ArgAnimationNode</span>
 <span class="n">model</span><span class="p">::</span><span class="n">ArgScaleNode</span>    <span class="p">:</span><span class="o">=</span> <span class="n">model</span><span class="p">::</span><span class="n">ArgAnimationNode</span>
 </pre></div>
 </div>
 <p>The actual <code class="docutils literal"><span class="pre">ArgAnimationNode</span></code> contains quite a lot of data:</p>
-<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">ArgAnimationNode</span> <span class="p">:</span><span class="o">=</span> 
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">ArgAnimationNode</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>       <span class="n">base</span><span class="p">;</span>
   <span class="n">osg</span><span class="p">::</span><span class="n">Matrixd</span>      <span class="n">tf_Matrix</span><span class="p">;</span>
   <span class="n">osg</span><span class="p">::</span><span class="n">Vec3d</span>        <span class="n">tf_Position</span><span class="p">;</span>
@@ -762,22 +1180,23 @@ same way - but just appear to be written when the animation only has a single
   <span class="nb">list</span><span class="o">&lt;</span><span class="n">model</span><span class="p">::</span><span class="n">ArgAnimationNode</span><span class="p">::</span><span class="n">Scale</span><span class="o">&gt;</span>     <span class="n">scaleData</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>The set of transformation <code class="docutils literal"><span class="pre">tf_</span></code> values are assumed to describe the chain of
-transformation in order to properly process the vertex data (in a <code class="docutils literal"><span class="pre">RenderNode</span></code>
-object referencing this node as it&#8217;s parent). The exact application is currently
-unknown; at the moment a working best-guess is something along the lines of:</p>
+<p>The set of transformation <code class="docutils literal"><span class="pre">tf_</span></code> values are assumed to describe the
+chain of transformation in order to properly process the vertex data (in
+a <code class="docutils literal"><span class="pre">RenderNode</span></code> object referencing this node as it&#8217;s parent). The exact
+application is currently unknown; at the moment a working best-guess is
+something along the lines of:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Transform</span> <span class="o">=</span> <span class="n">tf_Matrix</span> <span class="o">*</span> <span class="n">tf_Position</span> <span class="o">*</span> <span class="n">tf_Quat1</span> <span class="o">*</span> <span class="n">keyRotation</span> <span class="o">*</span> <span class="n">tf_Scale</span>
 </pre></div>
 </div>
-<p>Where each of the objects has obviously been transformed to be compatible with
-the other (e.g. so you can apply a matrix to a quaternion...). The entry
-<code class="docutils literal"><span class="pre">keyRotation</span></code> is the current best guess for where the keyframe rotation value
-is applied.</p>
-<p>In addition, the matrix <code class="docutils literal"><span class="pre">tf_Matrix</span></code> seems to have the extra role of swapping
-axis - animation vertex data seems to be kept in the original 3DS coordinate
-system. This is an area of active research.</p>
-<p>The position and rotation entries are relatively similar; just an animation
-argument value followed by a list of keys:</p>
+<p>Where each of the objects has obviously been transformed to be
+compatible with the other (e.g. so you can apply a matrix to a
+quaternion...). The entry <code class="docutils literal"><span class="pre">keyRotation</span></code> is the current best guess for
+where the keyframe rotation value is applied.</p>
+<p>In addition, the matrix <code class="docutils literal"><span class="pre">tf_Matrix</span></code> seems to have the extra role of
+swapping axis - animation vertex data seems to be kept in the original
+3DS coordinate system. This is an area of active research.</p>
+<p>The position and rotation entries are relatively similar; just an
+animation argument value followed by a list of keys:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">ArgAnimationNode</span><span class="p">::</span><span class="n">Position</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">uint</span>                              <span class="n">argument</span><span class="p">;</span>
   <span class="nb">list</span><span class="o">&lt;</span><span class="n">model</span><span class="p">::</span><span class="n">Key</span><span class="o">&lt;</span><span class="n">key</span><span class="p">::</span><span class="n">POSITION</span><span class="o">&gt;&gt;</span>   <span class="n">keys</span><span class="p">;</span>
@@ -786,7 +1205,7 @@ argument value followed by a list of keys:</p>
   <span class="n">uint</span>                              <span class="n">argument</span><span class="p">;</span>
   <span class="nb">list</span><span class="o">&lt;</span><span class="n">model</span><span class="p">::</span><span class="n">Key</span><span class="o">&lt;</span><span class="n">key</span><span class="p">::</span><span class="n">ROTATION</span><span class="o">&gt;&gt;</span>   <span class="n">keys</span><span class="p">;</span>
 
-<span class="n">model</span><span class="p">::</span><span class="n">Key</span><span class="o">&lt;</span><span class="n">key</span><span class="p">::</span><span class="n">POSITION</span><span class="o">&gt;</span> <span class="p">:</span><span class="o">=</span> 
+<span class="n">model</span><span class="p">::</span><span class="n">Key</span><span class="o">&lt;</span><span class="n">key</span><span class="p">::</span><span class="n">POSITION</span><span class="o">&gt;</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">double</span>          <span class="n">frame</span><span class="p">;</span>
   <span class="n">osg</span><span class="p">::</span><span class="n">Vector3d</span>   <span class="n">value</span><span class="p">;</span>
 
@@ -795,9 +1214,9 @@ argument value followed by a list of keys:</p>
   <span class="n">osg</span><span class="p">::</span><span class="n">Quaternion</span>   <span class="n">value</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>However, scale appears to be handled slightly differently, and appears to
-contain two sets of keys, of currently unknown interpretation - one set
-of four doubles, and one of three:</p>
+<p>However, scale appears to be handled slightly differently, and appears
+to contain two sets of keys, of currently unknown interpretation - one
+set of four doubles, and one of three:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">ArgAnimationNode</span><span class="p">::</span><span class="n">Scale</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">uint</span> <span class="n">argument</span><span class="p">;</span>
   <span class="nb">list</span><span class="o">&lt;</span><span class="n">ScaleKeyA</span><span class="o">&gt;</span>   <span class="n">keys</span><span class="p">;</span>
@@ -814,22 +1233,22 @@ of four doubles, and one of three:</p>
 </div>
 </div>
 <div class="section" id="model-arganimatedbone">
-<span id="model-arganimatedbone"></span><h3><code class="docutils literal"><span class="pre">model::ArgAnimatedBone</span></code><a class="headerlink" href="#model-arganimatedbone" title="Permalink to this headline">¶</a></h3>
-<p>The bone animation node is the same as the <code class="docutils literal"><span class="pre">ArgAnimationNode</span></code>, but with the
-addition of an extra transfomation matrix:</p>
+<h3><code class="docutils literal"><span class="pre">model::ArgAnimatedBone</span></code><a class="headerlink" href="#model-arganimatedbone" title="Permalink to this headline">¶</a></h3>
+<p>The bone animation node is the same as the <code class="docutils literal"><span class="pre">ArgAnimationNode</span></code>, but
+with the addition of an extra transfomation matrix:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">ArgAnimatedBone</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">ArgAnimationNode</span>   <span class="n">base</span><span class="p">;</span>
   <span class="n">osg</span><span class="p">::</span><span class="n">Matrixd</span>              <span class="n">xf_Bone</span><span class="p">;</span>
 </pre></div>
 </div>
 <p>The application of this extra transformation is also currently unknown,
-because at time-of-writing skeletal animation/skinning in the EDM files has
-not been investigated.</p>
+because at time-of-writing skeletal animation/skinning in the EDM files
+has not been investigated.</p>
 </div>
 <div class="section" id="model-argvisibilitynode">
-<span id="model-argvisibilitynode"></span><h3><code class="docutils literal"><span class="pre">model::ArgVisibilityNode</span></code><a class="headerlink" href="#model-argvisibilitynode" title="Permalink to this headline">¶</a></h3>
-<p>Not containing a transformation - only a list of toggles for on/off visibility,
-this is a much simpler node:</p>
+<h3><code class="docutils literal"><span class="pre">model::ArgVisibilityNode</span></code><a class="headerlink" href="#model-argvisibilitynode" title="Permalink to this headline">¶</a></h3>
+<p>Not containing a transformation - only a list of toggles for on/off
+visibility, this is a much simpler node:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">ArgVisibilityNode</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>   <span class="n">base</span><span class="p">;</span>
   <span class="nb">list</span><span class="o">&lt;</span><span class="n">model</span><span class="p">::</span><span class="n">ArgVisibilityNode</span><span class="p">::</span><span class="n">Arg</span><span class="o">&gt;</span>   <span class="n">visibilityData</span><span class="p">;</span>
@@ -843,29 +1262,37 @@ this is a much simpler node:</p>
   <span class="n">double</span> <span class="n">frameEnd</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>Where the two key entries are the start and end ranges of visibility. Note that
-in cases where the object &#8216;becomes visible&#8217; and stays that way, over the range
-of the animation argument, the <code class="docutils literal"><span class="pre">frameEnd</span></code> value will often be very high -
-values of <code class="docutils literal"><span class="pre">1e300</span></code> are not uncommon.</p>
-<p>##&nbsp;Object Nodes</p>
-<p>###&nbsp;Connector</p>
-<p>Connectors are a very simple named connection to a parent transformation node:</p>
+<p>Where the two key entries are the start and end ranges of visibility.
+Note that in cases where the object &#8216;becomes visible&#8217; and stays that
+way, over the range of the animation argument, the <code class="docutils literal"><span class="pre">frameEnd</span></code> value
+will often be very high - values of <code class="docutils literal"><span class="pre">1e300</span></code> are not uncommon.</p>
+</div>
+</div>
+<div class="section" id="object-nodes">
+<h2>&nbsp;Object Nodes<a class="headerlink" href="#object-nodes" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="connector">
+<h3>&nbsp;Connector<a class="headerlink" href="#connector" title="Permalink to this headline">¶</a></h3>
+<p>Connectors are a very simple named connection to a parent transformation
+node:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">Connector</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>       <span class="n">base</span><span class="p">;</span>
   <span class="n">uint</span>              <span class="n">parent</span><span class="p">;</span>
   <span class="n">uint</span>              <span class="n">unknown</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>And will always have a <code class="docutils literal"><span class="pre">name</span></code> entry in the base node reading. The parent field
-is the index of the parent transformation node - that is, the index in the
-<code class="docutils literal"><span class="pre">RootNode.nodes</span></code> list that was read earlier in the file. The last entry
-remains unknown - all known examples of .edm files have this field zero, so
-does not appear to be important. The parent is simply the index</p>
+<p>And will always have a <code class="docutils literal"><span class="pre">name</span></code> entry in the base node reading. The
+parent field is the index of the parent transformation node - that is,
+the index in the <code class="docutils literal"><span class="pre">RootNode.nodes</span></code> list that was read earlier in the
+file. The last entry remains unknown - all known examples of .edm files
+have this field zero, so does not appear to be important.</p>
+<p>Properties have been observed in the <code class="docutils literal"><span class="pre">base.props</span></code> field e.g. {&#8220;Type&#8221;:
+&#8220;bounding_box&#8221;}. It is unknown if this is merely commentary or holds
+some significance.</p>
 </div>
 <div class="section" id="render-nodes">
-<span id="render-nodes"></span><h3>Render Nodes<a class="headerlink" href="#render-nodes" title="Permalink to this headline">¶</a></h3>
-<p><code class="docutils literal"><span class="pre">RenderNode</span></code> objects generally contain very large amounts of vertex and index
-data, the actual renderable geometry of the edm file:</p>
+<h3>Render Nodes<a class="headerlink" href="#render-nodes" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal"><span class="pre">RenderNode</span></code> objects generally contain very large amounts of vertex
+and index data, the actual renderable geometry of the edm file:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">RenderNode</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>       <span class="n">base</span><span class="p">;</span>
   <span class="n">uint</span>              <span class="n">unknown</span><span class="p">;</span>   <span class="c1"># Always zero in known files</span>
@@ -875,12 +1302,13 @@ data, the actual renderable geometry of the edm file:</p>
   <span class="n">INDEXDATA</span>         <span class="n">indexData</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>The <code class="docutils literal"><span class="pre">materialId</span></code> is the index of the material to be applied to this data -
-the index in the <code class="docutils literal"><span class="pre">RootNode.materials</span></code> list. The <code class="docutils literal"><span class="pre">VERTEXDATA</span></code> and <code class="docutils literal"><span class="pre">INDEXDATA</span></code>
-types are shared with the <code class="docutils literal"><span class="pre">model::ShellNode</span></code> and <code class="docutils literal"><span class="pre">model::SkinNode</span></code> types.</p>
-<p>Let&#8217;s start with the parent data, which is slightly unusual - the exact layout
-depends on the value of the first count entry. If there is only one parent
-entry:</p>
+<p>The <code class="docutils literal"><span class="pre">materialId</span></code> is the index of the material to be applied to this
+data - the index in the <code class="docutils literal"><span class="pre">RootNode.materials</span></code> list. The <code class="docutils literal"><span class="pre">VERTEXDATA</span></code>
+and <code class="docutils literal"><span class="pre">INDEXDATA</span></code> types are shared with the <code class="docutils literal"><span class="pre">model::ShellNode</span></code> and
+<code class="docutils literal"><span class="pre">model::SkinNode</span></code> types.</p>
+<p>Let&#8217;s start with the parent data, which is slightly unusual - the exact
+layout depends on the value of the first count entry. If there is only
+one parent entry:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">PARENTDATA</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">const</span> <span class="n">uint</span> <span class="n">count</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
   <span class="n">uint</span>  <span class="n">parent</span><span class="p">;</span>
@@ -898,23 +1326,25 @@ entry:</p>
   <span class="nb">int</span>   <span class="n">damageArgument</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>This multiple-parent structure allows objects with identical materials to be
-merged into a single rendernode, presumably allowing some render-time
-optimisation in DCS. For nodes with multiple entries, the node can be
-effectively split into multiple objects, the <code class="docutils literal"><span class="pre">indexStart</span></code> field determines the
-entry in the index table which  starts defining the faces of the objects.</p>
-<p>In addition, each object entry has a <code class="docutils literal"><span class="pre">damageArgument</span></code> field. This is used to
-determine part visibility as the damage to the object in the game progresses.
-For objects unrelated to damage modelling, this is set to <code class="docutils literal"><span class="pre">-1</span></code>.</p>
-<p>One unknown, however, is that the vertex data itself has four entries for
-it&#8217;s &#8216;position&#8217; field - and the fourth entry seems to refer to the index in
-this <code class="docutils literal"><span class="pre">PARENTDATA.parents</span></code> array. Thus, it appears that this information is
-duplicated, so some uncertainty remains.</p>
+<p>This multiple-parent structure allows objects with identical materials
+to be merged into a single rendernode, presumably allowing some
+render-time optimisation in DCS. For nodes with multiple entries, the
+node can be effectively split into multiple objects, the <code class="docutils literal"><span class="pre">indexStart</span></code>
+field determines the entry in the index table which starts defining the
+faces of the objects.</p>
+<p>In addition, each object entry has a <code class="docutils literal"><span class="pre">damageArgument</span></code> field. This is
+used to determine part visibility as the damage to the object in the
+game progresses. For objects unrelated to damage modelling, this is set
+to <code class="docutils literal"><span class="pre">-1</span></code>.</p>
+<p>One unknown, however, is that the vertex data itself has four entries
+for it&#8217;s &#8216;position&#8217; field - and the fourth entry seems to refer to the
+index in this <code class="docutils literal"><span class="pre">PARENTDATA.parents</span></code> array. Thus, it appears that this
+information is duplicated, so some uncertainty remains.</p>
 <p>This structure also appears to be related to the index count of
-<code class="docutils literal"><span class="pre">model::RNControlNode</span></code>. In particular: there appears to be one <code class="docutils literal"><span class="pre">RNControlNode</span></code>
-in the index for each <em>additional</em> parent data entry - that is, the sum of
-<code class="docutils literal"><span class="pre">model::RNControlNode</span></code> = <code class="docutils literal"><span class="pre">PARENTDATA.count</span> <span class="pre">-</span> <span class="pre">1</span></code> for every <code class="docutils literal"><span class="pre">model::RenderNode</span></code>
-in the .edm file.</p>
+<code class="docutils literal"><span class="pre">model::RNControlNode</span></code>. In particular: there appears to be one
+<code class="docutils literal"><span class="pre">RNControlNode</span></code> in the index for each <em>additional</em> parent data entry -
+that is, the sum of <code class="docutils literal"><span class="pre">model::RNControlNode</span></code> = <code class="docutils literal"><span class="pre">PARENTDATA.count</span> <span class="pre">-</span> <span class="pre">1</span></code>
+for every <code class="docutils literal"><span class="pre">model::RenderNode</span></code> in the .edm file.</p>
 <p>This link was derived by observing numeric correlation and testing the
 hypothesis on every existing .edm file. It appears to be correct.</p>
 <p>Let&#8217;s examine the vertex data:</p>
@@ -934,13 +1364,15 @@ hypothesis on every existing .edm file. It appears to be correct.</p>
   <span class="nb">float</span>   <span class="n">data</span><span class="p">[</span><span class="n">stride</span><span class="p">];</span>
 </pre></div>
 </div>
-<p>e.g. an array of <code class="docutils literal"><span class="pre">float</span></code> vertex data, where each set of <code class="docutils literal"><span class="pre">stride</span></code> values
-corresponds to a single vertex. The exact value of <code class="docutils literal"><span class="pre">stride</span></code>, and the meaning
-of each of the vertex entries - corresponds to the vertex format specified in
-the associated material. The amount of data in this array - e.g.  <code class="docutils literal"><span class="pre">count</span> <span class="pre">*</span> <span class="pre">stride</span> <span class="pre">*</span> <span class="pre">sizeof(float)</span></code> is counted towards the index bytes counter -
-<code class="docutils literal"><span class="pre">__gv_bytes</span></code> for <code class="docutils literal"><span class="pre">model::RenderNode</span></code>.</p>
-<p>With vertex data we also need a way to represent faces; that is where the
-index array comes in:</p>
+<p>e.g. an array of <code class="docutils literal"><span class="pre">float</span></code> vertex data, where each set of <code class="docutils literal"><span class="pre">stride</span></code>
+values corresponds to a single vertex. The exact value of <code class="docutils literal"><span class="pre">stride</span></code>,
+and the meaning of each of the vertex entries - corresponds to the
+vertex format specified in the associated material. The amount of data
+in this array - e.g. <code class="docutils literal"><span class="pre">count</span> <span class="pre">*</span> <span class="pre">stride</span> <span class="pre">*</span> <span class="pre">sizeof(float)</span></code> is counted
+towards the index bytes counter - <code class="docutils literal"><span class="pre">__gv_bytes</span></code> for
+<code class="docutils literal"><span class="pre">model::RenderNode</span></code>.</p>
+<p>With vertex data we also need a way to represent faces; that is where
+the index array comes in:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">INDEXDATA</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">uchar</span>         <span class="n">data_type</span><span class="p">;</span>
   <span class="n">uint</span>          <span class="n">entries</span><span class="p">;</span>
@@ -948,28 +1380,49 @@ index array comes in:</p>
   <span class="n">INDEXVALUE</span>    <span class="n">data</span><span class="p">[</span><span class="n">entries</span><span class="p">];</span>
 </pre></div>
 </div>
-<p>Where the INDEXVALUE type depends on the value of the <code class="docutils literal"><span class="pre">data_type</span></code> field:</p>
-<p>| <code class="docutils literal"><span class="pre">data_type</span></code>  | Type of each entry |
-|&#8212;&#8212;&#8212;&#8212;&#8211;|&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8211;|
-| 0            | <code class="docutils literal"><span class="pre">uchar</span></code>            |
-| 1            | <code class="docutils literal"><span class="pre">ushort</span></code>           |
-| 2            | <code class="docutils literal"><span class="pre">uint</span></code>             |</p>
-<p>and each entry refers to the index of a single vertex in the <code class="docutils literal"><span class="pre">vertexData</span></code>
-array. Allowing the data type to be varied allows saving of space because the
-number of vertices in a single object can - sometimes - run up to the hundreds
-of thousands, but would be a complete waste of space for the majority of
-models with, say, less than 60k vertices.</p>
-<p>The <code class="docutils literal"><span class="pre">unknown</span></code> field is either 0, 1 or 5 - most commonly 5. What <em>is</em> known is
-that the count of the index data is not always a multiple of three - but this
-does not appear to correlate with the value of the unknown field (which is
-what would be expected if, say, the unknown field represented face type).</p>
-<p>The physical data read in the index array - <code class="docutils literal"><span class="pre">entries</span> <span class="pre">*</span> <span class="pre">sizeof(data_type)</span></code> is
-counted towards the index bytes counter <code class="docutils literal"><span class="pre">__gi_bytes</span></code>, for <code class="docutils literal"><span class="pre">model::RenderNode</span></code>.</p>
+<p>Where the INDEXVALUE type depends on the value of the <code class="docutils literal"><span class="pre">data_type</span></code>
+field:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="44%" />
+<col width="56%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head"><code class="docutils literal"><span class="pre">data_type</span></code></th>
+<th class="head">Type of each entry</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>0</td>
+<td><code class="docutils literal"><span class="pre">uchar</span></code></td>
+</tr>
+<tr class="row-odd"><td>1</td>
+<td><code class="docutils literal"><span class="pre">ushort</span></code></td>
+</tr>
+<tr class="row-even"><td>2</td>
+<td><code class="docutils literal"><span class="pre">uint</span></code></td>
+</tr>
+</tbody>
+</table>
+<p>and each entry refers to the index of a single vertex in the
+<code class="docutils literal"><span class="pre">vertexData</span></code> array. Allowing the data type to be varied allows saving
+of space because the number of vertices in a single object can -
+sometimes - run up to the hundreds of thousands, but would be a complete
+waste of space for the majority of models with, say, less than 60k
+vertices.</p>
+<p>The <code class="docutils literal"><span class="pre">unknown</span></code> field is either 0, 1 or 5 - most commonly 5. What <em>is</em>
+known is that the count of the index data is not always a multiple of
+three - but this does not appear to correlate with the value of the
+unknown field (which is what would be expected if, say, the unknown
+field represented face type).</p>
+<p>The physical data read in the index array -
+<code class="docutils literal"><span class="pre">entries</span> <span class="pre">*</span> <span class="pre">sizeof(data_type)</span></code> is counted towards the index bytes
+counter <code class="docutils literal"><span class="pre">__gi_bytes</span></code>, for <code class="docutils literal"><span class="pre">model::RenderNode</span></code>.</p>
 <div class="section" id="model-skinnode">
-<span id="model-skinnode"></span><h4><code class="docutils literal"><span class="pre">model::SkinNode</span></code><a class="headerlink" href="#model-skinnode" title="Permalink to this headline">¶</a></h4>
-<p><code class="docutils literal"><span class="pre">SkinNode</span></code> describes a set of vertex data designed to be layered over <code class="docutils literal"><span class="pre">Bone</span></code>
-nodes. It is relatively similar to <code class="docutils literal"><span class="pre">RenderNode</span></code> except instead of parent
-transforms it explicitly lists a set of bones:</p>
+<h4><code class="docutils literal"><span class="pre">model::SkinNode</span></code><a class="headerlink" href="#model-skinnode" title="Permalink to this headline">¶</a></h4>
+<p><code class="docutils literal"><span class="pre">SkinNode</span></code> describes a set of vertex data designed to be layered over
+<code class="docutils literal"><span class="pre">Bone</span></code> nodes. It is relatively similar to <code class="docutils literal"><span class="pre">RenderNode</span></code> except
+instead of parent transforms it explicitly lists a set of bones:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">SkinNode</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>   <span class="n">base</span><span class="p">;</span>
   <span class="n">uint</span>          <span class="n">material</span><span class="p">;</span>
@@ -980,14 +1433,15 @@ transforms it explicitly lists a set of bones:</p>
   <span class="n">INDEXDATA</span>     <span class="n">indexData</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>Where the <code class="docutils literal"><span class="pre">bones</span></code> refer to offset indexes in the <code class="docutils literal"><span class="pre">RootNode.nodes</span></code> array. The
-vertex data for such nodes will have bone index/weight data in - the indices
-for which can be extracted by inspecting the material vertex format. Because it
-is rendered data, the vertex and index data for these nodes contribute to the
-<code class="docutils literal"><span class="pre">__gv_bytes</span></code> and <code class="docutils literal"><span class="pre">__gi_bytes</span></code> index counts.</p>
+<p>Where the <code class="docutils literal"><span class="pre">bones</span></code> refer to offset indexes in the <code class="docutils literal"><span class="pre">RootNode.nodes</span></code>
+array. The vertex data for such nodes will have bone index/weight data
+in - the indices for which can be extracted by inspecting the material
+vertex format. Because it is rendered data, the vertex and index data
+for these nodes contribute to the <code class="docutils literal"><span class="pre">__gv_bytes</span></code> and <code class="docutils literal"><span class="pre">__gi_bytes</span></code>
+index counts.</p>
 </div>
 <div class="section" id="model-fakeomnilightsnode">
-<span id="model-fakeomnilightsnode"></span><h4><code class="docutils literal"><span class="pre">model::FakeOmniLightsNode</span></code><a class="headerlink" href="#model-fakeomnilightsnode" title="Permalink to this headline">¶</a></h4>
+<h4><code class="docutils literal"><span class="pre">model::FakeOmniLightsNode</span></code><a class="headerlink" href="#model-fakeomnilightsnode" title="Permalink to this headline">¶</a></h4>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">FakeOmniLightsNode</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>   <span class="n">base</span><span class="p">;</span>
   <span class="n">uint</span>          <span class="n">unknown</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span>
@@ -998,10 +1452,12 @@ is rendered data, the vertex and index data for these nodes contribute to the
   <span class="n">double</span>  <span class="n">data</span><span class="p">[</span><span class="mi">6</span><span class="p">];</span>
 </pre></div>
 </div>
-<p>####&nbsp;<code class="docutils literal"><span class="pre">model::FakeSpotLightsNode</span></code></p>
-<p>This has a relatively similar structure to <code class="docutils literal"><span class="pre">model::RenderNode</span></code>. The counts and
-data types have been inferred from index and inspection, but the
-interpretation is currently unknown.</p>
+</div>
+<div class="section" id="model-fakespotlightsnode">
+<h4>&nbsp;<code class="docutils literal"><span class="pre">model::FakeSpotLightsNode</span></code><a class="headerlink" href="#model-fakespotlightsnode" title="Permalink to this headline">¶</a></h4>
+<p>This has a relatively similar structure to <code class="docutils literal"><span class="pre">model::RenderNode</span></code>. The
+counts and data types have been inferred from index and inspection, but
+the interpretation is currently unknown.</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">FakeSpotLightsNode</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>   <span class="n">base</span><span class="p">;</span>
   <span class="n">uint</span>          <span class="n">unknown</span><span class="p">;</span>
@@ -1021,36 +1477,39 @@ interpretation is currently unknown.</p>
   <span class="n">uchar</span> <span class="n">final_byte</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>And, similarly to <code class="docutils literal"><span class="pre">RenderNode</span></code> - the count of <code class="docutils literal"><span class="pre">model::FSLNControlNode</span></code> is
-equal to the number of these parent entries minus one. The actual light entries
-appear to be a big mix of float-like data, but definitely have a separate
-uchar at the end of them. The meaning remains unknown.</p>
-<p>####&nbsp;<code class="docutils literal"><span class="pre">model::FakeALSNode</span></code></p>
-<p>model::FakeALSNode :=
-uint  unknown[3];
-uint  count;
-model::FakeALSLight lights[count];</p>
-<p>model::FakeALSLight :=
-uchar data[80];</p>
-<p>###&nbsp;Light Nodes</p>
-<p>The general interpretation of the <code class="docutils literal"><span class="pre">model::LightNode</span></code> is unknown, however it
-does contain a properties set of light properties - which does <em>not</em> count
+<p>And, similarly to <code class="docutils literal"><span class="pre">RenderNode</span></code> - the count of
+<code class="docutils literal"><span class="pre">model::FSLNControlNode</span></code> is equal to the number of these parent
+entries minus one. The actual light entries appear to be a big mix of
+float-like data, but definitely have a separate uchar at the end of
+them. The meaning remains unknown.</p>
+</div>
+<div class="section" id="model-fakealsnode">
+<h4>&nbsp;<code class="docutils literal"><span class="pre">model::FakeALSNode</span></code><a class="headerlink" href="#model-fakealsnode" title="Permalink to this headline">¶</a></h4>
+<p>model::FakeALSNode := uint unknown[3]; uint count; model::FakeALSLight
+lights[count];</p>
+<p>model::FakeALSLight := uchar data[80];</p>
+</div>
+</div>
+<div class="section" id="light-nodes">
+<h3>&nbsp;Light Nodes<a class="headerlink" href="#light-nodes" title="Permalink to this headline">¶</a></h3>
+<p>The parent reference along with a properties set of light properties is
+known - but the other values (which are assumed to be flags of some
+sort) have unknown interpretation. The light properties do <em>not</em> count
 towards the general index count of <code class="docutils literal"><span class="pre">propertiesset</span></code>:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">LightNode</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>     <span class="n">base</span><span class="p">;</span>
-  <span class="n">uint</span>            <span class="n">unknownA</span><span class="p">;</span>
+  <span class="n">uint</span>            <span class="n">parent</span><span class="p">;</span>
   <span class="n">uchar</span>           <span class="n">unknownB</span><span class="p">;</span>
   <span class="n">propertiesset</span>   <span class="n">lightProperties</span><span class="p">;</span>
   <span class="n">uchar</span>           <span class="n">unknownC</span><span class="p">;</span>
 </pre></div>
 </div>
 </div>
-</div>
 <div class="section" id="shell-nodes">
-<span id="shell-nodes"></span><h3>Shell Nodes<a class="headerlink" href="#shell-nodes" title="Permalink to this headline">¶</a></h3>
-<p>Shell nodes appear to define the collision shells for models; as such, they do
-not appear to have a material reference. They do, however, embed their own
-vertex format:</p>
+<h3>Shell Nodes<a class="headerlink" href="#shell-nodes" title="Permalink to this headline">¶</a></h3>
+<p>Shell nodes appear to define the collision shells for models; as such,
+they do not appear to have a material reference. They do, however, embed
+their own vertex format:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">ShellNode</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>     <span class="n">base</span><span class="p">;</span>
   <span class="n">uint</span>            <span class="n">unknown</span><span class="p">;</span>
@@ -1059,10 +1518,10 @@ vertex format:</p>
   <span class="n">INDEXDATA</span>       <span class="n">indexData</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>Where the vertex and index raw data read for these nodes contribute to the
-<code class="docutils literal"><span class="pre">__cv_bytes</span></code> and <code class="docutils literal"><span class="pre">__ci_bytes</span></code> index counters.</p>
+<p>Where the vertex and index raw data read for these nodes contribute to
+the <code class="docutils literal"><span class="pre">__cv_bytes</span></code> and <code class="docutils literal"><span class="pre">__ci_bytes</span></code> index counters.</p>
 <div class="section" id="model-segmentsnode">
-<span id="model-segmentsnode"></span><h4><code class="docutils literal"><span class="pre">model:SegmentsNode</span></code><a class="headerlink" href="#model-segmentsnode" title="Permalink to this headline">¶</a></h4>
+<h4><code class="docutils literal"><span class="pre">model:SegmentsNode</span></code><a class="headerlink" href="#model-segmentsnode" title="Permalink to this headline">¶</a></h4>
 <p>Only the layout is known for these nodes:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">model</span><span class="p">::</span><span class="n">SegmentsNode</span> <span class="p">:</span><span class="o">=</span>
   <span class="n">model</span><span class="p">::</span><span class="n">Node</span>     <span class="n">base</span><span class="p">;</span>
