@@ -141,6 +141,7 @@ class EDMFile(object):
         continue
       if parent > len(self.nodes):
         raise IOError("Invalid node parent data")
+
       node.set_parent(self.nodes[parent])
 
     # Read the renderable objects
@@ -372,6 +373,10 @@ class TransformNode(Node):
     self = super(TransformNode, cls).read(stream)
     self.matrix = stream.read_matrixd()
     return self
+
+  def write(self, stream):
+    super(TransformNode, self).write(stream)
+    stream.write_matrixd(self.matrix)
 
 @reads_type("model::Bone")
 class Bone(Node):
@@ -634,12 +639,22 @@ class LodNode(Node):
 @reads_type("model::Connector")
 class Connector(BaseNode):
   category = NodeCategory.connector
+  def __init__(self):
+    super(Connector, self).__init__()
+    self.data = 0
+
   @classmethod
   def read(cls, stream):
     self = super(Connector, cls).read(stream)
     self.parent = stream.read_uint()
     self.data = stream.read_uint()
     return self
+
+  def write(self, stream):
+    super(Connector, self).write(stream)
+    stream.write_uint(self.parent.index)
+    stream.write_uint(self.data)
+
 
 def _read_index_data(stream, classification=None):
   "Performs the common index-reading operation"

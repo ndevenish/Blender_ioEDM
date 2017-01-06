@@ -46,6 +46,9 @@ def convert_node(node):
     node.render = RenderNodeWriter(node.blender)
   if node.blender.type == "MESH" and node.blender.edm.is_collision_shell:
     node.render = ShellNodeWriter(node.blender)
+  if node.blender.type == "EMPTY" and node.blender.edm.is_connector:
+    node.render = ConnectorWriter(node.blender)
+
 
   # Do we have animations? If so, we need to be turned into an animation node
   # Also: If we have children, then they need to be parented to the correct
@@ -56,6 +59,22 @@ def convert_node(node):
   else:
     pass
 
+  # IF a connector, then we need a Transform as the parent transform, so if it
+  # has already been given one then we need to insert a new child
+  if isinstance(node.render, Connector):
+    # Create a transform object for this connector
+    connTransform = TransformNode()
+    # If we have a transform, then we need to insert an extra level of indirection
+    if node.transform:
+      newParent = node.insert_parent()
+      newParent.transform = node.transform
+      # The transform should be encoded into the animation, so have an empty transform matrix
+      connTransform.matrix = Matrix()      
+    else:
+      # No animation, transform entirely encoded in the TransformNode
+      connTransform.matrix = matrix_to_edm(node.blender.matrix_local)
+    node.transform = connTransform
+    
   # Decide whether to apply object transform or switch axis on writing, now
   if node.render:
     if isinstance(node.transform, ArgAnimationNode) or node.children:
@@ -159,7 +178,7 @@ def write_file(filename, options={}):
 
   # Now do enmeshing
   def _enmesh(node):
-    if node.render:
+    if node.render and hasattr(node.render, "calculate_mesh"):
       node.render.calculate_mesh(options)
   graph.walk_tree(_enmesh)
 
@@ -609,6 +628,12 @@ class RootNodeWriter(RootNode):
     bboxmin, bboxmax = calculate_edm_world_bounds(objectList)
     self.boundingBoxMin = bboxmin
     self.boundingBoxMax = bboxmax
+
+class ConnectorWriter(Connector):
+  def __init__(self, blender):
+    super(ConnectorWriter, self).__init__()
+    self.source = blender
+    self.name = blender.name
 
 class ArgAnimationNodeBuilder(ArgAnimationNode):
   def __init__(self, *args, **kwargs):
