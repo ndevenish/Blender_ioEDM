@@ -7,6 +7,15 @@ the flight simulator DCS world. It has been engineered by careful studying of
 the binary file format, intuition, research, much guesswork, and many, many
 crashes of the model viewer.
 
+Firstly, an important note:
+
+    **This tool may only be used for private purposes and may in no way be used
+    for extracting models which may directly or indirectly be used for commercial
+    gain or promotion of any commercial product i.a games, films, media, or artwork.**
+
+e.g. it should be obvious that this is for modding for DCS world and any
+intellectual property of ED remains the intellectual property of ED.
+
 In its current state, it allows simple importing functionality whilst the fine
 details of the file structure are worked out, and basic exporting. Much of the
 raw ``.edm`` .data is reasonably easy to interpret, but translating the
